@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
+import { logConsultationEvent } from "@/lib/consultation-log"
 import { NextResponse } from "next/server"
 import { z } from "zod"
 import { resolveAndPersistChemical } from "@/lib/chemicals/resolver"
@@ -29,7 +30,7 @@ export async function GET(
     .schema("regulatory")
     .from("consultation_chemicals")
     .select(`
-      id, role, quantity, unit, notes, added_at,
+      id, chemical_id, role, quantity, unit, notes, product_name, alt_cas, added_at,
       chemicals(
         id, cas_number, common_name, iupac_name, molecular_formula,
         molecular_weight, needs_review,
@@ -110,17 +111,32 @@ export async function DELETE(
 
   const { searchParams } = new URL(request.url)
   const chemicalId = searchParams.get("chemical_id")
-  if (!chemicalId) {
-    return NextResponse.json({ error: "Missing chemical_id" }, { status: 400 })
+  const ccId       = searchParams.get("id")
+
+  if (!chemicalId && !ccId) {
+    return NextResponse.json({ error: "Provide chemical_id or id" }, { status: 400 })
   }
 
-  const { error } = await supabase
+  let deleteQuery = supabase
     .schema("regulatory")
     .from("consultation_chemicals")
     .delete()
     .eq("consultation_id", consultationId)
-    .eq("chemical_id", chemicalId)
+
+  if (chemicalId) {
+    deleteQuery = deleteQuery.eq("chemical_id", chemicalId)
+  } else {
+    deleteQuery = deleteQuery.eq("id", ccId!)
+  }
+
+  const { error } = await deleteQuery
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  await logConsultationEvent(consultationId, user.id, "chemical_removed", {
+    chemical_id: chemicalId ?? null,
+    cc_id:       ccId ?? null,
+  })
+
   return new NextResponse(null, { status: 204 })
 }

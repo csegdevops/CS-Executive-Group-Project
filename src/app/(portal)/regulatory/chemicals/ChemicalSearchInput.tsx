@@ -3,21 +3,29 @@
 import { useRouter, usePathname } from "next/navigation"
 import { Input } from "@/components/ui/input"
 import { Search } from "lucide-react"
-import { useTransition } from "react"
+import { useTransition, useState, useEffect, useRef } from "react"
 
 export function ChemicalSearchInput({ defaultValue }: { defaultValue: string }) {
   const router = useRouter()
   const pathname = usePathname()
   const [, startTransition] = useTransition()
+  const [value, setValue] = useState(defaultValue)
+  const isFirstRender = useRef(true)
 
-  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const value = e.target.value
-    startTransition(() => {
-      const params = new URLSearchParams()
-      if (value) params.set("q", value)
-      router.push(`${pathname}?${params.toString()}`)
-    })
-  }
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false
+      return
+    }
+    const t = setTimeout(() => {
+      startTransition(() => {
+        const params = new URLSearchParams()
+        if (value) params.set("q", value)
+        router.push(`${pathname}?${params.toString()}`)
+      })
+    }, 250)
+    return () => clearTimeout(t)
+  }, [value, pathname, router, startTransition])
 
   return (
     <div className="relative">
@@ -25,8 +33,8 @@ export function ChemicalSearchInput({ defaultValue }: { defaultValue: string }) 
       <Input
         type="search"
         placeholder="Search by CAS, IUPAC name, or trade name…"
-        defaultValue={defaultValue}
-        onChange={handleChange}
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
         className="pl-9"
       />
     </div>

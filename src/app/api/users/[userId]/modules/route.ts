@@ -30,7 +30,7 @@ async function callerHasModuleAdmin(
     .from("user_module_access")
     .select("access_level")
     .eq("user_id", userId)
-    .eq("module", module)
+    .eq("module", module as Module)
     .single()
   return data?.access_level === "admin"
 }

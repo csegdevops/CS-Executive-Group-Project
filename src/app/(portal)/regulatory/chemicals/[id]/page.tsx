@@ -30,11 +30,14 @@ const STATUS_STYLES: Record<string, string> = {
 
 export default async function ChemicalDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>
+  searchParams: Promise<Record<string, string | undefined>>
 }) {
   await requireAuth()
   const { id } = await params
+  const { from } = await searchParams
   const supabase = await createClient()
   const reg = supabase.schema("regulatory")
 
@@ -78,11 +81,11 @@ export default async function ChemicalDetailPage({
     <div className="max-w-3xl space-y-6">
       {/* Back link */}
       <Link
-        href="/regulatory/chemicals"
+        href={from ?? "/regulatory/chemicals"}
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
       >
         <ChevronLeft className="h-4 w-4" />
-        Chemical Catalogue
+        {from ? "Back to Consultation" : "Chemical Catalogue"}
       </Link>
 
       <PageHeader

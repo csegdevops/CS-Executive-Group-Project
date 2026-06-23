@@ -129,6 +129,26 @@ export interface Database {
         Args: { cid: string }
         Returns: boolean
       }
+      search_chemicals: {
+        Args: { query_words: string[] }
+        Returns: Array<{
+          id: string
+          cas_number: string | null
+          common_name: string
+          iupac_name: string | null
+          molecular_formula: string | null
+          needs_review: boolean
+        }>
+      }
+      match_chemicals_by_names: {
+        Args: { names: string[] }
+        Returns: Array<{
+          input_name: string
+          chemical_id: string
+          common_name: string
+          cas_number: string | null
+        }>
+      }
     }
     Enums: Record<string, never>
     CompositeTypes: Record<string, never>
@@ -294,27 +314,34 @@ export interface Database {
         Row: {
           id: string
           consultation_id: string
-          chemical_id: string
+          chemical_id: string | null
           role: string | null
           quantity: number | null
           unit: string | null
           notes: string | null
+          product_name: string | null
+          alt_cas: string | null
           added_at: string
         }
         Insert: {
           id?: string
           consultation_id: string
-          chemical_id: string
+          chemical_id?: string | null
           role?: string | null
           quantity?: number | null
           unit?: string | null
           notes?: string | null
+          product_name?: string | null
+          alt_cas?: string | null
         }
         Update: {
+          chemical_id?: string | null
           role?: string | null
           quantity?: number | null
           unit?: string | null
           notes?: string | null
+          product_name?: string | null
+          alt_cas?: string | null
         }
         Relationships: [
           {
@@ -329,6 +356,57 @@ export interface Database {
             columns: ["chemical_id"]
             isOneToOne: false
             referencedRelation: "chemicals"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      consultation_logs: {
+        Row: {
+          id: string
+          consultation_id: string
+          user_id: string
+          action: string
+          details: Record<string, unknown> | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          consultation_id: string
+          user_id: string
+          action: string
+          details?: Record<string, unknown> | null
+        }
+        Update: {
+          details?: Record<string, unknown> | null
+        }
+        Relationships: []
+      }
+      consultation_products: {
+        Row: {
+          id: string
+          consultation_id: string
+          product_name: string
+          units_per_year: number | null
+          unit_size_grams: number | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          consultation_id: string
+          product_name: string
+          units_per_year?: number | null
+          unit_size_grams?: number | null
+        }
+        Update: {
+          units_per_year?: number | null
+          unit_size_grams?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "consultation_products_consultation_id_fkey"
+            columns: ["consultation_id"]
+            isOneToOne: false
+            referencedRelation: "consultations"
             referencedColumns: ["id"]
           }
         ]

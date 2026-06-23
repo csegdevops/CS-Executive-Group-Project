@@ -19,7 +19,9 @@ export async function GET(request: Request) {
 
   const reg = supabase.schema("regulatory")
 
-  if (!q || q.length < 2) {
+  const words = q ? q.split(/\s+/).filter((w) => w.length >= 2) : []
+
+  if (!q || words.length === 0) {
     const { data, error } = await reg
       .from("chemicals")
       .select("id, cas_number, common_name, iupac_name, molecular_formula, needs_review, resolved_at")
@@ -29,35 +31,12 @@ export async function GET(request: Request) {
     return NextResponse.json(data)
   }
 
-  // Search across common_name, cas_number, and aliases — two queries, then deduplicate
-  const [directRes, aliasRes] = await Promise.all([
-    reg
-      .from("chemicals")
-      .select("id, cas_number, common_name, iupac_name, molecular_formula, needs_review")
-      .or(`common_name.ilike.%${q}%,cas_number.ilike.%${q}%,iupac_name.ilike.%${q}%`)
-      .limit(30),
-    reg
-      .from("chemical_aliases")
-      .select("chemical_id, chemicals(id, cas_number, common_name, iupac_name, molecular_formula, needs_review)")
-      .ilike("alias", `%${q}%`)
-      .limit(20),
-  ])
+  // RPC handles multi-keyword AND search + alias matching in one unambiguous SQL query.
+  // Each word must appear somewhere in common_name, cas_number, iupac_name, or any alias.
+  const { data, error: rpcError } = await supabase.rpc("search_chemicals", { query_words: words })
+  if (rpcError) return NextResponse.json({ error: rpcError.message }, { status: 500 })
 
-  type ChemRow = { id: string; cas_number: string | null; common_name: string; iupac_name: string | null; molecular_formula: string | null; needs_review: boolean }
-
-  const directResults = (directRes.data ?? []) as ChemRow[]
-  const aliasResults = ((aliasRes.data ?? []) as { chemicals: ChemRow | null }[])
-    .map((a) => a.chemicals)
-    .filter((c): c is ChemRow => c !== null)
-
-  const seen = new Set<string>()
-  const merged = [...directResults, ...aliasResults].filter((c) => {
-    if (seen.has(c.id)) return false
-    seen.add(c.id)
-    return true
-  })
-
-  return NextResponse.json(merged.slice(0, 40))
+  return NextResponse.json(data ?? [])
 }
 
 export async function POST(request: Request) {

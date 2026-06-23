@@ -31,31 +31,13 @@ export default async function ChemicalsPage({
 
   const reg = supabase.schema("regulatory")
 
-  if (query.length >= 2) {
-    const [directRes, aliasRes] = await Promise.all([
-      reg
-        .from("chemicals")
-        .select("id, cas_number, common_name, iupac_name, molecular_formula, needs_review")
-        .or(`common_name.ilike.%${query}%,cas_number.ilike.%${query}%,iupac_name.ilike.%${query}%`)
-        .limit(30),
-      reg
-        .from("chemical_aliases")
-        .select("chemical_id, chemicals(id, cas_number, common_name, iupac_name, molecular_formula, needs_review)")
-        .ilike("alias", `%${query}%`)
-        .limit(20),
-    ])
+  const words = query.length >= 2
+    ? query.split(/\s+/).filter((w) => w.length >= 2)
+    : []
 
-    const direct = directRes.data ?? []
-    const fromAliases = (aliasRes.data ?? [])
-      .map((a) => a.chemicals)
-      .filter(Boolean) as typeof direct
-
-    const seen = new Set<string>()
-    chemicals = [...direct, ...fromAliases].filter((c) => {
-      if (seen.has(c.id)) return false
-      seen.add(c.id)
-      return true
-    })
+  if (words.length > 0) {
+    const { data } = await supabase.rpc("search_chemicals", { query_words: words })
+    chemicals = (data ?? []) as typeof chemicals
   } else {
     const { data } = await reg
       .from("chemicals")

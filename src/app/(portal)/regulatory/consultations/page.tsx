@@ -3,7 +3,9 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import Link from "next/link"
+import { Plus } from "lucide-react"
 import { formatDate } from "@/lib/date-helpers"
 import { ConsultationsAnalytics } from "./ConsultationsAnalytics"
 
@@ -82,7 +84,14 @@ export default async function ConsultationsPage() {
       <PageHeader
         title="Consultations"
         description={isAdmin ? "All regulatory consultations" : "Consultations you're assigned to"}
-      />
+      >
+        <Button asChild size="sm">
+          <Link href="/regulatory/consultations/new">
+            <Plus className="h-4 w-4 mr-1.5" />
+            New Consultation
+          </Link>
+        </Button>
+      </PageHeader>
 
       {/* Analytics section — admins only */}
       {isAdmin && <ConsultationsAnalytics />}

@@ -1,4 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { logConsultationEvent } from "@/lib/consultation-log"
 import { NextResponse } from "next/server"
 import { z } from "zod"
 
@@ -40,19 +42,42 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
+  // Any regulatory module member (or super_admin) may create consultations
+  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
+  if (profile?.role !== "super_admin") {
+    const { data: access } = await supabase
+      .from("user_module_access")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("module", "regulatory")
+      .maybeSingle()
+    if (!access) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
+
   const body = await request.json()
   const parsed = createSchema.safeParse(body)
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
   }
 
-  const { data, error } = await supabase
-    .schema("regulatory")
+  const admin = createAdminClient()
+  const reg   = admin.schema("regulatory")
+
+  const { data, error } = await reg
     .from("consultations")
     .insert(parsed.data)
     .select()
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Add the creator to consultation_consultants so they can view and edit it
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (reg as any)
+    .from("consultation_consultants")
+    .insert({ consultation_id: data.id, consultant_id: user.id })
+
+  await logConsultationEvent(data.id, user.id, "created", { title: data.title })
+
   return NextResponse.json(data, { status: 201 })
 }

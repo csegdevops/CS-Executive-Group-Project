@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { useState, useEffect } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { useTheme } from "next-themes"
 import { cn } from "@/lib/utils"
@@ -21,7 +22,6 @@ import {
   Beaker,
   Building2,
   Users,
-  Upload,
   Database,
   LogOut,
   ChevronLeft,
@@ -46,10 +46,9 @@ const moduleNavItems: Record<string, NavItem[]> = {
   regulatory: [
     { label: "Dashboard",    href: "/regulatory/dashboard",    icon: LayoutDashboard },
     { label: "Consultations",href: "/regulatory/consultations", icon: FileText },
+    { label: "Companies",    href: "/regulatory/companies",    icon: Building2 },
     { label: "Chemicals",    href: "/regulatory/chemicals",     icon: Beaker },
-    { label: "Import",            href: "/regulatory/admin/import",            icon: Upload,    adminOnly: true },
     { label: "Regulatory Lists",  href: "/regulatory/admin/regulatory-lists",  icon: Database,  adminOnly: true },
-    { label: "Companies",         href: "/regulatory/admin/companies",          icon: Building2, superAdminOnly: true },
     { label: "Users",             href: "/regulatory/admin/users",              icon: Users,     adminOnly: true },
   ],
   recruitment: [
@@ -83,6 +82,8 @@ export function Sidebar({ role, userName, moduleAdminOf }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const { theme, setTheme } = useTheme()
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
 
   const activeModule = pathname.startsWith("/regulatory")
     ? "regulatory"
@@ -113,7 +114,7 @@ export function Sidebar({ role, userName, moduleAdminOf }: SidebarProps) {
     router.refresh()
   }
 
-  const ThemeIcon = theme === "dark" ? Moon : theme === "light" ? Sun : Monitor
+  const ThemeIcon = !mounted ? Monitor : theme === "dark" ? Moon : theme === "light" ? Sun : Monitor
 
   return (
     <aside className="flex flex-col w-64 h-screen sticky top-0 bg-sidebar border-r border-sidebar-border overflow-hidden">
@@ -258,17 +259,17 @@ export function Sidebar({ role, userName, moduleAdminOf }: SidebarProps) {
               <DropdownMenuItem onClick={() => setTheme("light")} className="gap-2 cursor-pointer">
                 <Sun className="h-4 w-4" />
                 Light
-                {theme === "light" && <span className="ml-auto text-xs opacity-60">✓</span>}
+                {mounted && theme === "light" && <span className="ml-auto text-xs opacity-60">✓</span>}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setTheme("dark")} className="gap-2 cursor-pointer">
                 <Moon className="h-4 w-4" />
                 Dark
-                {theme === "dark" && <span className="ml-auto text-xs opacity-60">✓</span>}
+                {mounted && theme === "dark" && <span className="ml-auto text-xs opacity-60">✓</span>}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setTheme("system")} className="gap-2 cursor-pointer">
                 <Monitor className="h-4 w-4" />
                 System
-                {theme === "system" && <span className="ml-auto text-xs opacity-60">✓</span>}
+                {mounted && theme === "system" && <span className="ml-auto text-xs opacity-60">✓</span>}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleSignOut} className="gap-2 cursor-pointer text-destructive focus:text-destructive">
@@ -287,7 +288,7 @@ export function Sidebar({ role, userName, moduleAdminOf }: SidebarProps) {
           onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
         >
           <ThemeIcon className="h-3.5 w-3.5" />
-          {theme === "dark" ? "Dark mode" : theme === "light" ? "Light mode" : "System theme"}
+          {!mounted ? "System theme" : theme === "dark" ? "Dark mode" : theme === "light" ? "Light mode" : "System theme"}
         </Button>
       </div>
     </aside>
