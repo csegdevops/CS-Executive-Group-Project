@@ -30,8 +30,9 @@ export default async function UsersPage() {
     moduleAccessByUser.set(row.user_id, list)
   }
 
-  const users = profilesRes.data ?? []
+  const allUsers = profilesRes.data ?? []
   const isSuperAdmin = currentUser.role === "super_admin"
+  const users = isSuperAdmin ? allUsers : allUsers.filter((u) => u.role !== "super_admin")
 
   return (
     <div>

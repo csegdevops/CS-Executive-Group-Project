@@ -243,7 +243,7 @@ export async function commitFormulationUpload(
       role:            entry.function      ?? null,
       quantity:        entry.concentration ?? null,
       unit:            entry.concentration !== null ? "%" : null,
-      product_name:    entry.productName   ?? null,
+      product_name:    entry.productName   ?? '',
       alt_cas:         entry.altCas        ?? null,
       notes:           null as null,
     }
@@ -252,7 +252,7 @@ export async function commitFormulationUpload(
   for (let i = 0; i < matchedInserts.length; i += CHUNK) {
     const { error } = await reg
       .from("consultation_chemicals")
-      .upsert(matchedInserts.slice(i, i + CHUNK), { onConflict: "consultation_id,chemical_id" })
+      .upsert(matchedInserts.slice(i, i + CHUNK), { onConflict: "consultation_id,chemical_id,product_name" })
     if (error) errors.push(`Chemical upsert failed (batch ${i / CHUNK + 1}): ${error.message}`)
   }
   if (onProgress) await onProgress(1, 3)

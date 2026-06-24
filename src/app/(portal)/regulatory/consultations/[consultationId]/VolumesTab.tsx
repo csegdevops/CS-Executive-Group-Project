@@ -1,10 +1,11 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, Fragment } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, Pencil, Check, X, RefreshCw } from "lucide-react"
+import { Loader2, Pencil, Check, X, RefreshCw, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 
 interface ConsultationProduct {
@@ -21,6 +22,7 @@ interface ChemicalRow {
   cas_number: string | null
   product_name: string | null
   concentration: number | null
+  aicis_conditions?: string | null
 }
 
 interface Props {
@@ -48,9 +50,12 @@ interface EditingProduct {
 }
 
 export function VolumesTab({ consultationId, initialProducts, chemicals }: Props) {
+  const router = useRouter()
   const [products, setProducts]     = useState<ConsultationProduct[]>(initialProducts)
   const [editing, setEditing]       = useState<Record<string, EditingProduct>>({})
   const [saving, setSaving]         = useState<Record<string, boolean>>({})
+  const [deleting, setDeleting]         = useState<string | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const [cumulative, setCumulative] = useState<Record<string, number>>({})
   const [cumulativeLoading, setCumulativeLoading] = useState(false)
 
@@ -82,6 +87,29 @@ export function VolumesTab({ consultationId, initialProducts, chemicals }: Props
         unit_size_grams: product.unit_size_grams?.toString() ?? "",
       },
     }))
+  }
+
+  async function handleDeleteProduct(productName: string) {
+    setDeleting(productName)
+    try {
+      const res = await fetch(
+        `/api/consultations/${consultationId}/products?product_name=${encodeURIComponent(productName)}`,
+        { method: "DELETE" }
+      )
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Delete failed" }))
+        toast.error(err.error ?? "Delete failed")
+        return
+      }
+      setProducts((prev) => prev.filter((p) => p.product_name !== productName))
+      await loadCumulative()
+      router.refresh()
+      toast.success(`"${productName}" and its ingredients removed`)
+    } catch {
+      toast.error("Network error")
+    } finally {
+      setDeleting(null)
+    }
   }
 
   function cancelEdit(productName: string) {
@@ -141,6 +169,7 @@ export function VolumesTab({ consultationId, initialProducts, chemicals }: Props
     cas_number: string | null
     product_name: string | null
     concentration: number | null
+    aicis_conditions?: string | null
     annualKg: number | null
   }> = chemicals.map((chem) => {
     const prod = chem.product_name ? productMap.get(chem.product_name) : undefined
@@ -251,15 +280,48 @@ export function VolumesTab({ consultationId, initialProducts, chemicals }: Props
                                 <X className="h-3.5 w-3.5" />
                               </Button>
                             </>
+                          ) : confirmDelete === prod.product_name ? (
+                            <>
+                              <span className="text-xs text-destructive mr-1">Delete?</span>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-destructive"
+                                onClick={() => { setConfirmDelete(null); handleDeleteProduct(prod.product_name) }}
+                                disabled={deleting === prod.product_name}
+                              >
+                                {deleting === prod.product_name
+                                  ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  : <Check className="h-3.5 w-3.5" />}
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-muted-foreground"
+                                onClick={() => setConfirmDelete(null)}
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </Button>
+                            </>
                           ) : (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-muted-foreground"
-                              onClick={() => startEdit(prod)}
-                            >
-                              <Pencil className="h-3.5 w-3.5" />
-                            </Button>
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-muted-foreground"
+                                onClick={() => startEdit(prod)}
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                                onClick={() => setConfirmDelete(prod.product_name)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </>
                           )}
                         </div>
                       </td>
@@ -278,7 +340,7 @@ export function VolumesTab({ consultationId, initialProducts, chemicals }: Props
           <h3 className="text-sm font-semibold mb-3">Import Volume Per Ingredient</h3>
           <p className="text-xs text-muted-foreground mb-3">
             Annual volume = (units/year × unit size × concentration %) ÷ 1,000 kg.
-            Cumulative includes all products across this company's consultations.
+            Cumulative includes all products across this company&apos;s consultations.
           </p>
           <div className="border rounded-lg overflow-x-auto">
             <table className="w-full text-sm">
@@ -286,53 +348,89 @@ export function VolumesTab({ consultationId, initialProducts, chemicals }: Props
                 <tr>
                   <th className="text-left px-4 py-2.5 font-medium">Ingredient</th>
                   <th className="text-left px-4 py-2.5 font-medium">CAS</th>
-                  <th className="text-left px-4 py-2.5 font-medium">Product</th>
                   <th className="text-right px-4 py-2.5 font-medium">Conc %</th>
                   <th className="text-right px-4 py-2.5 font-medium">This product (kg/yr)</th>
                   <th className="text-right px-4 py-2.5 font-medium">Cumulative (all products)</th>
                   <th className="text-left px-4 py-2.5 font-medium">Category</th>
+                  <th className="text-left px-4 py-2.5 font-medium">AICIS Conditions</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {chemicalVolumes.map((chem, i) => {
-                  const cumulKg = cumulative[chem.chemical_id] ?? null
-                  const cat     = cumulKg !== null ? aicisCategory(cumulKg) : null
+                {Object.entries(
+                  chemicalVolumes.reduce<Record<string, typeof chemicalVolumes>>((acc, row) => {
+                    const key = row.product_name ?? "(no product)"
+                    ;(acc[key] ??= []).push(row)
+                    return acc
+                  }, {})
+                ).map(([productName, rows]) => {
+                  const subtotalKg = rows.reduce((sum, r) => sum + (r.annualKg ?? 0), 0)
+                  const hasVolumes = rows.some((r) => r.annualKg !== null)
                   return (
-                    <tr key={i} className="hover:bg-muted/20">
-                      <td className="px-4 py-2.5">
-                        <span className="font-medium truncate max-w-[200px] block" title={chem.chemical_name}>
-                          {chem.chemical_name}
-                        </span>
-                      </td>
-                      <td className="px-4 py-2.5 font-mono text-xs">{chem.cas_number ?? "—"}</td>
-                      <td className="px-4 py-2.5 text-muted-foreground">{chem.product_name ?? "—"}</td>
-                      <td className="px-4 py-2.5 tabular-nums text-right">
-                        {chem.concentration !== null ? `${chem.concentration}%` : "—"}
-                      </td>
-                      <td className="px-4 py-2.5 tabular-nums text-right">
-                        {chem.annualKg !== null
-                          ? <span className="font-mono">{fmtKg(chem.annualKg)}</span>
-                          : <span className="text-muted-foreground text-xs">Enter volumes above</span>}
-                      </td>
-                      <td className="px-4 py-2.5 tabular-nums text-right">
-                        {cumulativeLoading ? (
-                          <Loader2 className="h-3 w-3 animate-spin inline" />
-                        ) : cumulKg !== null ? (
-                          <span className="font-mono">{fmtKg(cumulKg)}</span>
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-2.5">
-                        {cat ? (
-                          <Badge variant="outline" className={`text-xs ${cat.className}`}>
-                            {cat.label}
-                          </Badge>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">—</span>
-                        )}
-                      </td>
-                    </tr>
+                    <Fragment key={productName}>
+                      <tr className="bg-muted/40 border-t">
+                        <td colSpan={7} className="px-4 py-2 text-xs font-semibold text-muted-foreground">
+                          {productName}
+                          {hasVolumes && (
+                            <span className="font-mono font-normal text-foreground ml-3">
+                              sub-total: {fmtKg(subtotalKg)}/yr
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                      {rows.map((chem, i) => {
+                        const cumulKg = cumulative[chem.chemical_id] ?? null
+                        const cat     = cumulKg !== null ? aicisCategory(cumulKg) : null
+                        const cond    = chem.aicis_conditions ?? null
+                        return (
+                          <tr key={i} className="hover:bg-muted/20">
+                            <td className="px-4 py-2.5">
+                              <span className="font-medium truncate max-w-[200px] block" title={chem.chemical_name}>
+                                {chem.chemical_name}
+                              </span>
+                            </td>
+                            <td className="px-4 py-2.5 font-mono text-xs">{chem.cas_number ?? "—"}</td>
+                            <td className="px-4 py-2.5 tabular-nums text-right">
+                              {chem.concentration !== null ? `${chem.concentration}%` : "—"}
+                            </td>
+                            <td className="px-4 py-2.5 tabular-nums text-right">
+                              {chem.annualKg !== null
+                                ? <span className="font-mono">{fmtKg(chem.annualKg)}</span>
+                                : <span className="text-muted-foreground text-xs">Enter volumes above</span>}
+                            </td>
+                            <td className="px-4 py-2.5 tabular-nums text-right">
+                              {cumulativeLoading ? (
+                                <Loader2 className="h-3 w-3 animate-spin inline" />
+                              ) : cumulKg !== null ? (
+                                <span className="font-mono">{fmtKg(cumulKg)}</span>
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-2.5">
+                              {cat ? (
+                                <Badge variant="outline" className={`text-xs ${cat.className}`}>
+                                  {cat.label}
+                                </Badge>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">—</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-2.5 max-w-[220px]">
+                              {cond ? (
+                                <span
+                                  className="text-xs text-muted-foreground truncate block cursor-help"
+                                  title={cond}
+                                >
+                                  {cond.length > 45 ? `${cond.slice(0, 45)}…` : cond}
+                                </span>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">—</span>
+                              )}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </Fragment>
                   )
                 })}
               </tbody>

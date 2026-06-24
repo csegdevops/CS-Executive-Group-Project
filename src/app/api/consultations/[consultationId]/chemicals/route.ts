@@ -13,6 +13,7 @@ const addSchema = z.object({
   quantity: z.number().optional(),
   unit: z.string().optional(),
   notes: z.string().optional(),
+  product_name: z.string().optional(),
 }).refine((d) => d.cas || d.name || d.chemical_id, {
   message: "Provide cas, name, or chemical_id",
 })
@@ -92,12 +93,85 @@ export async function POST(
       quantity: parsed.data.quantity,
       unit: parsed.data.unit,
       notes: parsed.data.notes,
-    }, { onConflict: "consultation_id,chemical_id" })
+      product_name: parsed.data.product_name ?? '',
+    }, { onConflict: "consultation_id,chemical_id,product_name" })
     .select()
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Ensure the product exists as a stub in consultation_products
+  const pName = parsed.data.product_name ?? ''
+  if (pName) {
+    await supabase
+      .schema("regulatory")
+      .from("consultation_products")
+      .upsert(
+        { consultation_id: consultationId, product_name: pName },
+        { onConflict: "consultation_id,product_name", ignoreDuplicates: true }
+      )
+  }
+
   return NextResponse.json(data, { status: 201 })
+}
+
+export async function PATCH(
+  request: Request,
+  { params }: { params: Promise<{ consultationId: string }> }
+) {
+  const { consultationId } = await params
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const { id, chemical_id } = await request.json()
+  if (!id || !chemical_id) {
+    return NextResponse.json({ error: "Provide id and chemical_id" }, { status: 400 })
+  }
+
+  const { data: row } = await supabase
+    .schema("regulatory")
+    .from("consultation_chemicals")
+    .select("product_name")
+    .eq("consultation_id", consultationId)
+    .eq("id", id)
+    .single()
+
+  if (!row) return NextResponse.json({ error: "Row not found" }, { status: 404 })
+
+  const { data: conflict } = await supabase
+    .schema("regulatory")
+    .from("consultation_chemicals")
+    .select("id")
+    .eq("consultation_id", consultationId)
+    .eq("chemical_id", chemical_id)
+    .eq("product_name", row.product_name ?? '')
+    .neq("id", id)
+    .maybeSingle()
+
+  if (conflict) {
+    return NextResponse.json(
+      { error: "This chemical is already in this product — remove the duplicate first." },
+      { status: 409 }
+    )
+  }
+
+  const { data, error } = await supabase
+    .schema("regulatory")
+    .from("consultation_chemicals")
+    .update({ chemical_id, notes: null })
+    .eq("consultation_id", consultationId)
+    .eq("id", id)
+    .select()
+    .single()
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  await logConsultationEvent(consultationId, user.id, "chemical_resolved", {
+    cc_id: id, chemical_id,
+  })
+
+  return NextResponse.json(data)
 }
 
 export async function DELETE(
@@ -110,33 +184,22 @@ export async function DELETE(
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const { searchParams } = new URL(request.url)
-  const chemicalId = searchParams.get("chemical_id")
-  const ccId       = searchParams.get("id")
+  const ccId = searchParams.get("id")
 
-  if (!chemicalId && !ccId) {
-    return NextResponse.json({ error: "Provide chemical_id or id" }, { status: 400 })
+  if (!ccId) {
+    return NextResponse.json({ error: "Provide id" }, { status: 400 })
   }
 
-  let deleteQuery = supabase
+  const { error } = await supabase
     .schema("regulatory")
     .from("consultation_chemicals")
     .delete()
     .eq("consultation_id", consultationId)
-
-  if (chemicalId) {
-    deleteQuery = deleteQuery.eq("chemical_id", chemicalId)
-  } else {
-    deleteQuery = deleteQuery.eq("id", ccId!)
-  }
-
-  const { error } = await deleteQuery
+    .eq("id", ccId)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  await logConsultationEvent(consultationId, user.id, "chemical_removed", {
-    chemical_id: chemicalId ?? null,
-    cc_id:       ccId ?? null,
-  })
+  await logConsultationEvent(consultationId, user.id, "chemical_removed", { cc_id: ccId })
 
   return new NextResponse(null, { status: 204 })
 }

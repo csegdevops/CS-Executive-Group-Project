@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
+import { logConsultationEvent } from "@/lib/consultation-log"
 import { NextResponse } from "next/server"
 import { z } from "zod"
 
@@ -136,5 +137,18 @@ export async function DELETE(
     .eq("product_name", productName)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Remove all ingredients that belonged exclusively to this product
+  const { error: chemError } = await supabase
+    .schema("regulatory")
+    .from("consultation_chemicals")
+    .delete()
+    .eq("consultation_id", consultationId)
+    .eq("product_name", productName)
+
+  if (chemError) return NextResponse.json({ error: chemError.message }, { status: 500 })
+
+  await logConsultationEvent(consultationId, user.id, "product_removed", { product_name: productName })
+
   return new NextResponse(null, { status: 204 })
 }

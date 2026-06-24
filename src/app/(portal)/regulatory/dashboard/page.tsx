@@ -4,7 +4,8 @@ import { PageHeader } from "@/components/layout/PageHeader"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
-import { Building2, FileText, Clock } from "lucide-react"
+import { Building2, FileText, Clock, CheckCircle2, PenLine } from "lucide-react"
+import { OngoingConsultations } from "./OngoingConsultations"
 
 export default async function DashboardPage() {
   const user = await requireAuth()
@@ -37,10 +38,13 @@ export default async function DashboardPage() {
     consultationsByCompany.set(c.company_id, existing)
   }
 
-  const totalConsultations = consultations?.length ?? 0
-  const activeConsultations = (consultations ?? []).filter((c) =>
-    ["in_progress", "under_review"].includes(c.status)
-  ).length
+  const all = consultations ?? []
+  const countByStatus = (statuses: string[]) =>
+    all.filter((c) => statuses.includes(c.status)).length
+
+  const draftCount       = countByStatus(["draft"])
+  const activeCount      = countByStatus(["in_progress", "under_review"])
+  const completedCount   = countByStatus(["completed"])
 
   return (
     <div>
@@ -49,7 +53,7 @@ export default async function DashboardPage() {
         description="Your regulatory consulting overview"
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Companies</CardTitle>
@@ -62,24 +66,39 @@ export default async function DashboardPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Active Consultations</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Draft</CardTitle>
+            <PenLine className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{activeConsultations}</div>
-            <p className="text-xs text-muted-foreground">in progress or under review</p>
+            <div className="text-2xl font-bold">{draftCount}</div>
+            <p className="text-xs text-muted-foreground">not yet started</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Total Consultations</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Active</CardTitle>
+            <Clock className="h-4 w-4 text-blue-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalConsultations}</div>
+            <div className="text-2xl font-bold text-blue-600">{activeCount}</div>
+            <p className="text-xs text-muted-foreground">in progress · under review</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Completed</CardTitle>
+            <CheckCircle2 className="h-4 w-4 text-green-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">{completedCount}</div>
             <p className="text-xs text-muted-foreground">across all companies</p>
           </CardContent>
         </Card>
+      </div>
+
+      <div className="mb-8">
+        <h2 className="text-lg font-semibold mb-4">Ongoing Consultations</h2>
+        <OngoingConsultations />
       </div>
 
       <h2 className="text-lg font-semibold mb-4">Your Companies</h2>

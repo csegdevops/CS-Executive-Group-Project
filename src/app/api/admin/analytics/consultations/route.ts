@@ -57,7 +57,10 @@ export async function GET(request: Request) {
   const toMonth   = searchParams.get("to")   ?? defaultTo
 
   const fromDate = `${fromMonth}-01T00:00:00.000Z`
-  const toDate   = `${toMonth}-31T23:59:59.999Z`   // generous upper bound
+  // Compute the actual last day of toMonth — hardcoding 31 breaks for months with fewer days
+  const [toY, toM] = toMonth.split("-").map(Number)
+  const lastDay = new Date(toY, toM, 0).getDate()   // new Date(y, m, 0) = last day of month m
+  const toDate  = `${toMonth}-${String(lastDay).padStart(2, "0")}T23:59:59.999Z`
 
   const admin = createAdminClient()
 

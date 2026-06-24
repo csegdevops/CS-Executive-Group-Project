@@ -13,6 +13,8 @@ import { AlertCircle } from "lucide-react"
 import { ChemicalsTab } from "./ChemicalsTab"
 import { VolumesTab } from "./VolumesTab"
 import { LogsTab } from "./LogsTab"
+import { ConsultationStatusControl } from "./ConsultationStatusControl"
+import { ManageConsultantsDialog } from "./ManageConsultantsDialog"
 import type { RegulatoryFramework, RegulatoryStatus } from "@/types/database"
 
 const statusLabels: Record<string, string> = {
@@ -86,11 +88,13 @@ export default async function ConsultationDetailPage({
     .filter((cc) => cc.chemicals)
     .map((cc) => ({
       consultation_chemical_id: cc.id,
-      chemical_id:   cc.chemicals!.id,
-      chemical_name: cc.chemicals!.common_name,
-      cas_number:    cc.chemicals!.cas_number,
-      product_name:  cc.product_name ?? null,
-      concentration: cc.quantity ?? null,
+      chemical_id:      cc.chemicals!.id,
+      chemical_name:    cc.chemicals!.common_name,
+      cas_number:       cc.chemicals!.cas_number,
+      product_name:     cc.product_name ?? null,
+      concentration:    cc.quantity ?? null,
+      aicis_conditions: cc.chemicals!.regulatory_listings
+        .find((rl) => rl.framework === "aicis")?.notes ?? null,
     }))
 
   const backUrl = encodeURIComponent(`/regulatory/consultations/${consultationId}`)
@@ -98,7 +102,10 @@ export default async function ConsultationDetailPage({
   return (
     <div>
       <PageHeader title={consultation.title}>
-        <Badge variant="secondary">{statusLabels[consultation.status] ?? consultation.status}</Badge>
+        <ConsultationStatusControl
+          consultationId={consultationId}
+          initialStatus={consultation.status}
+        />
       </PageHeader>
 
       <Tabs defaultValue="overview">
@@ -139,7 +146,10 @@ export default async function ConsultationDetailPage({
             </Card>
 
             <Card>
-              <CardHeader><CardTitle className="text-sm">Assigned Consultants</CardTitle></CardHeader>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="text-sm">Assigned Consultants</CardTitle>
+                <ManageConsultantsDialog consultationId={consultationId} />
+              </CardHeader>
               <CardContent>
                 {consultants.length === 0 ? (
                   <p className="text-xs text-muted-foreground">No consultants assigned.</p>
@@ -172,6 +182,7 @@ export default async function ConsultationDetailPage({
             consultationId={consultationId}
             frameworks={frameworks}
             initialChemicals={consultationChemicals}
+            products={(products ?? []).map((p) => p.product_name)}
           />
         </TabsContent>
 

@@ -5,7 +5,7 @@ import { PageHeader } from "@/components/layout/PageHeader"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
-import { Plus } from "lucide-react"
+import { Plus, FileDown } from "lucide-react"
 import { formatDate } from "@/lib/date-helpers"
 import { ConsultationsAnalytics } from "./ConsultationsAnalytics"
 
@@ -85,6 +85,12 @@ export default async function ConsultationsPage() {
         title="Consultations"
         description={isAdmin ? "All regulatory consultations" : "Consultations you're assigned to"}
       >
+        <Button asChild size="sm" variant="outline">
+          <a href="/api/formulation/template" download="formulation-template.xlsx">
+            <FileDown className="h-4 w-4 mr-1.5" />
+            Download template
+          </a>
+        </Button>
         <Button asChild size="sm">
           <Link href="/regulatory/consultations/new">
             <Plus className="h-4 w-4 mr-1.5" />

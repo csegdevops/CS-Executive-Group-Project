@@ -36,7 +36,7 @@ export async function GET() {
   const [consultationsRes, assignmentsRes] = await Promise.all([
     reg
       .from("consultations")
-      .select("id, title, status, reference_number, company_id, companies(id, name)")
+      .select("id, title, status, reference_number, company_id")
       .order("updated_at", { ascending: false }),
     reg
       .from("consultation_consultants")
@@ -47,6 +47,14 @@ export async function GET() {
     return NextResponse.json({ error: consultationsRes.error.message }, { status: 500 })
   }
 
+  // Resolve company names separately — cross-schema join from regulatory → public is unreliable
+  const rawConsultations = (consultationsRes.data ?? []) as { id: string; company_id: string; [k: string]: unknown }[]
+  const companyIds = [...new Set(rawConsultations.map((c) => c.company_id).filter(Boolean))]
+  const { data: companiesData } = companyIds.length
+    ? await admin.from("companies").select("id, name").in("id", companyIds)
+    : { data: [] }
+  const companyMap = new Map((companiesData ?? []).map((c) => [c.id, { id: c.id, name: c.name }]))
+
   // Group consultant IDs by consultation
   const assignmentMap = new Map<string, string[]>()
   for (const a of (assignmentsRes.data ?? []) as { consultation_id: string; consultant_id: string }[]) {
@@ -55,8 +63,9 @@ export async function GET() {
     assignmentMap.set(a.consultation_id, list)
   }
 
-  const consultations = (consultationsRes.data ?? []).map((c: { id: string; [k: string]: unknown }) => ({
+  const consultations = rawConsultations.map((c) => ({
     ...c,
+    companies: companyMap.get(c.company_id) ?? null,
     consultant_ids: assignmentMap.get(c.id) ?? [],
   }))
 

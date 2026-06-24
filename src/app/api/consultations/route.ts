@@ -19,17 +19,21 @@ export async function GET(request: Request) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const { searchParams } = new URL(request.url)
-  const companyId = searchParams.get("company_id")
+  const companyId    = searchParams.get("company_id")
+  const statusParam  = searchParams.get("status") // comma-separated list
 
   const reg = supabase.schema("regulatory")
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let query = (reg as any)
     .from("consultations")
-    .select("*, companies(id, name)")
-    .order("updated_at", { ascending: false })
+    .select("id, company_id, title, status, due_date, updated_at, frameworks, reference_number, companies(id, name)")
+    .order("due_date", { ascending: true, nullsFirst: false })
 
-  if (companyId) {
-    query = query.eq("company_id", companyId)
+  if (companyId) query = query.eq("company_id", companyId)
+  if (statusParam) {
+    const statuses = statusParam.split(",").map((s) => s.trim()).filter(Boolean)
+    if (statuses.length === 1) query = query.eq("status", statuses[0])
+    else if (statuses.length > 1) query = query.in("status", statuses)
   }
 
   const { data, error } = await query

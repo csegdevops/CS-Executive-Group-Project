@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, TrendingUp, Building2, Users, CheckCircle2 } from "lucide-react"
+import { Loader2, TrendingUp, Building2, Users, CheckCircle2, AlertCircle } from "lucide-react"
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer, PieChart, Pie, Cell,
@@ -114,14 +114,23 @@ function DonutCenterLabel({ viewBox, total }: { viewBox?: any; total: number }) 
 export function ConsultationsAnalytics() {
   const [data, setData]         = useState<AnalyticsData | null>(null)
   const [loading, setLoading]   = useState(true)
+  const [error, setError]       = useState<string | null>(null)
   const [fromMonth, setFrom]    = useState(monthsBefore(12))
   const [toMonth, setTo]        = useState(currentYM)
-  
+
   const fetchData = useCallback(async () => {
     setLoading(true)
+    setError(null)
     try {
       const res = await fetch(`/api/admin/analytics/consultations?from=${fromMonth}&to=${toMonth}`)
-      if (res.ok) setData(await res.json())
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }))
+        setError(err.error ?? "Failed to load analytics")
+        return
+      }
+      setData(await res.json())
+    } catch {
+      setError("Network error — could not reach the analytics API")
     } finally {
       setLoading(false)
     }
@@ -217,6 +226,13 @@ export function ConsultationsAnalytics() {
           </div>
         </CardContent>
       </Card>
+
+      {error && (
+        <div className="flex items-center gap-2 text-sm text-destructive border border-destructive/30 bg-destructive/5 rounded-lg px-4 py-3">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          {error}
+        </div>
+      )}
 
       {/* ── KPI cards ───────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
