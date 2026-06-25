@@ -48,17 +48,27 @@ export async function generateImportPreview(
         { cas: entry.cas ?? undefined, name: entry.name ?? undefined },
         frameworks
       )
-      rows.push({
-        rowIndex: entry.rowIndex,
-        cas: entry.cas, name: entry.name,
-        role: entry.role, quantity: entry.quantity, unit: entry.unit, notes: entry.notes,
-        resolved: true,
-        chemicalId: chemical.id,
-        chemicalName: chemical.common_name,
-        resolvedCas: chemical.cas_number,
-        needsReview: chemical.needs_review,
-        error: null,
-      })
+      if (chemical) {
+        rows.push({
+          rowIndex: entry.rowIndex,
+          cas: entry.cas, name: entry.name,
+          role: entry.role, quantity: entry.quantity, unit: entry.unit, notes: entry.notes,
+          resolved: true,
+          chemicalId: chemical.id,
+          chemicalName: chemical.common_name,
+          resolvedCas: chemical.cas_number,
+          needsReview: chemical.needs_review,
+          error: null,
+        })
+      } else {
+        // PubChem didn't find it — store as consultation-local unresolved row
+        rows.push({
+          rowIndex: entry.rowIndex, cas: entry.cas, name: entry.name,
+          role: entry.role, quantity: entry.quantity, unit: entry.unit, notes: entry.notes,
+          resolved: false, chemicalId: null, chemicalName: null, resolvedCas: null,
+          needsReview: false, error: null,
+        })
+      }
     } catch (err) {
       rows.push({
         rowIndex: entry.rowIndex, cas: entry.cas, name: entry.name,

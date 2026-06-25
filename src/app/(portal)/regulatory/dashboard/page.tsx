@@ -54,46 +54,27 @@ export default async function DashboardPage() {
       />
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Companies</CardTitle>
-            <Building2 className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{companies?.length ?? 0}</div>
-            <p className="text-xs text-muted-foreground">assigned to you</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Draft</CardTitle>
-            <PenLine className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{draftCount}</div>
-            <p className="text-xs text-muted-foreground">not yet started</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Active</CardTitle>
-            <Clock className="h-4 w-4 text-blue-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{activeCount}</div>
-            <p className="text-xs text-muted-foreground">in progress · under review</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Completed</CardTitle>
-            <CheckCircle2 className="h-4 w-4 text-green-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">{completedCount}</div>
-            <p className="text-xs text-muted-foreground">across all companies</p>
-          </CardContent>
-        </Card>
+        {[
+          { label: "Companies",  value: companies?.length ?? 0, sub: "assigned to you",            icon: Building2,   color: "#6366f1" },
+          { label: "Draft",      value: draftCount,             sub: "not yet started",             icon: PenLine,     color: "#94a3b8" },
+          { label: "Active",     value: activeCount,            sub: "in progress · under review",  icon: Clock,       color: "#3b82f6" },
+          { label: "Completed",  value: completedCount,         sub: "across all companies",        icon: CheckCircle2, color: "#22c55e" },
+        ].map(({ label, value, sub, icon: Icon, color }) => (
+          <Card key={label}>
+            <CardContent className="pt-5 pb-4">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">{label}</p>
+                  <p className="text-3xl font-bold mt-1">{value}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>
+                </div>
+                <div className="rounded-lg p-2" style={{ backgroundColor: color + "22" }}>
+                  <Icon className="h-5 w-5" style={{ color }} />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
       <div className="mb-8">

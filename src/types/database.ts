@@ -251,6 +251,7 @@ export interface Database {
           inchi_key: string | null
           pubchem_cid: number | null
           needs_review: boolean
+          source: string | null
           resolved_at: string | null
           created_at: string
           updated_at: string
@@ -265,6 +266,7 @@ export interface Database {
           inchi_key?: string | null
           pubchem_cid?: number | null
           needs_review?: boolean
+          source?: string | null
           resolved_at?: string | null
         }
         Update: {
@@ -276,6 +278,7 @@ export interface Database {
           inchi_key?: string | null
           pubchem_cid?: number | null
           needs_review?: boolean
+          source?: string | null
           resolved_at?: string | null
         }
         Relationships: []
@@ -378,6 +381,26 @@ export interface Database {
         }
         Update: {
           details?: Record<string, unknown> | null
+        }
+        Relationships: []
+      }
+      consultation_notes: {
+        Row: {
+          id: string
+          consultation_id: string
+          author_id: string
+          content: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          consultation_id: string
+          author_id: string
+          content: string
+        }
+        Update: {
+          content?: string
         }
         Relationships: []
       }

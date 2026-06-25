@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
 import { AlertCircle } from "lucide-react"
 import { ChemicalSearchInput } from "./ChemicalSearchInput"
+import { CreateChemskillButton } from "./CreateChemskillButton"
 
 interface SearchParams {
   q?: string
@@ -27,6 +28,7 @@ export default async function ChemicalsPage({
     iupac_name: string | null
     molecular_formula: string | null
     needs_review: boolean
+    source: string | null
   }[] = []
 
   const reg = supabase.schema("regulatory")
@@ -41,7 +43,7 @@ export default async function ChemicalsPage({
   } else {
     const { data } = await reg
       .from("chemicals")
-      .select("id, cas_number, common_name, iupac_name, molecular_formula, needs_review")
+      .select("id, cas_number, common_name, iupac_name, molecular_formula, needs_review, source")
       .order("created_at", { ascending: false })
       .limit(50)
     chemicals = data ?? []
@@ -52,7 +54,9 @@ export default async function ChemicalsPage({
       <PageHeader
         title="Chemical Catalogue"
         description="Search by CAS number, IUPAC name, or common/trade name"
-      />
+      >
+        <CreateChemskillButton />
+      </PageHeader>
 
       <div className="mb-6 max-w-md">
         <ChemicalSearchInput defaultValue={query} />
@@ -93,16 +97,23 @@ export default async function ChemicalsPage({
                 <td className="px-4 py-3 font-mono text-xs">{c.cas_number ?? "—"}</td>
                 <td className="px-4 py-3 font-mono text-xs">{c.molecular_formula ?? "—"}</td>
                 <td className="px-4 py-3">
-                  {c.needs_review ? (
-                    <Badge variant="outline" className="text-xs gap-1 text-amber-700 border-amber-300 bg-amber-50">
-                      <AlertCircle className="h-3 w-3" />
-                      Needs review
-                    </Badge>
-                  ) : (
-                    <Badge variant="outline" className="text-xs text-green-700 border-green-300 bg-green-50">
-                      Resolved
-                    </Badge>
-                  )}
+                  <div className="flex gap-1 flex-wrap">
+                    {c.source === "chemskill" && (
+                      <Badge variant="outline" className="text-xs text-blue-700 border-blue-300 bg-blue-50">
+                        Chemskill
+                      </Badge>
+                    )}
+                    {c.needs_review ? (
+                      <Badge variant="outline" className="text-xs gap-1 text-amber-700 border-amber-300 bg-amber-50">
+                        <AlertCircle className="h-3 w-3" />
+                        Pending review
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-xs text-green-700 border-green-300 bg-green-50">
+                        Resolved
+                      </Badge>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}

@@ -8,7 +8,7 @@ interface ResolveInput {
   name?: string
 }
 
-interface ResolvedChemical {
+export interface ResolvedChemical {
   id: string
   cas_number: string | null
   common_name: string
@@ -18,7 +18,7 @@ interface ResolvedChemical {
 export async function resolveAndPersistChemical(
   input: ResolveInput,
   frameworks: RegulatoryFramework[] = []
-): Promise<ResolvedChemical> {
+): Promise<ResolvedChemical | null> {
   const admin = createAdminClient()
   const reg = admin.schema("regulatory")
   const identifier = (input.cas ?? input.name ?? "").trim()
@@ -74,14 +74,8 @@ export async function resolveAndPersistChemical(
   let chemicalId: string
 
   if (!pubchemResult || !upsertKey) {
-    const { data: fallback, error } = await reg
-      .from("chemicals")
-      .insert({ common_name: identifier, needs_review: true })
-      .select("id")
-      .single()
-
-    if (error || !fallback) throw new Error(`Failed to create chemical: ${error?.message}`)
-    chemicalId = fallback.id
+    // Not found in PubChem — caller stores as consultation-local (null chemical_id)
+    return null
   } else {
     const { data: upserted, error } = await reg
       .from("chemicals")

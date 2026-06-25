@@ -1,12 +1,22 @@
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { logConsultationEvent } from "@/lib/consultation-log"
 import { NextResponse } from "next/server"
 import { z } from "zod"
 
 const createSchema = z.object({
   common_name: z.string().min(1),
-  cas_number: z.string().optional(),
-  iupac_name: z.string().optional(),
-  molecular_formula: z.string().optional(),
+  cas_number: z.string().optional().nullable(),
+  iupac_name: z.string().optional().nullable(),
+  molecular_formula: z.string().optional().nullable(),
+  // Chemskill-specific fields
+  consultation_chemical_id: z.string().uuid().optional(),
+  consultation_id: z.string().uuid().optional(),
+  regulatory: z.array(z.object({
+    framework: z.enum(["aicis", "reach", "tsca"]),
+    status: z.enum(["not_listed", "unknown", "restricted", "exempt", "pending"]),
+    notes: z.string().optional().nullable(),
+  })).optional(),
 })
 
 export async function GET(request: Request) {
@@ -50,13 +60,48 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
   }
 
-  const { data, error } = await supabase
-    .schema("regulatory")
+  const admin = createAdminClient()
+  const reg   = admin.schema("regulatory")
+
+  const { consultation_chemical_id, consultation_id, regulatory, ...chemFields } = parsed.data
+
+  const { data: chemical, error } = await reg
     .from("chemicals")
-    .insert({ ...parsed.data, needs_review: true })
+    .insert({ ...chemFields, needs_review: true, source: "chemskill" })
     .select()
     .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json(data, { status: 201 })
+  if (error || !chemical) return NextResponse.json({ error: error?.message ?? "Insert failed" }, { status: 500 })
+
+  // Insert regulatory listings
+  if (regulatory && regulatory.length > 0) {
+    const listings = regulatory.map((r) => ({
+      chemical_id:  chemical.id,
+      framework:    r.framework,
+      status:       r.status,
+      notes:        r.notes ?? null,
+      list_name:    "Chemskill",
+      source:       "chemskill",
+      last_checked: new Date().toISOString(),
+    }))
+    await reg.from("regulatory_listings").upsert(listings, {
+      onConflict: "chemical_id,framework", ignoreDuplicates: false,
+    })
+  }
+
+  // Link back to consultation chemical row
+  if (consultation_chemical_id) {
+    await reg
+      .from("consultation_chemicals")
+      .update({ chemical_id: chemical.id, notes: null })
+      .eq("id", consultation_chemical_id)
+
+    if (consultation_id) {
+      await logConsultationEvent(consultation_id, user.id, "chemical_pushed_to_db", {
+        name: chemical.common_name, chemical_id: chemical.id,
+      })
+    }
+  }
+
+  return NextResponse.json(chemical, { status: 201 })
 }

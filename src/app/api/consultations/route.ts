@@ -26,7 +26,7 @@ export async function GET(request: Request) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let query = (reg as any)
     .from("consultations")
-    .select("id, company_id, title, status, due_date, updated_at, frameworks, reference_number, companies(id, name)")
+    .select("id, company_id, title, status, due_date, updated_at, frameworks, reference_number")
     .order("due_date", { ascending: true, nullsFirst: false })
 
   if (companyId) query = query.eq("company_id", companyId)
@@ -38,7 +38,21 @@ export async function GET(request: Request) {
 
   const { data, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json(data)
+
+  // Resolve company names separately — cross-schema join (regulatory → public) is unreliable
+  const rawData = (data ?? []) as { company_id: string; [k: string]: unknown }[]
+  const companyIds = [...new Set(rawData.map((c) => c.company_id).filter(Boolean))]
+  const { data: companiesData } = companyIds.length
+    ? await supabase.from("companies").select("id, name").in("id", companyIds)
+    : { data: [] }
+  const companyMap = new Map((companiesData ?? []).map((c) => [c.id, { id: c.id, name: c.name }]))
+
+  const result = rawData.map((c) => ({
+    ...c,
+    companies: companyMap.get(c.company_id) ?? null,
+  }))
+
+  return NextResponse.json(result)
 }
 
 export async function POST(request: Request) {
@@ -67,9 +81,27 @@ export async function POST(request: Request) {
   const admin = createAdminClient()
   const reg   = admin.schema("regulatory")
 
+  // Auto-generate reference_number if not provided
+  let referenceNumber = parsed.data.reference_number
+  if (!referenceNumber) {
+    const year   = new Date().getFullYear()
+    const prefix = `CS-${year}-`
+    const { data: last } = await reg
+      .from("consultations")
+      .select("reference_number")
+      .like("reference_number", `${prefix}%`)
+      .order("reference_number", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    const lastN = last?.reference_number
+      ? parseInt((last.reference_number as string).slice(prefix.length), 10)
+      : 0
+    referenceNumber = `${prefix}${String((isNaN(lastN) ? 0 : lastN) + 1).padStart(3, "0")}`
+  }
+
   const { data, error } = await reg
     .from("consultations")
-    .insert(parsed.data)
+    .insert({ ...parsed.data, reference_number: referenceNumber })
     .select()
     .single()
 

@@ -44,7 +44,7 @@ export default async function ChemicalDetailPage({
   const [chemRes, aliasRes, listingRes, consultationRes] = await Promise.all([
     reg
       .from("chemicals")
-      .select("id, cas_number, iupac_name, common_name, molecular_formula, molecular_weight, inchi_key, pubchem_cid, needs_review, resolved_at, created_at")
+      .select("id, cas_number, iupac_name, common_name, molecular_formula, molecular_weight, inchi_key, pubchem_cid, needs_review, source, resolved_at, created_at")
       .eq("id", id)
       .single(),
     reg
@@ -92,15 +92,22 @@ export default async function ChemicalDetailPage({
         title={chem.common_name}
         description={chem.iupac_name && chem.iupac_name !== chem.common_name ? chem.iupac_name : undefined}
       >
-        {chem.needs_review ? (
-          <Badge variant="outline" className="gap-1 text-amber-700 border-amber-300 bg-amber-50">
-            <AlertCircle className="h-3 w-3" /> Needs review
-          </Badge>
-        ) : (
-          <Badge variant="outline" className="gap-1 text-green-700 border-green-300 bg-green-50">
-            <CheckCircle2 className="h-3 w-3" /> Resolved
-          </Badge>
-        )}
+        <div className="flex gap-2">
+          {(chem as { source?: string | null }).source === "chemskill" && (
+            <Badge variant="outline" className="text-blue-700 border-blue-300 bg-blue-50">
+              Chemskill
+            </Badge>
+          )}
+          {chem.needs_review ? (
+            <Badge variant="outline" className="gap-1 text-amber-700 border-amber-300 bg-amber-50">
+              <AlertCircle className="h-3 w-3" /> Pending review
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="gap-1 text-green-700 border-green-300 bg-green-50">
+              <CheckCircle2 className="h-3 w-3" /> Resolved
+            </Badge>
+          )}
+        </div>
       </PageHeader>
 
       {/* Identity card */}

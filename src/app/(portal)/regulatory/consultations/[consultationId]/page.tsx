@@ -12,9 +12,12 @@ import Link from "next/link"
 import { AlertCircle } from "lucide-react"
 import { ChemicalsTab } from "./ChemicalsTab"
 import { VolumesTab } from "./VolumesTab"
-import { LogsTab } from "./LogsTab"
+import { TimelineTab } from "./TimelineTab"
 import { ConsultationStatusControl } from "./ConsultationStatusControl"
 import { ManageConsultantsDialog } from "./ManageConsultantsDialog"
+import { BackButton } from "./BackButton"
+import { EditDetailsDialog } from "./EditDetailsDialog"
+import { NotesSection } from "./NotesSection"
 import type { RegulatoryFramework, RegulatoryStatus } from "@/types/database"
 
 const statusLabels: Record<string, string> = {
@@ -83,6 +86,39 @@ export default async function ConsultationDetailPage({
   const consultationChemicals = (consultation.consultation_chemicals ?? []) as ConsultationChemical[]
   const frameworks = (consultation.frameworks ?? []) as RegulatoryFramework[]
 
+  // ── Timeline / checklist state ─────────────────────────────────────────────
+  const chemicalsAdded      = consultationChemicals.length > 0
+  const volumesEntered      = (products ?? []).some((p) => p.units_per_year != null)
+  const regulatoryAssessed  = consultationChemicals.some(
+    (cc) => cc.chemicals && (cc.chemicals.regulatory_listings ?? []).length > 0
+  )
+  const sentForReview       = ["under_review", "completed"].includes(consultation.status)
+
+  const resolvedCount   = consultationChemicals.filter((cc) => cc.chemical_id !== null).length
+  const unresolvedCount = consultationChemicals.filter((cc) => cc.chemical_id === null).length
+  const chemicalsSummary =
+    consultationChemicals.length === 0 ? "No chemicals added yet"
+    : unresolvedCount > 0 ? `${resolvedCount} resolved, ${unresolvedCount} need${unresolvedCount === 1 ? "s" : ""} review`
+    : `${resolvedCount} chemical${resolvedCount !== 1 ? "s" : ""}`
+
+  const totalProducts        = (products ?? []).length
+  const productsWithVolumes  = (products ?? []).filter((p) => p.units_per_year != null).length
+  const volumesSummary =
+    totalProducts === 0 ? "No products added"
+    : productsWithVolumes === totalProducts ? `${totalProducts} product${totalProducts !== 1 ? "s" : ""} complete`
+    : `${productsWithVolumes} of ${totalProducts} product${totalProducts !== 1 ? "s" : ""} with volumes`
+
+  const assessedCount   = consultationChemicals.filter(
+    (cc) => cc.chemicals && (cc.chemicals.regulatory_listings ?? []).length > 0
+  ).length
+  const restrictedCount = consultationChemicals.filter(
+    (cc) => cc.chemicals && (cc.chemicals.regulatory_listings ?? []).some((rl) => rl.status === "restricted")
+  ).length
+  const regulatorySummary =
+    assessedCount === 0 ? "Not yet assessed"
+    : restrictedCount > 0 ? `${assessedCount} assessed, ${restrictedCount} restricted`
+    : `${assessedCount} chemical${assessedCount !== 1 ? "s" : ""} assessed`
+
   // Shape the chemicals into what VolumesTab needs
   const volumeChemicals = consultationChemicals
     .filter((cc) => cc.chemicals)
@@ -101,6 +137,9 @@ export default async function ConsultationDetailPage({
 
   return (
     <div>
+      <div className="mb-2">
+        <BackButton />
+      </div>
       <PageHeader title={consultation.title}>
         <ConsultationStatusControl
           consultationId={consultationId}
@@ -108,22 +147,34 @@ export default async function ConsultationDetailPage({
         />
       </PageHeader>
 
-      <Tabs defaultValue="overview">
+      <Tabs defaultValue="details">
         <TabsList className="mb-6">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="details">Details</TabsTrigger>
           <TabsTrigger value="chemicals">
             Chemicals ({consultationChemicals.length})
           </TabsTrigger>
           <TabsTrigger value="regulatory">Regulatory Status</TabsTrigger>
           <TabsTrigger value="volumes">Import Volumes</TabsTrigger>
-          <TabsTrigger value="logs">Logs</TabsTrigger>
+          <TabsTrigger value="timeline">Timeline</TabsTrigger>
         </TabsList>
 
-        {/* ── Overview ── */}
-        <TabsContent value="overview">
+        {/* ── Details ── */}
+        <TabsContent value="details">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Card>
-              <CardHeader><CardTitle className="text-sm">Details</CardTitle></CardHeader>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="text-sm">Details</CardTitle>
+                <EditDetailsDialog
+                  consultationId={consultationId}
+                  initial={{
+                    title: consultation.title,
+                    description: consultation.description ?? "",
+                    reference_number: consultation.reference_number ?? "",
+                    due_date: consultation.due_date ?? "",
+                    frameworks: frameworks,
+                  }}
+                />
+              </CardHeader>
               <CardContent className="space-y-3 text-sm">
                 <Row label="Company" value={company?.name ?? "—"} />
                 <Row label="Reference" value={consultation.reference_number ?? "—"} />
@@ -173,6 +224,10 @@ export default async function ConsultationDetailPage({
                 </CardContent>
               </Card>
             )}
+          </div>
+
+          <div className="mt-6">
+            <NotesSection consultationId={consultationId} />
           </div>
         </TabsContent>
 
@@ -293,9 +348,21 @@ export default async function ConsultationDetailPage({
           />
         </TabsContent>
 
-        {/* ── Logs ── */}
-        <TabsContent value="logs">
-          <LogsTab consultationId={consultationId} />
+        {/* ── Timeline (checklist + logs combined) ── */}
+        <TabsContent value="timeline">
+          <TimelineTab
+            consultationId={consultationId}
+            checklist={{
+              chemicalsAdded,
+              volumesEntered,
+              regulatoryAssessed,
+              sentForReview,
+              complete: consultation.status === "completed",
+            }}
+            chemicalsSummary={chemicalsSummary}
+            volumesSummary={volumesSummary}
+            regulatorySummary={regulatorySummary}
+          />
         </TabsContent>
       </Tabs>
     </div>
@@ -339,3 +406,4 @@ function Row({ label, value }: { label: string; value: string }) {
     </div>
   )
 }
+

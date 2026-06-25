@@ -1,12 +1,14 @@
 import { createClient } from "@/lib/supabase/server"
+import { logConsultationEvent } from "@/lib/consultation-log"
 import { NextResponse } from "next/server"
 import { z } from "zod"
 
 const updateSchema = z.object({
   title: z.string().min(1).optional(),
-  description: z.string().optional(),
+  description: z.string().optional().nullable(),
   status: z.enum(["draft", "in_progress", "under_review", "completed", "archived"]).optional(),
   frameworks: z.array(z.enum(["aicis", "reach", "tsca"])).optional(),
+  reference_number: z.string().optional().nullable(),
   due_date: z.string().optional().nullable(),
   completed_at: z.string().optional().nullable(),
 })
@@ -76,6 +78,14 @@ export async function PATCH(
     updates.completed_at = new Date().toISOString()
   }
 
+  // Fetch current values for field-level audit trail
+  const { data: current } = await supabase
+    .schema("regulatory")
+    .from("consultations")
+    .select("title, description, status, frameworks, reference_number, due_date, completed_at")
+    .eq("id", consultationId)
+    .single()
+
   const { data, error } = await supabase
     .schema("regulatory")
     .from("consultations")
@@ -85,5 +95,23 @@ export async function PATCH(
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Log each changed field
+  if (current) {
+    const auditableFields = ["title", "description", "status", "frameworks", "reference_number", "due_date"] as const
+    for (const field of auditableFields) {
+      const oldVal = (current as Record<string, unknown>)[field]
+      const newVal = (updates as Record<string, unknown>)[field]
+      if (newVal === undefined) continue
+      const oldStr = JSON.stringify(oldVal)
+      const newStr = JSON.stringify(newVal)
+      if (oldStr !== newStr) {
+        await logConsultationEvent(consultationId, user.id, "details_updated", {
+          field, old: oldVal, new: newVal,
+        })
+      }
+    }
+  }
+
   return NextResponse.json(data)
 }

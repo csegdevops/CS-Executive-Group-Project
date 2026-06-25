@@ -31,6 +31,17 @@ function humanAction(action: string, details: Record<string, unknown> | null): s
       return `Removed consultant${details?.name ? `: ${details.name}` : ""}`
     case "status_changed":
       return `Status changed to ${String(details?.status ?? "").replace("_", " ")}`
+    case "details_updated": {
+      const field = String(details?.field ?? "field")
+      const oldVal = details?.old ?? null
+      const newVal = details?.new ?? null
+      const fmt = (v: unknown) => (v == null || v === "" ? "—" : Array.isArray(v) ? (v as string[]).join(", ") : String(v))
+      return `Updated ${field.replace(/_/g, " ")}: ${fmt(oldVal)} → ${fmt(newVal)}`
+    }
+    case "note_added":
+      return "Added a note"
+    case "chemical_pushed_to_db":
+      return `Chemical pushed to database${details?.name ? `: ${details.name}` : ""}`
     default:
       return action.replace(/_/g, " ")
   }

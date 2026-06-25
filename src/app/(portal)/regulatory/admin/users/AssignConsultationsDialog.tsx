@@ -105,7 +105,9 @@ export function AssignConsultationsDialog({
   }
 
   const assigned   = consultations.filter((c) => c.consultant_ids.includes(userId))
-  const unassigned = consultations.filter((c) => !c.consultant_ids.includes(userId))
+  const unassigned = consultations.filter(
+    (c) => !c.consultant_ids.includes(userId) && !["completed", "archived"].includes(c.status)
+  )
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
