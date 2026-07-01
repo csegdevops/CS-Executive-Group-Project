@@ -7,7 +7,7 @@ Next.js 16 (App Router) + TypeScript + Supabase + Tailwind CSS v4. Multi-module 
 ## Tech Stack
 
 - **Framework**: Next.js 16 App Router — read `node_modules/next/dist/docs/` before writing any Next.js code
-- **Database**: Supabase (`@supabase/ssr` v0.12) — regulatory data lives in the `regulatory` schema
+- **Database**: Supabase (`@supabase/ssr` v0.12) — regulatory data in `regulatory` schema, recruitment ATS data in `recruitment` schema
 - **UI**: Tailwind CSS v4, shadcn/ui components (`src/components/ui/`), lucide-react icons
 - **Forms**: react-hook-form + zod v4
 - **File parsing**: xlsx (Excel), custom parsers in `src/lib/import/` — xlsx is used in exactly 2 files (`src/lib/import/excel-parser.ts` for reading, `src/app/api/formulation/template/route.ts` for writing); all other import code consumes the parsed output. Note: xlsx has unpatched CVEs (no free fix); candidate for migration to `exceljs` (API-compatible rewrite, no visible behavior changes needed)
@@ -33,14 +33,15 @@ src/
             PushToDbDialog.tsx       # Push unresolved chemical to global DB as Chemskill
         companies/          # Companies list
         admin/              # Admin-only: users, companies, regulatory-lists, import
-      home/ recruitment/ crm/  # Other modules (stubs)
+      home/ crm/          # Other modules (stubs)
+      recruitment/        # Recruitment ATS module (UI routes pending — schema live)
     api/
       chemicals/            # GET list (+ POST create Chemskill chemical)
       consultations/        # GET list, POST create (auto-generates CS-YYYY-NNN reference)
         [consultationId]/
           route.ts          # GET, PATCH (audits field changes → consultation_logs)
           chemicals/        # GET, POST (resolve via PubChem → null if unknown), PATCH (resolve OR reassign product), DELETE
-          upload/           # POST (formulation upload — DB-only lookup, no PubChem)
+          upload/           # POST (formulation upload — DB lookup then PubChem fallback)
           logs/             # GET
           notes/            # GET, POST, DELETE (consultation_notes table)
           products/         # GET, POST (volumes), DELETE (cascades chemicals)
@@ -88,6 +89,7 @@ supabase/
 - Client components: `createClient()` from `@/lib/supabase/client`
 - Admin operations (bypass RLS): `createAdminClient()` from `@/lib/supabase/admin`
 - Regulatory schema: `supabase.schema("regulatory").from("table_name")`
+- Recruitment schema: `supabase.schema("recruitment").from("table_name")`
 
 **API routes**
 - Every route starts with auth check: `const { data: { user } } = await supabase.auth.getUser()`
@@ -104,6 +106,14 @@ supabase/
 - `ModuleAccessLevel`: `"admin" | "member"`
 - `Role`: `"super_admin" | "user"`
 - `AliasType`: `"trade_name" | "synonym" | "iupac" | "cas_rn"`
+- `JobStatus`: `"opened" | "posted" | "active" | "paused" | "filled" | "closed"`
+- `ApplicationStage`: `"applied" | "screening" | "shortlisted" | "interview_1" | "interview_2" | "reference_check" | "offer" | "placed" | "withdrawn" | "rejected"`
+- `ApplicationSource`: `"seek_inbound" | "company_website" | "database_internal" | "seek_talent" | "linkedin"`
+- `PlacementType`: `"permanent" | "contract"`
+- `PlacementStatus`: `"confirmed" | "started" | "completed" | "cancelled"`
+- `TaskType`: `"finance_invoice" | "finance_contract" | "security_clearance" | "general"`
+- `CvParseStatus`: `"unparsed" | "pending" | "parsed" | "failed"`
+- `CvParsedBy`: `"gemini" | "claude" | "azure" | "daxtra" | "manual"`
 
 **Path alias**: `@/` maps to `src/`
 
@@ -149,7 +159,7 @@ supabase/
 **Chemical resolution flow**
 - `resolveAndPersistChemical()` in `src/lib/chemicals/resolver.ts`: checks DB cache → alias table → PubChem
 - Returns `null` (not an error) when PubChem can't find the chemical — caller stores as `consultation_chemicals` row with `chemical_id = null`
-- Formulation upload (`formulation-pipeline.ts`) never calls PubChem — DB-only lookup (CAS → alt_cas → `match_chemicals_by_names` RPC); unresolved rows stored the same way
+- Formulation upload (`formulation-pipeline.ts`): DB-only lookup first (CAS → alt_cas → `match_chemicals_by_names` RPC); if still unresolved, calls PubChem with the uploaded CAS (or INCI name) to get the canonical CAS, then checks that against the DB (`matchedBy = "pubchem"`); only truly unknown chemicals end up unresolved
 - Once a chemical is PubChem-resolved, all its synonyms are written to `chemical_aliases`, so future uploads match by any synonym
 
 **Chemskill chemicals**
@@ -180,6 +190,55 @@ supabase/
 - `EditDetailsDialog.tsx` — edits title, description, due_date, frameworks, reference_number
 - `PATCH /api/consultations/[id]` fetches current values first, logs `details_updated` per changed field with `{ field, old, new }`
 - `reference_number` auto-generated as `CS-YYYY-NNN` on creation if not provided
+
+**Recruitment schema** (`supabase/migrations/20260630000001_recruitment_schema.sql`)
+
+Tables (dependency order): `candidates` → `jobs` → `job_events` → `applications` → `application_stage_history` → `placements` → `tasks`
+
+Key cross-schema FKs:
+- `jobs.company_id → public.companies(id) ON DELETE RESTRICT`
+- `candidates.added_by → public.profiles(id) ON DELETE SET NULL`
+- All `performed_by`, `assigned_to`, `confirmed_by`, `submitted_by` → `public.profiles(id)`
+
+**Application source channel codes** (mandatory on every application, no default):
+- `seek_inbound` [S] — Seek Apply API (direct or via aggregator)
+- `company_website` [CS] — Google Forms / career page
+- `database_internal` [DB] — Internal talent pool assignment
+- `seek_talent` [ST] — Seek Talent Search (manual recruiter sourcing)
+- `linkedin` [LI] — LinkedIn (manual recruiter sourcing)
+
+**Candidate FTS** (`search_candidates` RPC):
+- `fts_vector` GENERATED ALWAYS AS STORED on `first_name + last_name + current_title + current_employer + raw_resume_text`
+- GIN index on `fts_vector` and `skills_tags`; call via `supabase.schema("recruitment").rpc("search_candidates", { query_text, lim })`
+
+**Deduplication** (`upsert_candidate` RPC):
+- Matches on `lower(email)` first, then `phone`; on collision fills only NULL/empty fields (COALESCE — never overwrites)
+- Returns `{ candidate_id, action: "inserted" | "collision_merged", completeness_pct }`
+- `profile_completeness_pct` (0–100) computed from 8 optional fields; `completeness_prompted` flag for UI nudge
+
+**Job events (Timeline)**:
+- `job_events` has NO update trigger — API must insert explicitly (same pattern as `consultation_logs` + `logConsultationEvent()`)
+- `event_type` mirrors job `status` values plus `'note'` for free-text entries
+
+**Application stage history (BR-007)**:
+- Trigger `trg_log_application_stage_change` auto-inserts on `applications.stage` UPDATE (`changed_by = NULL`)
+- Trigger does NOT fire on INSERT — API must explicitly insert the initial `'applied'` row with user context
+- `v_stagnant_applications` view: active applications where `updated_at < now() - 5 days`; returns `days_in_stage` float
+
+**Placement tasks (BR-008/009/011)**:
+- Trigger `trg_create_placement_tasks` fires AFTER INSERT on `placements` (not on UPDATE)
+- Always creates: `finance_contract` + `finance_invoice` tasks
+- Creates `security_clearance` task if `jobs.security_clearance_required = true`
+- All tasks created with `assigned_to = NULL`; app layer routes by `task_type` to finance team or security officer
+
+**CV parse tracking** (Gemini-ready, no DDL changes needed when parser is built):
+- `candidates.cv_parse_status`: `'unparsed' → 'pending' → 'parsed' | 'failed'`
+- `candidates.cv_parsed_by`: `'gemini' | 'claude' | 'azure' | 'daxtra' | 'manual'`
+- `candidates.cv_parsed_at`: timestamptz
+- Batch query: `SELECT a.cv_storage_key FROM applications a JOIN candidates c ON c.id = a.candidate_id WHERE c.cv_parse_status = 'unparsed' AND a.cv_storage_key IS NOT NULL`
+- Parsed output writes to: `raw_resume_text` (activates fts_vector), `parsed_metadata` (jsonb), `skills_tags` (array)
+
+**Recruitment RLS**: single `FOR ALL TO authenticated` policy per table using `has_module_access('recruitment')` — same pattern as regulatory. `service_role` bypasses RLS automatically (BYPASSRLS at role level).
 
 ## Commands
 

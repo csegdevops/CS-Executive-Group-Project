@@ -68,6 +68,9 @@ function matchBadge(row: FormulationPreviewRow) {
   if (row.matchedBy === "alt_cas") {
     return <Badge variant="outline" className="text-xs text-blue-700 border-blue-300 bg-blue-50">Alt CAS</Badge>
   }
+  if (row.matchedBy === "pubchem") {
+    return <Badge variant="outline" className="text-xs text-cyan-700 border-cyan-300 bg-cyan-50">PubChem</Badge>
+  }
   return <Badge variant="outline" className="text-xs text-violet-700 border-violet-300 bg-violet-50">Name match</Badge>
 }
 

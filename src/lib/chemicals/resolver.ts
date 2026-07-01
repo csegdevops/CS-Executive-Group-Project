@@ -60,8 +60,14 @@ export async function resolveAndPersistChemical(
   }
 
   // ─── 2. PubChem lookup ─────────────────────────────────────────────────────
+  // If the primary identifier fails, try the alternate (CAS → name or name → CAS).
+  // PubChem sometimes fails to match a CAS that it does have indexed under a synonym name.
 
-  const pubchemResult = await fetchByIdentifier(identifier)
+  let pubchemResult = await fetchByIdentifier(identifier)
+
+  if (!pubchemResult && input.cas && input.name) {
+    pubchemResult = await fetchByIdentifier(input.name.trim())
+  }
 
   // ─── 3. Upsert chemical ────────────────────────────────────────────────────
 
@@ -140,6 +146,7 @@ export async function resolveAndPersistChemical(
       last_checked: new Date().toISOString(),
     }
 
+    let hasRealData = false
     if (framework === "reach" && pubchemResult?.casNumber) {
       const echaResult = await fetchReachStatus(pubchemResult.casNumber)
       if (echaResult) {
@@ -150,12 +157,16 @@ export async function resolveAndPersistChemical(
           list_url: echaResult.listUrl,
           source: "api",
         }
+        hasRealData = true
       }
     }
 
+    // Only overwrite an existing listing when we have real external data (e.g. ECHA for REACH).
+    // Without real data, status would be "unknown" which must not replace a correct status
+    // written by the AICIS import or any other authoritative source.
     await reg
       .from("regulatory_listings")
-      .upsert(listing, { onConflict: "chemical_id,framework", ignoreDuplicates: false })
+      .upsert(listing, { onConflict: "chemical_id,framework", ignoreDuplicates: !hasRealData })
   }
 
   const { data: final } = await reg

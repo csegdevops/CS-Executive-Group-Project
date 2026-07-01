@@ -59,7 +59,7 @@ export default async function CompaniesPage() {
               {(companies ?? []).map((c) => (
                 <tr key={c.id} className="hover:bg-muted/30 transition-colors">
                   <td className="px-4 py-3">
-                    <div className="font-medium">{c.name}</div>
+                    <Link href={`/regulatory/companies/${c.id}`} className="font-medium hover:underline">{c.name}</Link>
                     {!c.is_active && (
                       <Badge variant="outline" className="text-xs text-muted-foreground mt-0.5">
                         Inactive

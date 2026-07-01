@@ -1,12 +1,12 @@
 "use client"
 
-import { useState, useCallback, useEffect, Fragment } from "react"
+import { useState, useCallback, useEffect, useRef, Fragment } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { RegulatoryStatusBadge } from "@/components/chemicals/RegulatoryStatusBadge"
-import { Plus, Trash2, AlertCircle, Loader2, Link2, X, GripVertical } from "lucide-react"
+import { Plus, Trash2, AlertCircle, Loader2, Link2, X, GripVertical, Search } from "lucide-react"
 import { toast } from "sonner"
 import Link from "next/link"
 import { UploadFormulationDialog } from "./UploadFormulationDialog"
@@ -54,24 +54,86 @@ interface Props {
 export function ChemicalsTab({ consultationId, frameworks, initialChemicals, products }: Props) {
   const router = useRouter()
   const [chemicals, setChemicals] = useState<ConsultationChemical[]>(initialChemicals)
-  const [identifier, setIdentifier] = useState("")
-  const [role, setRole]             = useState("")
-  const [productName, setProductName]  = useState("")
-  const [concentration, setConcentration] = useState("")
-  const [adding, setAdding]           = useState(false)
-  const [removing, setRemoving]       = useState<string | null>(null)
 
-  // Resolve (link unresolved → known chemical)
+  // ── Add form state ────────────────────────────────────────────────────────
+  const [identifier, setIdentifier]       = useState("")
+  const [role, setRole]                   = useState("")
+  const [productName, setProductName]     = useState("")
+  const [concentration, setConcentration] = useState("")
+  const [adding, setAdding]               = useState(false)
+
+  // Search-as-you-type for the identifier field
+  const [searchResults, setSearchResults]   = useState<SearchResult[]>([])
+  const [searchLoading, setSearchLoading]   = useState(false)
+  const [showDropdown, setShowDropdown]     = useState(false)
+  const [selectedChemical, setSelectedChemical] = useState<SearchResult | null>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  // ── Remove state ──────────────────────────────────────────────────────────
+  const [removing, setRemoving] = useState<string | null>(null)
+
+  // ── Resolve (link unresolved → known chemical) ────────────────────────────
   const [resolvingId, setResolvingId]         = useState<string | null>(null)
   const [resolveQuery, setResolveQuery]       = useState("")
   const [resolveResults, setResolveResults]   = useState<SearchResult[]>([])
   const [resolveSearching, setResolveSearching] = useState(false)
   const [resolveApplying, setResolveApplying]   = useState(false)
 
-  // Drag-and-drop to reassign product
+  // ── Drag-and-drop ─────────────────────────────────────────────────────────
   const [dragId, setDragId]     = useState<string | null>(null)
   const [dragOver, setDragOver] = useState<string | null>(null)
 
+  // ── Identifier search effect ──────────────────────────────────────────────
+  // Fires whenever identifier changes (debounced 300ms). Clears when a chemical is already selected.
+  useEffect(() => {
+    if (selectedChemical) return
+    if (!identifier.trim() || identifier.length < 2) {
+      setSearchResults([])
+      setShowDropdown(false)
+      return
+    }
+    const t = setTimeout(async () => {
+      setSearchLoading(true)
+      try {
+        const res = await fetch(`/api/chemicals?q=${encodeURIComponent(identifier)}`)
+        if (res.ok) {
+          const data: SearchResult[] = await res.json()
+          setSearchResults(data)
+          setShowDropdown(data.length > 0)
+        }
+      } finally {
+        setSearchLoading(false)
+      }
+    }, 300)
+    return () => clearTimeout(t)
+  }, [identifier, selectedChemical])
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setShowDropdown(false)
+      }
+    }
+    document.addEventListener("mousedown", onClickOutside)
+    return () => document.removeEventListener("mousedown", onClickOutside)
+  }, [])
+
+  function selectFromDropdown(c: SearchResult) {
+    setSelectedChemical(c)
+    setIdentifier(c.common_name)
+    setShowDropdown(false)
+    setSearchResults([])
+  }
+
+  function clearSelection() {
+    setSelectedChemical(null)
+    setIdentifier("")
+    setSearchResults([])
+    setShowDropdown(false)
+  }
+
+  // ── Resolve search effect ─────────────────────────────────────────────────
   useEffect(() => {
     if (!resolveQuery.trim() || resolveQuery.length < 2) {
       setResolveResults([])
@@ -111,7 +173,7 @@ export function ChemicalsTab({ consultationId, frameworks, initialChemicals, pro
       setResolvingId(null)
       setResolveQuery("")
       setResolveResults([])
-      await refreshList()
+      await fetchChemicals()
       toast.success("Chemical resolved")
     } catch {
       toast.error("Network error")
@@ -120,21 +182,41 @@ export function ChemicalsTab({ consultationId, frameworks, initialChemicals, pro
     }
   }
 
-  const refreshList = useCallback(async () => {
+  // Fetch just the chemicals list (no full page reload)
+  const fetchChemicals = useCallback(async () => {
     const res = await fetch(`/api/consultations/${consultationId}/chemicals`)
     if (res.ok) setChemicals(await res.json())
+  }, [consultationId])
+
+  // Full refresh including server components (VolumesTab product list etc.)
+  const refreshList = useCallback(async () => {
+    await fetchChemicals()
     router.refresh()
-  }, [consultationId, router])
+  }, [fetchChemicals, router])
 
   async function handleAdd(e: { preventDefault(): void }) {
     e.preventDefault()
-    if (!identifier.trim()) return
+    if (!identifier.trim() && !selectedChemical) return
     setAdding(true)
-    const isCas = /^\d{2,7}-\d{2}-\d$/.test(identifier.trim())
-    const qty   = concentration.trim() ? parseFloat(concentration) : undefined
-    const body  = isCas
-      ? { cas: identifier.trim(), role: role || undefined, product_name: productName || undefined, quantity: qty }
-      : { name: identifier.trim(), role: role || undefined, product_name: productName || undefined, quantity: qty }
+
+    const qty = concentration.trim() ? parseFloat(concentration) : undefined
+    let body: Record<string, unknown>
+
+    if (selectedChemical) {
+      // Direct DB match — skip PubChem resolution entirely
+      body = {
+        chemical_id:  selectedChemical.id,
+        role:         role || undefined,
+        product_name: productName || undefined,
+        quantity:     qty,
+      }
+    } else {
+      const isCas = /^\d{2,7}-\d{2}-\d$/.test(identifier.trim())
+      body = isCas
+        ? { cas: identifier.trim(), role: role || undefined, product_name: productName || undefined, quantity: qty }
+        : { name: identifier.trim(), role: role || undefined, product_name: productName || undefined, quantity: qty }
+    }
+
     try {
       const res = await fetch(`/api/consultations/${consultationId}/chemicals`, {
         method: "POST",
@@ -146,8 +228,13 @@ export function ChemicalsTab({ consultationId, frameworks, initialChemicals, pro
         toast.error(err.error ?? "Failed to add chemical")
         return
       }
-      await refreshList()
-      setIdentifier("")
+
+      // Update local chemicals immediately — no router.refresh() to avoid page flicker.
+      // Only call router.refresh() when a product was specified (stub may have been created).
+      await fetchChemicals()
+      if (productName) router.refresh()
+
+      clearSelection()
       setRole("")
       setProductName("")
       setConcentration("")
@@ -184,7 +271,6 @@ export function ChemicalsTab({ consultationId, frameworks, initialChemicals, pro
   function handleDragStart(e: React.DragEvent<HTMLTableRowElement>, cc: ConsultationChemical) {
     setDragId(cc.id)
     e.dataTransfer.effectAllowed = "move"
-    // Custom drag ghost: just the chemical name on a small card
     const label = cc.chemicals?.common_name ?? cc.notes ?? "ingredient"
     const ghost = document.createElement("div")
     ghost.textContent = label
@@ -207,14 +293,13 @@ export function ChemicalsTab({ consultationId, frameworks, initialChemicals, pro
 
   async function handleDrop(targetGroupKey: string) {
     if (!dragId) return
-    const id         = dragId  // capture before clearing
+    const id         = dragId
     const newProduct = targetGroupKey === "(no product)" ? "" : targetGroupKey
     const cc         = chemicals.find((c) => c.id === id)
     setDragId(null)
     setDragOver(null)
-    if (!cc || (cc.product_name ?? "") === newProduct) return  // same group, no-op
+    if (!cc || (cc.product_name ?? "") === newProduct) return
 
-    // Optimistic: move immediately in local state and clear stale concentration
     setChemicals((prev) =>
       prev.map((c) => c.id === id ? { ...c, product_name: newProduct, quantity: null, unit: null } : c)
     )
@@ -228,19 +313,18 @@ export function ChemicalsTab({ consultationId, frameworks, initialChemicals, pro
       if (!res.ok) {
         const err = await res.json()
         toast.error(err.error ?? "Failed to move chemical")
-        setChemicals((prev) => prev.map((c) => c.id === id ? cc : c))  // revert
+        setChemicals((prev) => prev.map((c) => c.id === id ? cc : c))
         return
       }
-      router.refresh()  // sync server components (VolumesTab etc.)
+      router.refresh()
       toast.success("Chemical moved")
     } catch {
       toast.error("Network error")
-      setChemicals((prev) => prev.map((c) => c.id === id ? cc : c))  // revert
+      setChemicals((prev) => prev.map((c) => c.id === id ? cc : c))
     }
   }
 
-  // ── Build group entries ────────────────────────────────────────────────────
-  // During drag: surface all products (including empty ones) as drop targets.
+  // ── Group entries ─────────────────────────────────────────────────────────
 
   function needsAction(chem: Chemical): boolean {
     if (chem.needs_review) return true
@@ -255,12 +339,9 @@ export function ChemicalsTab({ consultationId, frameworks, initialChemicals, pro
     return acc
   }, {})
 
-  // When named products exist, always keep "(no product)" as a permanent unassign bin.
-  // During drag, also surface any named products that currently have no chemicals.
   if (products.length > 0) grouped["(no product)"] ??= []
   if (dragId) products.forEach((name) => { grouped[name] ??= [] })
 
-  // Named groups in natural order, "(no product)" pinned last.
   const unassigned = grouped["(no product)"] ?? []
   const groupEntries: [string, ConsultationChemical[]][] = products.length > 0
     ? [
@@ -275,19 +356,75 @@ export function ChemicalsTab({ consultationId, frameworks, initialChemicals, pro
     <div className="space-y-6">
       {/* Toolbar */}
       <div className="flex flex-wrap gap-3 items-end">
-        <form onSubmit={handleAdd} className="flex gap-2 items-end">
+        <form onSubmit={handleAdd} className="flex gap-2 items-end flex-wrap">
+
+          {/* Identifier with live search dropdown */}
           <div>
             <label className="text-xs text-muted-foreground mb-1 block">
               CAS number or chemical name
             </label>
-            <Input
-              value={identifier}
-              onChange={(e) => setIdentifier(e.target.value)}
-              placeholder="e.g. 67-64-1 or Acetone"
-              disabled={adding}
-              className="w-64"
-            />
+            <div className="relative w-64" ref={dropdownRef}>
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                <Input
+                  value={identifier}
+                  onChange={(e) => {
+                    if (selectedChemical) clearSelection()
+                    setIdentifier(e.target.value)
+                  }}
+                  onFocus={() => { if (searchResults.length > 0) setShowDropdown(true) }}
+                  placeholder="e.g. 67-64-1 or Acetone"
+                  disabled={adding}
+                  className="pl-8 pr-8"
+                />
+                {(searchLoading || selectedChemical) && (
+                  <div className="absolute right-2 top-2.5">
+                    {searchLoading
+                      ? <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                      : <button type="button" onClick={clearSelection} className="text-muted-foreground hover:text-foreground">
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                    }
+                  </div>
+                )}
+              </div>
+
+              {selectedChemical && (
+                <p className="text-xs text-green-600 mt-0.5">
+                  {selectedChemical.cas_number
+                    ? <span className="font-mono">{selectedChemical.cas_number}</span>
+                    : "No CAS"
+                  }
+                  <span className="ml-1">· matched in database</span>
+                </p>
+              )}
+
+              {showDropdown && (
+                <div className="absolute top-full left-0 z-50 w-full mt-1 border rounded-md bg-background shadow-md divide-y text-xs">
+                  {searchResults.slice(0, 6).map((r) => (
+                    <button
+                      key={r.id}
+                      type="button"
+                      onMouseDown={() => selectFromDropdown(r)}
+                      className="w-full text-left px-3 py-2 hover:bg-muted/50"
+                    >
+                      <span className="font-medium">{r.common_name}</span>
+                      {r.cas_number && (
+                        <span className="font-mono text-muted-foreground ml-2">{r.cas_number}</span>
+                      )}
+                      {r.needs_review && (
+                        <span className="text-amber-600 ml-2">· needs review</span>
+                      )}
+                    </button>
+                  ))}
+                  <div className="px-3 py-1.5 text-muted-foreground italic">
+                    Not listed? Submit to search PubChem automatically.
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
+
           <div>
             <label className="text-xs text-muted-foreground mb-1 block">Role (optional)</label>
             <Input
@@ -298,6 +435,7 @@ export function ChemicalsTab({ consultationId, frameworks, initialChemicals, pro
               className="w-32"
             />
           </div>
+
           {products.length > 0 && (
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">Product (optional)</label>
@@ -314,6 +452,7 @@ export function ChemicalsTab({ consultationId, frameworks, initialChemicals, pro
               </select>
             </div>
           )}
+
           {productName && (
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">Conc % (optional)</label>
@@ -330,7 +469,12 @@ export function ChemicalsTab({ consultationId, frameworks, initialChemicals, pro
               />
             </div>
           )}
-          <Button type="submit" disabled={adding || !identifier.trim()} size="sm">
+
+          <Button
+            type="submit"
+            disabled={adding || (!identifier.trim() && !selectedChemical)}
+            size="sm"
+          >
             {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
             Add
           </Button>
@@ -366,7 +510,6 @@ export function ChemicalsTab({ consultationId, frameworks, initialChemicals, pro
             <tbody className="divide-y">
               {groupEntries.map(([groupKey, rows]) => (
                 <Fragment key={groupKey}>
-                  {/* Product section header — drop target */}
                   <tr
                     className={`border-t transition-colors ${
                       dragOver === groupKey
@@ -385,7 +528,6 @@ export function ChemicalsTab({ consultationId, frameworks, initialChemicals, pro
                     </td>
                   </tr>
 
-                  {/* Empty group — always show a row so the section has visible height */}
                   {rows.length === 0 && (
                     <tr
                       className={dragId ? "bg-blue-50/20" : ""}

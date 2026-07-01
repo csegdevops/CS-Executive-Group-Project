@@ -213,6 +213,7 @@ export function NewConsultationWizard({ companies, initialCompanyId }: Props) {
     if (row.matchedBy === "cas")     return <Badge variant="outline" className="text-xs text-green-700 border-green-300 bg-green-50">CAS</Badge>
     if (row.matchedBy === "alt_cas") return <Badge variant="outline" className="text-xs text-blue-700 border-blue-300 bg-blue-50">Alt CAS</Badge>
     if (row.matchedBy === "name")    return <Badge variant="outline" className="text-xs text-violet-700 border-violet-300 bg-violet-50">Name</Badge>
+    if (row.matchedBy === "pubchem") return <Badge variant="outline" className="text-xs text-cyan-700 border-cyan-300 bg-cyan-50">PubChem</Badge>
     return <Badge variant="outline" className="text-xs text-amber-700 border-amber-300 bg-amber-50">New</Badge>
   }
 

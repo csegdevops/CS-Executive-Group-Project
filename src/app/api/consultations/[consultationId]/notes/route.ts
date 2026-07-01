@@ -17,7 +17,7 @@ export async function GET(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (admin.schema("regulatory") as any)
     .from("consultation_notes")
-    .select("id, content, author_id, created_at, updated_at")
+    .select("id, content, author_id, milestone, created_at, updated_at")
     .eq("consultation_id", consultationId)
     .order("created_at", { ascending: false })
 
@@ -48,14 +48,22 @@ export async function POST(
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const body = await request.json()
-  const parsed = z.object({ content: z.string().min(1) }).safeParse(body)
+  const parsed = z.object({
+    content: z.string().min(1),
+    milestone: z.enum(["consultation", "chemicals", "volumes", "regulatory", "review", "complete"]).optional(),
+  }).safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: "Content required" }, { status: 400 })
 
   const admin = createAdminClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (admin.schema("regulatory") as any)
     .from("consultation_notes")
-    .insert({ consultation_id: consultationId, author_id: user.id, content: parsed.data.content })
+    .insert({
+      consultation_id: consultationId,
+      author_id: user.id,
+      content: parsed.data.content,
+      milestone: parsed.data.milestone ?? null,
+    })
     .select()
     .single()
 

@@ -4,11 +4,16 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 
 const createSchema = z.object({
-  name: z.string().min(1),
-  abn: z.string().optional(),
-  country: z.string().optional(),
-  industry: z.string().optional(),
-  notes: z.string().optional(),
+  name:          z.string().min(1),
+  abn:           z.string().optional(),
+  country:       z.string().optional(),
+  industry:      z.string().optional(),
+  notes:         z.string().optional(),
+  address_line1: z.string().optional(),
+  address_line2: z.string().optional(),
+  suburb:        z.string().optional(),
+  state:         z.string().optional(),
+  postcode:      z.string().optional(),
 })
 
 export async function GET() {
@@ -32,17 +37,17 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  // Require regulatory module admin or super admin
+  // Require regulatory OR crm module admin (or super admin)
   const { data: profile } = await supabase
     .from("profiles").select("role").eq("id", user.id).single()
   if (profile?.role !== "super_admin") {
-    const { data: access } = await supabase
+    const { data: accesses } = await supabase
       .from("user_module_access")
-      .select("access_level")
+      .select("module, access_level")
       .eq("user_id", user.id)
-      .eq("module", "regulatory")
-      .single()
-    if (access?.access_level !== "admin") {
+      .in("module", ["regulatory", "crm"])
+    const isAdmin = (accesses ?? []).some(a => a.access_level === "admin")
+    if (!isAdmin) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
   }
@@ -61,5 +66,22 @@ export async function POST(request: Request) {
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Auto-create Head Office branch if address provided
+  const hasAddress = parsed.data.address_line1 || parsed.data.suburb || parsed.data.postcode
+  if (hasAddress) {
+    await admin.from("company_branches").insert({
+      company_id:    data.id,
+      name:          "Head Office",
+      address_line1: parsed.data.address_line1 ?? null,
+      address_line2: parsed.data.address_line2 ?? null,
+      suburb:        parsed.data.suburb         ?? null,
+      state:         parsed.data.state          ?? null,
+      postcode:      parsed.data.postcode        ?? null,
+      country:       parsed.data.country         ?? "Australia",
+      is_head_office: true,
+    })
+  }
+
   return NextResponse.json(data, { status: 201 })
 }

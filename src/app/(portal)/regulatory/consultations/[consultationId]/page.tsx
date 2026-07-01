@@ -17,7 +17,6 @@ import { ConsultationStatusControl } from "./ConsultationStatusControl"
 import { ManageConsultantsDialog } from "./ManageConsultantsDialog"
 import { BackButton } from "./BackButton"
 import { EditDetailsDialog } from "./EditDetailsDialog"
-import { NotesSection } from "./NotesSection"
 import type { RegulatoryFramework, RegulatoryStatus } from "@/types/database"
 
 const statusLabels: Record<string, string> = {
@@ -32,7 +31,7 @@ export default async function ConsultationDetailPage({
   params: Promise<{ consultationId: string }>
 }) {
   const { consultationId } = await params
-  await requireAuth()
+  const user = await requireAuth()
   const supabase = await createClient()
   const admin    = createAdminClient()
 
@@ -226,9 +225,6 @@ export default async function ConsultationDetailPage({
             )}
           </div>
 
-          <div className="mt-6">
-            <NotesSection consultationId={consultationId} />
-          </div>
         </TabsContent>
 
         {/* ── Chemicals ── */}
@@ -362,6 +358,7 @@ export default async function ConsultationDetailPage({
             chemicalsSummary={chemicalsSummary}
             volumesSummary={volumesSummary}
             regulatorySummary={regulatorySummary}
+            currentUserId={user.id}
           />
         </TabsContent>
       </Tabs>

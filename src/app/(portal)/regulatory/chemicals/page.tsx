@@ -6,6 +6,7 @@ import Link from "next/link"
 import { AlertCircle } from "lucide-react"
 import { ChemicalSearchInput } from "./ChemicalSearchInput"
 import { CreateChemskillButton } from "./CreateChemskillButton"
+import { ChemicalDeleteButton } from "./ChemicalDeleteButton"
 
 interface SearchParams {
   q?: string
@@ -81,6 +82,7 @@ export default async function ChemicalsPage({
               <th className="text-left px-4 py-3 font-medium">CAS Number</th>
               <th className="text-left px-4 py-3 font-medium">Formula</th>
               <th className="text-left px-4 py-3 font-medium">Status</th>
+              <th className="px-4 py-3" />
             </tr>
           </thead>
           <tbody className="divide-y">
@@ -114,6 +116,12 @@ export default async function ChemicalsPage({
                       </Badge>
                     )}
                   </div>
+                </td>
+                {/* Delete only allowed for manually pushed Chemskill entries */}
+                <td className="px-4 py-3 text-right">
+                  {c.source === "chemskill" && (
+                    <ChemicalDeleteButton id={c.id} name={c.common_name} />
+                  )}
                 </td>
               </tr>
             ))}
