@@ -16,12 +16,23 @@ import {
 import { toast } from "sonner"
 import type { RegulatoryListPreview, RegulatoryListPreviewRow } from "@/lib/import/regulatory-list-pipeline"
 import type { AicisEntry } from "@/lib/import/aicis-parser"
+import type { ReachEntry } from "@/lib/import/reach-parser"
+import type { TscaEntry } from "@/lib/import/tsca-parser"
 
 type Step = "upload" | "preview" | "done"
-type Source = "aicis"
+type Source = "aicis" | "reach" | "tsca"
+type AnyEntry = AicisEntry | ReachEntry | TscaEntry
 
 const SOURCE_LABELS: Record<Source, string> = {
   aicis: "AICIS Inventory (Australian)",
+  reach: "ECHA REACH (SVHC Candidate List)",
+  tsca:  "EPA TSCA (Chemical Inventory)",
+}
+
+const SOURCE_INSTRUCTIONS: Record<Source, string> = {
+  aicis: "Download the AICIS Inventory spreadsheet from the AICIS portal and upload it here.",
+  reach: "Download from echa.europa.eu → Candidate List Table → Export to Excel (.xlsx).",
+  tsca:  "Download the Non-confidential TSCA Inventory from epa.gov/tsca-inventory (Excel format).",
 }
 
 interface ProgressState {
@@ -67,7 +78,7 @@ export default function RegulatoryListsPage() {
   const [source, setSource]     = useState<Source>("aicis")
   const [file, setFile]         = useState<File | null>(null)
   const [preview, setPreview]   = useState<RegulatoryListPreview | null>(null)
-  const [entries, setEntries]   = useState<AicisEntry[]>([])
+  const [entries, setEntries]   = useState<AnyEntry[]>([])
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set())
   const [loading, setLoading]   = useState(false)
   const [progress, setProgress] = useState<ProgressState | null>(null)
@@ -144,14 +155,14 @@ export default function RegulatoryListsPage() {
       eta:    null,
     })
 
-    let pendingResult: { preview: RegulatoryListPreview; entries: AicisEntry[] } | null = null
+    let pendingResult: { preview: RegulatoryListPreview; entries: AnyEntry[] } | null = null
 
     function handleLine(line: string) {
       if (!line.trim()) return
       try {
         const ev = JSON.parse(line) as
           | { type: "progress"; done: number; total: number }
-          | { type: "result"; preview: RegulatoryListPreview; entries: AicisEntry[] }
+          | { type: "result"; preview: RegulatoryListPreview; entries: AnyEntry[] }
           | { type: "error"; message: string }
 
         if (ev.type === "progress") {
@@ -203,8 +214,7 @@ export default function RegulatoryListsPage() {
       if (lineBuffer.trim()) handleLine(lineBuffer)
 
       if (pendingResult) {
-        // TypeScript loses the non-null narrowing through closures; re-assert here
-        const result = pendingResult as { preview: RegulatoryListPreview; entries: AicisEntry[] }
+        const result = pendingResult as { preview: RegulatoryListPreview; entries: AnyEntry[] }
         setEntries(result.entries)
         setPreview(result.preview)
         setSelectedRows(new Set(result.preview.rows.map((r: RegulatoryListPreviewRow) => r.rowIndex)))
@@ -352,8 +362,7 @@ export default function RegulatoryListsPage() {
                 ))}
               </div>
               <p className="text-xs text-muted-foreground mt-2">
-                {source === "aicis" &&
-                  "Download the AICIS Inventory spreadsheet from the AICIS portal and upload it here."}
+                {SOURCE_INSTRUCTIONS[source]}
               </p>
             </div>
 
@@ -438,7 +447,7 @@ export default function RegulatoryListsPage() {
                         />
                       </th>
                       <th className="text-left px-3 py-2 text-xs">In DB</th>
-                      <th className="text-left px-3 py-2 text-xs">CR No.</th>
+                      <th className="text-left px-3 py-2 text-xs">Ref. No.</th>
                       <th className="text-left px-3 py-2 text-xs">CAS No.</th>
                       <th className="text-left px-3 py-2 text-xs">Chemical Name</th>
                       <th className="text-left px-3 py-2 text-xs">Status</th>

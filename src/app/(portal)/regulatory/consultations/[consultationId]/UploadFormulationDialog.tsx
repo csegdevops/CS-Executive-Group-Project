@@ -22,6 +22,7 @@ import {
 import { toast } from "sonner"
 import type { FormulationPreview, FormulationPreviewRow } from "@/lib/import/formulation-pipeline"
 import type { FormulationEntry } from "@/lib/import/formulation-parser"
+import type { RegulatoryFramework } from "@/types/database"
 
 type Step = "upload" | "preview" | "done"
 
@@ -58,6 +59,20 @@ function ProgressBar({ prog }: { prog: ProgressState }) {
   )
 }
 
+function statusCell(status: string | null) {
+  if (status === "restricted") {
+    return (
+      <span className="flex items-center gap-1 text-red-700 whitespace-nowrap">
+        <AlertCircle className="h-3 w-3" />
+        Restricted
+      </span>
+    )
+  }
+  if (status === "listed") return <span className="text-green-700">Listed</span>
+  if (status) return <span className="capitalize text-muted-foreground">{status}</span>
+  return <span className="text-muted-foreground">—</span>
+}
+
 function matchBadge(row: FormulationPreviewRow) {
   if (row.isNew) {
     return <Badge variant="outline" className="text-xs text-amber-700 border-amber-300 bg-amber-50">New</Badge>
@@ -76,10 +91,11 @@ function matchBadge(row: FormulationPreviewRow) {
 
 interface Props {
   consultationId: string
+  frameworks: RegulatoryFramework[]
   onCommitDone: () => void
 }
 
-export function UploadFormulationDialog({ consultationId, onCommitDone }: Props) {
+export function UploadFormulationDialog({ consultationId, frameworks, onCommitDone }: Props) {
   const [open, setOpen]             = useState(false)
   const [step, setStep]             = useState<Step>("upload")
   const [file, setFile]             = useState<File | null>(null)
@@ -435,7 +451,9 @@ export function UploadFormulationDialog({ consultationId, onCommitDone }: Props)
                         <th className="text-left px-2 py-2">Function</th>
                         <th className="text-left px-2 py-2">Product</th>
                         <th className="text-left px-2 py-2">Match</th>
-                        <th className="text-left px-2 py-2">AICIS</th>
+                        {frameworks.includes("aicis")  && <th className="text-left px-2 py-2 whitespace-nowrap">AICIS</th>}
+                        {frameworks.includes("reach")  && <th className="text-left px-2 py-2 whitespace-nowrap">REACH</th>}
+                        {frameworks.includes("tsca")   && <th className="text-left px-2 py-2 whitespace-nowrap">TSCA</th>}
                         <th className="text-left px-2 py-2">History</th>
                       </tr>
                     </thead>
@@ -474,20 +492,15 @@ export function UploadFormulationDialog({ consultationId, onCommitDone }: Props)
                           <td className="px-2 py-2 text-muted-foreground">{row.function ?? "—"}</td>
                           <td className="px-2 py-2 text-muted-foreground">{row.productName ?? "—"}</td>
                           <td className="px-2 py-2">{matchBadge(row)}</td>
-                          <td className="px-2 py-2">
-                            {row.aicisStatus === "restricted" ? (
-                              <span className="flex items-center gap-1 text-red-700 whitespace-nowrap">
-                                <AlertCircle className="h-3 w-3" />
-                                Restricted
-                              </span>
-                            ) : row.aicisStatus === "listed" ? (
-                              <span className="text-green-700">Listed</span>
-                            ) : row.aicisStatus ? (
-                              <span className="capitalize text-muted-foreground">{row.aicisStatus}</span>
-                            ) : (
-                              <span className="text-muted-foreground">—</span>
-                            )}
-                          </td>
+                          {frameworks.includes("aicis") && (
+                            <td className="px-2 py-2">{statusCell(row.aicisStatus)}</td>
+                          )}
+                          {frameworks.includes("reach") && (
+                            <td className="px-2 py-2">{statusCell(row.reachStatus)}</td>
+                          )}
+                          {frameworks.includes("tsca") && (
+                            <td className="px-2 py-2">{statusCell(row.tscaStatus)}</td>
+                          )}
                           <td className="px-2 py-2">
                             {row.previouslyReviewed.length > 0 ? (
                               <span

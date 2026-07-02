@@ -5,7 +5,7 @@ export type AssignmentType = "primary" | "temporary"
 export type ConsultationStatus = "draft" | "in_progress" | "under_review" | "completed" | "archived"
 export type RegulatoryFramework = "aicis" | "reach" | "tsca"
 export type RegulatoryStatus = "listed" | "not_listed" | "exempt" | "restricted" | "pending" | "unknown"
-export type AliasType = "trade_name" | "synonym" | "iupac" | "cas_rn"
+export type AliasType = "trade_name" | "synonym" | "iupac" | "cas_rn" | "ec_number"
 export type AliasSource = "pubchem" | "echa" | "manual"
 
 // Lookup values

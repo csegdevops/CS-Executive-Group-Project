@@ -1,6 +1,20 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import type { AicisEntry } from "./aicis-parser"
-import type { RegulatoryStatus } from "@/types/database"
+import type { ReachEntry } from "./reach-parser"
+import type { TscaEntry } from "./tsca-parser"
+import type { RegulatoryStatus, RegulatoryFramework } from "@/types/database"
+
+type ListingRow = {
+  chemical_id:    string
+  framework:      RegulatoryFramework
+  status:         RegulatoryStatus
+  list_name:      string
+  notes:          string | null
+  last_checked:   string
+  source:         string
+  effective_date?: string | null
+  list_url?:       string | null
+}
 
 export interface RegulatoryListPreviewRow {
   rowIndex: number
@@ -222,12 +236,14 @@ export async function commitAicisImport(
   if (onProgress) await onProgress(3, 4)
 
   // Phase 4 — Batch upsert all regulatory_listings
+  // Deduplicate by chemical_id: same chemical can appear twice if two entries share a CAS.
   const now = new Date().toISOString()
-  const allListings = selectedRows.flatMap((r) => {
+  const listingsMap = new Map<string, ListingRow>()
+  for (const r of selectedRows) {
     const chemicalId = resolvedIds.get(r.rowIndex)
-    if (!chemicalId) return []
+    if (!chemicalId) continue
     const entry = entryMap.get(r.rowIndex)!
-    return [{
+    listingsMap.set(chemicalId, {
       chemical_id:  chemicalId,
       framework:    "aicis" as const,
       status:       r.status,
@@ -235,8 +251,9 @@ export async function commitAicisImport(
       notes:        entry.notes ?? entry.conditions,
       last_checked: now,
       source:       "manual",
-    }]
-  })
+    })
+  }
+  const allListings = [...listingsMap.values()]
 
   for (let i = 0; i < allListings.length; i += CHUNK) {
     const { error } = await reg
@@ -251,4 +268,330 @@ export async function commitAicisImport(
   const skipped  = selectedRows.length - upserted
 
   return { upserted, skipped, errors }
+}
+
+// ─── REACH (ECHA SVHC Candidate List) ────────────────────────────────────────
+
+export async function generateReachPreview(
+  entries: ReachEntry[],
+  onProgress?: (done: number, total: number) => Promise<void>
+): Promise<RegulatoryListPreview> {
+  const admin = createAdminClient()
+  const reg = admin.schema("regulatory")
+
+  const uniqueCas = [
+    ...new Set(entries.map((e) => e.casNumber).filter((c): c is string => Boolean(c))),
+  ]
+  const casMap = new Map<string, ChemicalRecord>()
+  if (uniqueCas.length > 0) {
+    const { data } = await reg.from("chemicals").select("id, common_name, cas_number").in("cas_number", uniqueCas)
+    for (const c of data ?? []) casMap.set(c.cas_number!, c)
+  }
+  if (onProgress) await onProgress(1, 3)
+
+  const aliasMap = new Map<string, ChemicalRecord>()
+  const unresolvedNames = [
+    ...new Set(
+      entries
+        .filter((e) => !casMap.has(e.casNumber ?? "") && e.substanceName)
+        .map((e) => e.substanceName!)
+    ),
+  ]
+  for (let i = 0; i < unresolvedNames.length; i += CHUNK) {
+    const chunk = unresolvedNames.slice(i, i + CHUNK)
+    const { data } = await admin.rpc("match_chemicals_by_names", { names: chunk })
+    for (const row of (data ?? []) as Array<{ input_name: string; chemical_id: string; common_name: string; cas_number: string | null }>) {
+      aliasMap.set(row.input_name.toLowerCase(), { id: row.chemical_id, common_name: row.common_name, cas_number: row.cas_number })
+    }
+  }
+  if (onProgress) await onProgress(2, 3)
+
+  const rows: RegulatoryListPreviewRow[] = entries.map((entry) => {
+    const chemical =
+      (entry.casNumber ? casMap.get(entry.casNumber) : undefined) ??
+      (entry.substanceName ? aliasMap.get(entry.substanceName.toLowerCase()) : undefined) ??
+      null
+    return {
+      rowIndex:     entry.rowIndex,
+      crNumber:     entry.ecNumber,
+      inputCas:     entry.casNumber,
+      inputName:    entry.substanceName,
+      chemicalId:   chemical?.id ?? null,
+      resolvedName: chemical?.common_name ?? entry.substanceName,
+      resolvedCas:  chemical?.cas_number ?? entry.casNumber,
+      status:       "restricted" as RegulatoryStatus,
+      isNew:        !chemical,
+      error:        null,
+    }
+  })
+  if (onProgress) await onProgress(3, 3)
+
+  return {
+    rows,
+    existingCount: rows.filter((r) => !r.isNew).length,
+    newCount:      rows.filter((r) => r.isNew).length,
+    errorCount:    0,
+  }
+}
+
+export async function commitReachImport(
+  preview: RegulatoryListPreview,
+  entries: ReachEntry[],
+  selectedRowIndexes: number[],
+  onProgress?: (done: number, total: number) => Promise<void>
+): Promise<{ upserted: number; skipped: number; errors: string[] }> {
+  const reg = createAdminClient().schema("regulatory")
+  const selectedSet = new Set(selectedRowIndexes)
+  const entryMap = new Map(entries.map((e) => [e.rowIndex, e]))
+  const errors: string[] = []
+
+  const selectedRows = preview.rows.filter((r) => selectedSet.has(r.rowIndex))
+  const resolvedIds = new Map<number, string>()
+  for (const r of selectedRows.filter((r) => r.chemicalId)) {
+    resolvedIds.set(r.rowIndex, r.chemicalId!)
+  }
+
+  const newRows    = selectedRows.filter((r) => !r.chemicalId)
+  const newWithCas = newRows.filter((r) => Boolean(entryMap.get(r.rowIndex)?.casNumber))
+  const newNoCas   = newRows.filter((r) => !entryMap.get(r.rowIndex)?.casNumber)
+
+  // Phase 1 — Batch upsert chemicals with CAS
+  for (let i = 0; i < newWithCas.length; i += CHUNK) {
+    const chunk = newWithCas.slice(i, i + CHUNK)
+    const casToFirstRow = new Map<string, typeof chunk[number]>()
+    for (const r of chunk) {
+      const cas = entryMap.get(r.rowIndex)!.casNumber!
+      if (!casToFirstRow.has(cas)) casToFirstRow.set(cas, r)
+    }
+    const toUpsert = [...casToFirstRow.entries()].map(([cas, r]) => ({
+      cas_number:   cas,
+      common_name:  entryMap.get(r.rowIndex)!.substanceName ?? "Unknown",
+      needs_review: false,
+      resolved_at:  new Date().toISOString(),
+    }))
+    const { data, error } = await reg.from("chemicals").upsert(toUpsert, { onConflict: "cas_number" }).select("id, cas_number")
+    if (error) { errors.push(`Chemical upsert failed (batch ${i / CHUNK + 1}): ${error.message}`); continue }
+    const casToId = new Map((data ?? []).map((c) => [c.cas_number, c.id]))
+    for (const r of chunk) {
+      const id = casToId.get(entryMap.get(r.rowIndex)!.casNumber!)
+      if (id) resolvedIds.set(r.rowIndex, id)
+      else errors.push(`Row ${r.rowIndex}: chemical ID missing after upsert`)
+    }
+  }
+  if (onProgress) await onProgress(1, 4)
+
+  // Phase 2 — Insert chemicals without CAS
+  for (const r of newNoCas) {
+    const entry = entryMap.get(r.rowIndex)!
+    const { data, error } = await reg.from("chemicals").insert({ common_name: entry.substanceName ?? "Unknown", needs_review: true }).select("id").single()
+    if (error || !data) errors.push(`Row ${r.rowIndex}: insert failed — ${error?.message}`)
+    else resolvedIds.set(r.rowIndex, data.id)
+  }
+  if (onProgress) await onProgress(2, 4)
+
+  // Phase 3 — Batch upsert aliases: EC number + substance name
+  // Substance name is stored as synonym so that "n-hexane" finds the existing "Hexane" chemical.
+  const allAliases = selectedRows.flatMap((r) => {
+    const chemicalId = resolvedIds.get(r.rowIndex)
+    if (!chemicalId) return []
+    const entry = entryMap.get(r.rowIndex)!
+    const aliases: { chemical_id: string; alias: string; alias_type: "ec_number" | "synonym"; source: "echa" }[] = []
+    if (entry.ecNumber) {
+      aliases.push({ chemical_id: chemicalId, alias: entry.ecNumber, alias_type: "ec_number", source: "echa" })
+    }
+    if (entry.substanceName) {
+      aliases.push({ chemical_id: chemicalId, alias: entry.substanceName, alias_type: "synonym", source: "echa" })
+    }
+    return aliases
+  })
+  for (let i = 0; i < allAliases.length; i += CHUNK) {
+    const { error } = await reg.from("chemical_aliases").upsert(allAliases.slice(i, i + CHUNK), { onConflict: "chemical_id,alias", ignoreDuplicates: true })
+    if (error) errors.push(`Alias upsert failed (batch ${i / CHUNK + 1}): ${error.message}`)
+  }
+  if (onProgress) await onProgress(3, 4)
+
+  // Phase 4 — Batch upsert regulatory_listings
+  // Deduplicate by chemical_id: ECHA sometimes lists the same substance under two EC numbers.
+  const now = new Date().toISOString()
+  const listingsMap = new Map<string, ListingRow>()
+  for (const r of selectedRows) {
+    const chemicalId = resolvedIds.get(r.rowIndex)
+    if (!chemicalId) continue
+    const entry = entryMap.get(r.rowIndex)!
+    const noteParts = [
+      entry.reason      ? `Reason: ${entry.reason}`             : null,
+      entry.outcome     ? `Outcome: ${entry.outcome}`           : null,
+      entry.outcomeDate ? `Outcome date: ${entry.outcomeDate}`  : null,
+    ].filter(Boolean)
+    listingsMap.set(chemicalId, {
+      chemical_id:    chemicalId,
+      framework:      "reach" as const,
+      status:         "restricted" as RegulatoryStatus,
+      list_name:      "REACH SVHC Candidate List",
+      notes:          noteParts.length ? noteParts.join(" | ") : null,
+      effective_date: entry.dateInclusion ?? null,
+      list_url:       entry.decisionUrl ?? null,
+      last_checked:   now,
+      source:         "manual",
+    })
+  }
+  const allListings = [...listingsMap.values()]
+  for (let i = 0; i < allListings.length; i += CHUNK) {
+    const { error } = await reg.from("regulatory_listings").upsert(allListings.slice(i, i + CHUNK), { onConflict: "chemical_id,framework" })
+    if (error) errors.push(`Listings upsert failed (batch ${i / CHUNK + 1}): ${error.message}`)
+  }
+  if (onProgress) await onProgress(4, 4)
+
+  return { upserted: resolvedIds.size, skipped: selectedRows.length - resolvedIds.size, errors }
+}
+
+// ─── TSCA (EPA Chemical Substance Inventory) ──────────────────────────────────
+
+export async function generateTscaPreview(
+  entries: TscaEntry[],
+  onProgress?: (done: number, total: number) => Promise<void>
+): Promise<RegulatoryListPreview> {
+  const admin = createAdminClient()
+  const reg = admin.schema("regulatory")
+
+  const uniqueCas = [
+    ...new Set(entries.map((e) => e.casNumber).filter((c): c is string => Boolean(c))),
+  ]
+  const casMap = new Map<string, ChemicalRecord>()
+  if (uniqueCas.length > 0) {
+    const { data } = await reg.from("chemicals").select("id, common_name, cas_number").in("cas_number", uniqueCas)
+    for (const c of data ?? []) casMap.set(c.cas_number!, c)
+  }
+  if (onProgress) await onProgress(1, 3)
+
+  const aliasMap = new Map<string, ChemicalRecord>()
+  const unresolvedNames = [
+    ...new Set(
+      entries
+        .filter((e) => !casMap.has(e.casNumber ?? "") && e.substanceName)
+        .map((e) => e.substanceName!)
+    ),
+  ]
+  for (let i = 0; i < unresolvedNames.length; i += CHUNK) {
+    const chunk = unresolvedNames.slice(i, i + CHUNK)
+    const { data } = await admin.rpc("match_chemicals_by_names", { names: chunk })
+    for (const row of (data ?? []) as Array<{ input_name: string; chemical_id: string; common_name: string; cas_number: string | null }>) {
+      aliasMap.set(row.input_name.toLowerCase(), { id: row.chemical_id, common_name: row.common_name, cas_number: row.cas_number })
+    }
+  }
+  if (onProgress) await onProgress(2, 3)
+
+  const rows: RegulatoryListPreviewRow[] = entries.map((entry) => {
+    const chemical =
+      (entry.casNumber ? casMap.get(entry.casNumber) : undefined) ??
+      (entry.substanceName ? aliasMap.get(entry.substanceName.toLowerCase()) : undefined) ??
+      null
+    return {
+      rowIndex:     entry.rowIndex,
+      crNumber:     null,
+      inputCas:     entry.casNumber,
+      inputName:    entry.substanceName,
+      chemicalId:   chemical?.id ?? null,
+      resolvedName: chemical?.common_name ?? entry.substanceName,
+      resolvedCas:  chemical?.cas_number ?? entry.casNumber,
+      status:       (entry.isActive ? "listed" : "not_listed") as RegulatoryStatus,
+      isNew:        !chemical,
+      error:        null,
+    }
+  })
+  if (onProgress) await onProgress(3, 3)
+
+  return {
+    rows,
+    existingCount: rows.filter((r) => !r.isNew).length,
+    newCount:      rows.filter((r) => r.isNew).length,
+    errorCount:    0,
+  }
+}
+
+export async function commitTscaImport(
+  preview: RegulatoryListPreview,
+  entries: TscaEntry[],
+  selectedRowIndexes: number[],
+  onProgress?: (done: number, total: number) => Promise<void>
+): Promise<{ upserted: number; skipped: number; errors: string[] }> {
+  const reg = createAdminClient().schema("regulatory")
+  const selectedSet = new Set(selectedRowIndexes)
+  const entryMap = new Map(entries.map((e) => [e.rowIndex, e]))
+  const errors: string[] = []
+
+  const selectedRows = preview.rows.filter((r) => selectedSet.has(r.rowIndex))
+  const resolvedIds = new Map<number, string>()
+  for (const r of selectedRows.filter((r) => r.chemicalId)) {
+    resolvedIds.set(r.rowIndex, r.chemicalId!)
+  }
+
+  const newRows    = selectedRows.filter((r) => !r.chemicalId)
+  const newWithCas = newRows.filter((r) => Boolean(entryMap.get(r.rowIndex)?.casNumber))
+  const newNoCas   = newRows.filter((r) => !entryMap.get(r.rowIndex)?.casNumber)
+
+  // Phase 1 — Batch upsert chemicals with CAS
+  for (let i = 0; i < newWithCas.length; i += CHUNK) {
+    const chunk = newWithCas.slice(i, i + CHUNK)
+    const casToFirstRow = new Map<string, typeof chunk[number]>()
+    for (const r of chunk) {
+      const cas = entryMap.get(r.rowIndex)!.casNumber!
+      if (!casToFirstRow.has(cas)) casToFirstRow.set(cas, r)
+    }
+    const toUpsert = [...casToFirstRow.entries()].map(([cas, r]) => ({
+      cas_number:   cas,
+      common_name:  entryMap.get(r.rowIndex)!.substanceName ?? "Unknown",
+      needs_review: false,
+      resolved_at:  new Date().toISOString(),
+    }))
+    const { data, error } = await reg.from("chemicals").upsert(toUpsert, { onConflict: "cas_number" }).select("id, cas_number")
+    if (error) { errors.push(`Chemical upsert failed (batch ${i / CHUNK + 1}): ${error.message}`); continue }
+    const casToId = new Map((data ?? []).map((c) => [c.cas_number, c.id]))
+    for (const r of chunk) {
+      const id = casToId.get(entryMap.get(r.rowIndex)!.casNumber!)
+      if (id) resolvedIds.set(r.rowIndex, id)
+      else errors.push(`Row ${r.rowIndex}: chemical ID missing after upsert`)
+    }
+  }
+  if (onProgress) await onProgress(1, 4)
+
+  // Phase 2 — Insert chemicals without CAS
+  for (const r of newNoCas) {
+    const entry = entryMap.get(r.rowIndex)!
+    const { data, error } = await reg.from("chemicals").insert({ common_name: entry.substanceName ?? "Unknown", needs_review: true }).select("id").single()
+    if (error || !data) errors.push(`Row ${r.rowIndex}: insert failed — ${error?.message}`)
+    else resolvedIds.set(r.rowIndex, data.id)
+  }
+  if (onProgress) await onProgress(2, 4)
+
+  // Phase 3 — No extra aliases for TSCA (substance names stored as common_name)
+  if (onProgress) await onProgress(3, 4)
+
+  // Phase 4 — Batch upsert regulatory_listings
+  // TSCAINV_ supplies Active (Y/N); PMNACC_ has no active flag so defaults to true.
+  // Deduplicate by chemical_id in case the same CAS appears in both PMNACC_ and TSCAINV_ files.
+  const now = new Date().toISOString()
+  const listingsMap = new Map<string, ListingRow>()
+  for (const r of selectedRows) {
+    const chemicalId = resolvedIds.get(r.rowIndex)
+    if (!chemicalId) continue
+    const entry = entryMap.get(r.rowIndex)!
+    listingsMap.set(chemicalId, {
+      chemical_id:  chemicalId,
+      framework:    "tsca" as const,
+      status:       (entry.isActive ? "listed" : "not_listed") as RegulatoryStatus,
+      list_name:    "TSCA Chemical Substance Inventory",
+      notes:        null,
+      last_checked: now,
+      source:       "manual",
+    })
+  }
+  const allListings = [...listingsMap.values()]
+  for (let i = 0; i < allListings.length; i += CHUNK) {
+    const { error } = await reg.from("regulatory_listings").upsert(allListings.slice(i, i + CHUNK), { onConflict: "chemical_id,framework" })
+    if (error) errors.push(`Listings upsert failed (batch ${i / CHUNK + 1}): ${error.message}`)
+  }
+  if (onProgress) await onProgress(4, 4)
+
+  return { upserted: resolvedIds.size, skipped: selectedRows.length - resolvedIds.size, errors }
 }

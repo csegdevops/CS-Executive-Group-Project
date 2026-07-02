@@ -8,6 +8,7 @@ import {
   AlertCircle,
   CheckCircle2,
   ChevronLeft,
+  ExternalLink,
   FlaskConical,
   Tag,
   FileText,
@@ -54,7 +55,7 @@ export default async function ChemicalDetailPage({
       .order("alias_type"),
     reg
       .from("regulatory_listings")
-      .select("id, framework, status, list_name, notes, last_checked, effective_date")
+      .select("id, framework, status, list_name, notes, last_checked, effective_date, list_url")
       .eq("chemical_id", id)
       .order("framework"),
     reg
@@ -168,8 +169,23 @@ export default async function ChemicalDetailPage({
                 {l.list_name && (
                   <p className="text-xs text-muted-foreground">{l.list_name}</p>
                 )}
+                {l.effective_date && (
+                  <p className="text-xs text-muted-foreground">
+                    Included {new Date(l.effective_date).toLocaleDateString()}
+                  </p>
+                )}
                 {l.notes && (
                   <p className="text-xs text-muted-foreground">{l.notes}</p>
+                )}
+                {(l as { list_url?: string | null }).list_url && (
+                  <a
+                    href={(l as { list_url?: string | null }).list_url!}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
+                  >
+                    Decision document <ExternalLink className="h-3 w-3" />
+                  </a>
                 )}
                 {l.last_checked && (
                   <p className="text-xs text-muted-foreground/60">
@@ -190,16 +206,23 @@ export default async function ChemicalDetailPage({
             Known Names &amp; Identifiers
           </h2>
           <div className="flex flex-wrap gap-2">
-            {aliases.map((a) => (
-              <Badge key={a.id} variant="outline" className="text-xs font-normal">
-                {a.alias}
-                {a.alias_type && a.alias_type !== "synonym" && (
-                  <span className="ml-1 text-muted-foreground opacity-60 capitalize">
-                    · {a.alias_type.replace("_", " ")}
-                  </span>
-                )}
-              </Badge>
-            ))}
+            {aliases.map((a) => {
+              const typeLabel =
+                a.alias_type === "ec_number" ? "EC # (ECHA)" :
+                a.alias_type === "cas_rn"    ? "CAS RN"      :
+                a.alias_type === "iupac"     ? "IUPAC"       :
+                a.alias_type === "trade_name" ? "Trade name"  :
+                a.source === "manual"        ? "AICIS ref"   :
+                null
+              return (
+                <Badge key={a.id} variant="outline" className="text-xs font-normal">
+                  {a.alias}
+                  {typeLabel && (
+                    <span className="ml-1 text-muted-foreground opacity-60">· {typeLabel}</span>
+                  )}
+                </Badge>
+              )
+            })}
           </div>
         </section>
       )}

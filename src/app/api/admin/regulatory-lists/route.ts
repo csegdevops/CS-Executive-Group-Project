@@ -1,13 +1,21 @@
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
-import { parseExcelBuffer } from "@/lib/import/excel-parser"
+import { parseExcelBuffer, parseExcelBufferAutoDetect, parseExcelBufferRich } from "@/lib/import/excel-parser"
 import { parseAicisRows } from "@/lib/import/aicis-parser"
+import { parseReachRows } from "@/lib/import/reach-parser"
+import { parseTscaRows } from "@/lib/import/tsca-parser"
 import {
   generateAicisPreview,
   commitAicisImport,
+  generateReachPreview,
+  commitReachImport,
+  generateTscaPreview,
+  commitTscaImport,
 } from "@/lib/import/regulatory-list-pipeline"
 import type { RegulatoryListPreview } from "@/lib/import/regulatory-list-pipeline"
 import type { AicisEntry } from "@/lib/import/aicis-parser"
+import type { ReachEntry } from "@/lib/import/reach-parser"
+import type { TscaEntry } from "@/lib/import/tsca-parser"
 
 async function requireUploadAccess(supabase: Awaited<ReturnType<typeof createClient>>) {
   const { data: { user } } = await supabase.auth.getUser()
@@ -28,13 +36,26 @@ async function requireUploadAccess(supabase: Awaited<ReturnType<typeof createCli
 const enc = new TextEncoder()
 const ndjson = (obj: object) => enc.encode(JSON.stringify(obj) + "\n")
 
-function streamPreview(entries: AicisEntry[]) {
+type AnyEntry = AicisEntry | ReachEntry | TscaEntry
+
+function streamPreview(source: string, entries: AnyEntry[]) {
   return new ReadableStream({
     async start(controller) {
       try {
-        const preview = await generateAicisPreview(entries, async (done, total) => {
-          controller.enqueue(ndjson({ type: "progress", done, total }))
-        })
+        let preview: RegulatoryListPreview
+        if (source === "reach") {
+          preview = await generateReachPreview(entries as ReachEntry[], async (done, total) => {
+            controller.enqueue(ndjson({ type: "progress", done, total }))
+          })
+        } else if (source === "tsca") {
+          preview = await generateTscaPreview(entries as TscaEntry[], async (done, total) => {
+            controller.enqueue(ndjson({ type: "progress", done, total }))
+          })
+        } else {
+          preview = await generateAicisPreview(entries as AicisEntry[], async (done, total) => {
+            controller.enqueue(ndjson({ type: "progress", done, total }))
+          })
+        }
         controller.enqueue(ndjson({ type: "result", entries, preview }))
       } catch (err) {
         controller.enqueue(
@@ -48,16 +69,28 @@ function streamPreview(entries: AicisEntry[]) {
 }
 
 function streamCommit(
+  source: string,
   preview: RegulatoryListPreview,
-  entries: AicisEntry[],
+  entries: AnyEntry[],
   selectedRows: number[]
 ) {
   return new ReadableStream({
     async start(controller) {
       try {
-        const result = await commitAicisImport(preview, entries, selectedRows, async (done, total) => {
-          controller.enqueue(ndjson({ type: "progress", done, total }))
-        })
+        let result: { upserted: number; skipped: number; errors: string[] }
+        if (source === "reach") {
+          result = await commitReachImport(preview, entries as ReachEntry[], selectedRows, async (done, total) => {
+            controller.enqueue(ndjson({ type: "progress", done, total }))
+          })
+        } else if (source === "tsca") {
+          result = await commitTscaImport(preview, entries as TscaEntry[], selectedRows, async (done, total) => {
+            controller.enqueue(ndjson({ type: "progress", done, total }))
+          })
+        } else {
+          result = await commitAicisImport(preview, entries as AicisEntry[], selectedRows, async (done, total) => {
+            controller.enqueue(ndjson({ type: "progress", done, total }))
+          })
+        }
         controller.enqueue(ndjson({ type: "result", ...result }))
       } catch (err) {
         controller.enqueue(
@@ -94,20 +127,20 @@ export async function POST(request: Request) {
     }
 
     if (body.action === "preview") {
-      if (body.source !== "aicis") {
-        return NextResponse.json({ error: `Source "${body.source}" not supported yet` }, { status: 400 })
+      if (!["aicis", "reach", "tsca"].includes(body.source)) {
+        return NextResponse.json({ error: `Source "${body.source}" not supported` }, { status: 400 })
       }
       if (!Array.isArray(body.entries)) {
         return NextResponse.json({ error: "entries array required" }, { status: 400 })
       }
-      return new Response(streamPreview(body.entries), { headers: streamHeaders })
+      return new Response(streamPreview(body.source, body.entries), { headers: streamHeaders })
     }
 
     if (body.action === "commit") {
       if (!body.preview || !Array.isArray(body.entries) || !Array.isArray(body.selectedRows)) {
         return NextResponse.json({ error: "preview, entries, and selectedRows required" }, { status: 400 })
       }
-      return new Response(streamCommit(body.preview, body.entries, body.selectedRows), { headers: streamHeaders })
+      return new Response(streamCommit(body.source, body.preview, body.entries, body.selectedRows), { headers: streamHeaders })
     }
 
     return NextResponse.json({ error: "Invalid action" }, { status: 400 })
@@ -122,13 +155,59 @@ export async function POST(request: Request) {
   if (action === "parse") {
     const file = formData.get("file") as File | null
     if (!file) return NextResponse.json({ error: "file required" }, { status: 400 })
-    if (source !== "aicis") {
-      return NextResponse.json({ error: `Source "${source}" not supported yet` }, { status: 400 })
-    }
 
     const buffer = Buffer.from(await file.arrayBuffer())
-    const { headers, rows } = parseExcelBuffer(buffer, 1)
-    const entries = parseAicisRows(headers, rows)
+
+    let entries: AnyEntry[]
+    if (source === "reach") {
+      // ECHA SVHC files have metadata rows above the headers — use the rich parser so
+      // hyperlinked cells (e.g. "Reason for decision") have their URLs captured.
+      // Use column-header-specific phrases to skip the title row ("substances" ≠ "substance name").
+      const { headers, rows: richRows } = parseExcelBufferRich(buffer, ["substance name", "ec / list", "reason for inclusion", "reason for decision", "cas number"])
+      entries = parseReachRows(headers, richRows)
+      // Validate: a REACH file must have a substance name or EC number column.
+      // If neither found, the user likely uploaded the wrong file.
+      const hasSubstanceCol = headers.some((h) => /substance/i.test(h))
+      const hasEcCol        = headers.some((h) => /ec\s*[/\/]/i.test(h))
+      if (!hasSubstanceCol && !hasEcCol) {
+        return NextResponse.json({
+          error: "This doesn't look like an ECHA SVHC file — expected columns 'Substance name' and 'EC / List number' were not found. Did you select the wrong source?",
+        }, { status: 400 })
+      }
+    } else if (source === "tsca") {
+      // Handles both TSCAINV_ (CASRN, ChemNam, ACTIVITY) and PMNACC_ (PMNNO, GenericName, ACTIVITY).
+      const { headers, rows } = parseExcelBufferAutoDetect(buffer, ["casrn", "chemnam", "genericname", "pmnno", "activity"])
+      entries = parseTscaRows(headers, rows)
+      // Validate: must have a CAS column or a Chemical/Generic name column.
+      // TSCAINV_: CASRN + ChemNam; PMNACC_: PMNNO + GenericName (no CAS).
+      const hasCasCol    = headers.some((h) => /^cas\s*rn?$/i.test(h.trim()))
+      const hasChemCol   = headers.some((h) => /chemnam|generic\s*name|chemical/i.test(h))
+      const hasPmn       = headers.some((h) => /^pmnno$/i.test(h.trim()))
+      if (!hasCasCol && !hasChemCol && !hasPmn) {
+        return NextResponse.json({
+          error: "This doesn't look like a TSCA file — expected 'CASRN'/'ChemNam' (TSCAINV_) or 'PMNNO'/'GenericName' (PMNACC_). Did you select the wrong source?",
+        }, { status: 400 })
+      }
+    } else if (source === "aicis") {
+      const { headers, rows } = parseExcelBuffer(buffer, 1)
+      entries = parseAicisRows(headers, rows)
+      // Validate: AICIS file must have CR No. or AICIS Approved Chemical Name column.
+      const hasCrCol    = headers.some((h) => /^cr\s*no/i.test(h))
+      const hasAicisCol = headers.some((h) => /aicis/i.test(h))
+      if (!hasCrCol && !hasAicisCol) {
+        return NextResponse.json({
+          error: "This doesn't look like an AICIS Inventory file — expected columns 'CR No.' and 'AICIS Approved Chemical Name' were not found. Did you select the wrong source?",
+        }, { status: 400 })
+      }
+    } else {
+      return NextResponse.json({ error: `Source "${source}" not supported` }, { status: 400 })
+    }
+
+    if (entries.length === 0) {
+      return NextResponse.json({
+        error: "No valid rows found after parsing. Check that you selected the correct source for this file.",
+      }, { status: 400 })
+    }
 
     return NextResponse.json({ entries })
   }

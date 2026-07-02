@@ -27,6 +27,8 @@ export interface FormulationPreviewRow {
   matchedBy: "cas" | "alt_cas" | "name" | "pubchem" | null
   aicisStatus: RegulatoryStatus | null
   aicisNotes: string | null
+  reachStatus: RegulatoryStatus | null
+  tscaStatus: RegulatoryStatus | null
   needsAction: boolean
   isNew: boolean
   previouslyReviewed: PreviousReview[]
@@ -188,16 +190,20 @@ export async function generateFormulationPreview(
     ...new Set(intermRows.filter((r) => r.chemical).map((r) => r.chemical!.id)),
   ]
 
-  // Phase 5 — Batch AICIS regulatory status for all resolved chemicals
-  const statusMap = new Map<string, { status: RegulatoryStatus; notes: string | null }>()
+  // Phase 5 — Batch regulatory status for all resolved chemicals, all frameworks
+  const aicisStatusMap = new Map<string, { status: RegulatoryStatus; notes: string | null }>()
+  const reachStatusMap = new Map<string, RegulatoryStatus>()
+  const tscaStatusMap  = new Map<string, RegulatoryStatus>()
   for (let i = 0; i < resolvedIds.length; i += CHUNK) {
     const { data } = await reg
       .from("regulatory_listings")
-      .select("chemical_id, status, notes")
+      .select("chemical_id, framework, status, notes")
       .in("chemical_id", resolvedIds.slice(i, i + CHUNK))
-      .eq("framework", "aicis")
+      .in("framework", ["aicis", "reach", "tsca"])
     for (const l of data ?? []) {
-      statusMap.set(l.chemical_id, { status: l.status as RegulatoryStatus, notes: l.notes ?? null })
+      if (l.framework === "aicis") aicisStatusMap.set(l.chemical_id, { status: l.status as RegulatoryStatus, notes: l.notes ?? null })
+      if (l.framework === "reach") reachStatusMap.set(l.chemical_id, l.status as RegulatoryStatus)
+      if (l.framework === "tsca")  tscaStatusMap.set(l.chemical_id, l.status as RegulatoryStatus)
     }
   }
   if (onProgress) await onProgress(5, 6)
@@ -249,8 +255,10 @@ export async function generateFormulationPreview(
 
   // Assemble final rows
   const rows: FormulationPreviewRow[] = intermRows.map(({ entry, chemical, matchedBy, pubchemData }) => {
-    const statusEntry = chemical ? (statusMap.get(chemical.id) ?? null) : null
-    const aicisStatus = statusEntry?.status ?? null
+    const aicisEntry  = chemical ? (aicisStatusMap.get(chemical.id) ?? null) : null
+    const aicisStatus = aicisEntry?.status ?? null
+    const reachStatus = chemical ? (reachStatusMap.get(chemical.id) ?? null) : null
+    const tscaStatus  = chemical ? (tscaStatusMap.get(chemical.id) ?? null) : null
     return {
       rowIndex:          entry.rowIndex,
       inciName:          entry.inciName,
@@ -264,8 +272,10 @@ export async function generateFormulationPreview(
       resolvedCas:       chemical?.cas_number ?? entry.casNumber,
       matchedBy,
       aicisStatus,
-      aicisNotes:        statusEntry?.notes ?? null,
-      needsAction:       aicisStatus === "restricted" || !chemical,
+      aicisNotes:        aicisEntry?.notes ?? null,
+      reachStatus,
+      tscaStatus,
+      needsAction:       aicisStatus === "restricted" || reachStatus === "restricted" || !chemical,
       isNew:             !chemical,
       previouslyReviewed: chemical ? (prevReviewedMap.get(chemical.id) ?? []) : [],
       pubchemData,

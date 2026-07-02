@@ -482,6 +482,7 @@ export function ChemicalsTab({ consultationId, frameworks, initialChemicals, pro
 
         <UploadFormulationDialog
           consultationId={consultationId}
+          frameworks={frameworks}
           onCommitDone={refreshList}
         />
       </div>
