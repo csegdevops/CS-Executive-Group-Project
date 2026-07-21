@@ -77,3 +77,23 @@ export async function requireModuleAdmin(module: Module): Promise<AuthUser> {
 export async function requireAdmin(): Promise<AuthUser> {
   return requireSuperAdmin()
 }
+
+export async function getEnabledModules(): Promise<Module[]> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from("module_config")
+    .select("module")
+    .eq("is_enabled", true)
+  return (data ?? []).map((r) => r.module as Module)
+}
+
+/** Redirects to /home if the module is disabled system-wide. No super_admin bypass. */
+export async function requireModuleEnabled(module: Module): Promise<void> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from("module_config")
+    .select("is_enabled")
+    .eq("module", module)
+    .single()
+  if (!data?.is_enabled) redirect("/home")
+}

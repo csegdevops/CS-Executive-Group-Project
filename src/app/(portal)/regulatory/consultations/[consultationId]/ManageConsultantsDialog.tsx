@@ -15,7 +15,8 @@ interface ConsultantUser {
   is_assigned: boolean
 }
 
-export function ManageConsultantsDialog({ consultationId }: { consultationId: string }) {
+export function ManageConsultantsDialog({ consultationId, isLocked }: { consultationId: string; isLocked?: boolean }) {
+  if (isLocked) return null
   const router = useRouter()
   const [open, setOpen]           = useState(false)
   const [users, setUsers]         = useState<ConsultantUser[]>([])

@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { z } from "zod"
 import type { JobStatus } from "@/types/database"
+import { sendJobDetailsChangedEmail } from "@/lib/email/notifications"
 
 const patchSchema = z.object({
   title: z.string().min(1).max(200).optional(),
@@ -85,7 +86,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ jo
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: current } = await (admin.schema("recruitment") as any)
     .from("jobs")
-    .select("status")
+    .select("title, status, employment_type, assigned_recruiter_id")
     .eq("id", jobId)
     .single()
   if (!current) return NextResponse.json({ error: "Not found" }, { status: 404 })
@@ -114,6 +115,17 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ jo
         notes: eventNotes ?? null,
         performed_by: user.id,
       })
+
+    if (current.assigned_recruiter_id) {
+      sendJobDetailsChangedEmail({
+        jobId,
+        jobTitle: current.title,
+        field: "status",
+        oldValue: current.status,
+        newValue: parsed.data.status,
+        recipientUserId: current.assigned_recruiter_id,
+      }).catch((err) => console.error("[email] job status-changed notification failed", err))
+    }
   } else if (eventNotes) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (admin.schema("recruitment") as any)
@@ -124,6 +136,30 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ jo
         notes: eventNotes,
         performed_by: user.id,
       })
+  }
+
+  // Log + notify employment_type change (no dedicated job_events enum value — logged as a note)
+  if (parsed.data.employment_type && parsed.data.employment_type !== current.employment_type) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (admin.schema("recruitment") as any)
+      .from("job_events")
+      .insert({
+        job_id: jobId,
+        event_type: "note",
+        notes: `Employment type changed from ${current.employment_type} to ${parsed.data.employment_type}`,
+        performed_by: user.id,
+      })
+
+    if (current.assigned_recruiter_id) {
+      sendJobDetailsChangedEmail({
+        jobId,
+        jobTitle: current.title,
+        field: "employment_type",
+        oldValue: String(current.employment_type),
+        newValue: parsed.data.employment_type,
+        recipientUserId: current.assigned_recruiter_id,
+      }).catch((err) => console.error("[email] job employment_type-changed notification failed", err))
+    }
   }
 
   return NextResponse.json(updated)

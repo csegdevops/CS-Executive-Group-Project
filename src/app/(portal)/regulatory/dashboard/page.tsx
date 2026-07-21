@@ -25,7 +25,7 @@ export default async function DashboardPage() {
     ? await supabase
         .schema("regulatory")
         .from("consultations")
-        .select("id, company_id, title, status, due_date, updated_at, frameworks")
+        .select("id, company_id, title, status, due_date, updated_at, frameworks, reference_number")
         .in("company_id", companyIds)
         .order("updated_at", { ascending: false })
     : { data: [] }
@@ -45,6 +45,11 @@ export default async function DashboardPage() {
   const draftCount       = countByStatus(["draft"])
   const activeCount      = countByStatus(["in_progress", "under_review"])
   const completedCount   = countByStatus(["completed"])
+
+  const companyById = new Map((companies ?? []).map((c) => [c.id, { id: c.id, name: c.name }]))
+  const ongoingConsultations = all
+    .filter((c) => c.status === "in_progress" || c.status === "under_review")
+    .map((c) => ({ ...c, companies: companyById.get(c.company_id) ?? null }))
 
   return (
     <div>
@@ -79,7 +84,7 @@ export default async function DashboardPage() {
 
       <div className="mb-8">
         <h2 className="text-lg font-semibold mb-4">Ongoing Consultations</h2>
-        <OngoingConsultations />
+        <OngoingConsultations initialConsultations={ongoingConsultations} />
       </div>
 
       <h2 className="text-lg font-semibold mb-4">Your Companies</h2>

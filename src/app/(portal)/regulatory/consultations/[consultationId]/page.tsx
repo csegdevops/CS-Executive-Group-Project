@@ -9,7 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { RegulatoryStatusBadge } from "@/components/chemicals/RegulatoryStatusBadge"
 import { formatDate } from "@/lib/date-helpers"
 import Link from "next/link"
-import { AlertCircle } from "lucide-react"
+import { AlertCircle, FileDown } from "lucide-react"
+import { buttonVariants } from "@/components/ui/button"
 import { ChemicalsTab } from "./ChemicalsTab"
 import { VolumesTab } from "./VolumesTab"
 import { TimelineTab } from "./TimelineTab"
@@ -132,6 +133,7 @@ export default async function ConsultationDetailPage({
         .find((rl) => rl.framework === "aicis")?.notes ?? null,
     }))
 
+  const isLocked = consultation.status === "completed"
   const backUrl = encodeURIComponent(`/regulatory/consultations/${consultationId}`)
 
   return (
@@ -140,6 +142,13 @@ export default async function ConsultationDetailPage({
         <BackButton />
       </div>
       <PageHeader title={consultation.title}>
+        <Link
+          href={`/regulatory/consultations/${consultationId}/export`}
+          target="_blank"
+          className={buttonVariants({ variant: "outline", size: "sm" })}
+        >
+          <FileDown className="h-4 w-4 mr-1.5" /> Export
+        </Link>
         <ConsultationStatusControl
           consultationId={consultationId}
           initialStatus={consultation.status}
@@ -165,6 +174,7 @@ export default async function ConsultationDetailPage({
                 <CardTitle className="text-sm">Details</CardTitle>
                 <EditDetailsDialog
                   consultationId={consultationId}
+                  isLocked={isLocked}
                   initial={{
                     title: consultation.title,
                     description: consultation.description ?? "",
@@ -198,7 +208,7 @@ export default async function ConsultationDetailPage({
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="text-sm">Assigned Consultants</CardTitle>
-                <ManageConsultantsDialog consultationId={consultationId} />
+                <ManageConsultantsDialog consultationId={consultationId} isLocked={isLocked} />
               </CardHeader>
               <CardContent>
                 {consultants.length === 0 ? (
@@ -234,6 +244,7 @@ export default async function ConsultationDetailPage({
             frameworks={frameworks}
             initialChemicals={consultationChemicals}
             products={(products ?? []).map((p) => p.product_name)}
+            isLocked={isLocked}
           />
         </TabsContent>
 
@@ -341,6 +352,7 @@ export default async function ConsultationDetailPage({
               id: string; product_name: string; units_per_year: number | null; unit_size_grams: number | null
             }>}
             chemicals={volumeChemicals}
+            isLocked={isLocked}
           />
         </TabsContent>
 

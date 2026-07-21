@@ -26,8 +26,10 @@ export default async function PortalLayout({
 
   return (
     <div className="flex min-h-screen">
-      <Sidebar role={user.role} userName={user.full_name} moduleAdminOf={moduleAdminOf} />
-      <main className="flex-1 overflow-auto">
+      <div className="print:hidden">
+        <Sidebar role={user.role} userName={user.full_name} moduleAdminOf={moduleAdminOf} />
+      </div>
+      <main className="flex-1 overflow-auto print:overflow-visible">
         <div className="p-8">{children}</div>
       </main>
     </div>

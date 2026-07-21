@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest, NextResponse, after } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { ingestCv } from "@/lib/cv-parsing/ingest"
 import { z } from "zod"
 
 /**
@@ -194,6 +195,18 @@ async function processApplication(req: NextRequest, rawBody: Record<string, unkn
 
   if (appError) {
     return NextResponse.json({ error: "Could not create application" }, { status: 500, headers: CORS_HEADERS })
+  }
+
+  if (parsed.data.cv_url) {
+    const cvUrl = parsed.data.cv_url
+    after(() =>
+      ingestCv({
+        candidateId,
+        applicationId: app.id,
+        docType: "cv",
+        source: { url: cvUrl },
+      }).catch((err) => console.error("[apply] CV ingest failed", err))
+    )
   }
 
   // Insert initial stage history

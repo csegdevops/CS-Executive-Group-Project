@@ -29,6 +29,7 @@ interface Props {
   consultationId: string
   initialProducts: ConsultationProduct[]
   chemicals: ChemicalRow[]
+  isLocked?: boolean
 }
 
 function aicisCategory(kg: number): { label: string; className: string } {
@@ -49,7 +50,7 @@ interface EditingProduct {
   unit_size_grams: string
 }
 
-export function VolumesTab({ consultationId, initialProducts, chemicals }: Props) {
+export function VolumesTab({ consultationId, initialProducts, chemicals, isLocked }: Props) {
   const router = useRouter()
   const [products, setProducts]     = useState<ConsultationProduct[]>(initialProducts)
   const [editing, setEditing]       = useState<Record<string, EditingProduct>>({})
@@ -258,72 +259,74 @@ export function VolumesTab({ consultationId, initialProducts, chemicals }: Props
                         )}
                       </td>
                       <td className="px-4 py-2.5">
-                        <div className="flex gap-1 justify-end">
-                          {isEditing ? (
-                            <>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 text-green-700"
-                                onClick={() => saveEdit(prod.product_name)}
-                                disabled={isSaving}
-                              >
-                                {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 text-muted-foreground"
-                                onClick={() => cancelEdit(prod.product_name)}
-                                disabled={isSaving}
-                              >
-                                <X className="h-3.5 w-3.5" />
-                              </Button>
-                            </>
-                          ) : confirmDelete === prod.product_name ? (
-                            <>
-                              <span className="text-xs text-destructive mr-1">Delete?</span>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 text-destructive"
-                                onClick={() => { setConfirmDelete(null); handleDeleteProduct(prod.product_name) }}
-                                disabled={deleting === prod.product_name}
-                              >
-                                {deleting === prod.product_name
-                                  ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                  : <Check className="h-3.5 w-3.5" />}
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 text-muted-foreground"
-                                onClick={() => setConfirmDelete(null)}
-                              >
-                                <X className="h-3.5 w-3.5" />
-                              </Button>
-                            </>
-                          ) : (
-                            <>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 text-muted-foreground"
-                                onClick={() => startEdit(prod)}
-                              >
-                                <Pencil className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                                onClick={() => setConfirmDelete(prod.product_name)}
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </Button>
-                            </>
-                          )}
-                        </div>
+                        {!isLocked && (
+                          <div className="flex gap-1 justify-end">
+                            {isEditing ? (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-green-700"
+                                  onClick={() => saveEdit(prod.product_name)}
+                                  disabled={isSaving}
+                                >
+                                  {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-muted-foreground"
+                                  onClick={() => cancelEdit(prod.product_name)}
+                                  disabled={isSaving}
+                                >
+                                  <X className="h-3.5 w-3.5" />
+                                </Button>
+                              </>
+                            ) : confirmDelete === prod.product_name ? (
+                              <>
+                                <span className="text-xs text-destructive mr-1">Delete?</span>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-destructive"
+                                  onClick={() => { setConfirmDelete(null); handleDeleteProduct(prod.product_name) }}
+                                  disabled={deleting === prod.product_name}
+                                >
+                                  {deleting === prod.product_name
+                                    ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                    : <Check className="h-3.5 w-3.5" />}
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-muted-foreground"
+                                  onClick={() => setConfirmDelete(null)}
+                                >
+                                  <X className="h-3.5 w-3.5" />
+                                </Button>
+                              </>
+                            ) : (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-muted-foreground"
+                                  onClick={() => startEdit(prod)}
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                                  onClick={() => setConfirmDelete(prod.product_name)}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        )}
                       </td>
                     </tr>
                   )

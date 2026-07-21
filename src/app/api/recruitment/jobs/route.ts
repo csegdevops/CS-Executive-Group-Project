@@ -31,9 +31,10 @@ export async function GET(req: NextRequest) {
   const q           = searchParams.get("q")
   const recruiterId = searchParams.get("recruiter_id")
 
+  const admin = createAdminClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const admin = createAdminClient().schema("recruitment") as any
-  let query = admin
+  const recruitment = admin.schema("recruitment") as any
+  let query = recruitment
     .from("jobs")
     .select(`
       id, title, reference_number, location, employment_type,
@@ -58,21 +59,21 @@ export async function GET(req: NextRequest) {
   // Hydrate company names
   const companyIds = [...new Set((jobs ?? []).map((j: { company_id: string }) => j.company_id))] as string[]
   const { data: companies } = companyIds.length
-    ? await createAdminClient().from("companies").select("id, name").in("id", companyIds)
+    ? await admin.from("companies").select("id, name").in("id", companyIds)
     : { data: [] }
   const companyMap = Object.fromEntries((companies ?? []).map((c: { id: string; name: string }) => [c.id, c.name]))
 
   // Hydrate recruiter names
   const recruiterIds = [...new Set((jobs ?? []).map((j: { assigned_recruiter_id: string | null }) => j.assigned_recruiter_id).filter(Boolean))]
   const { data: profiles } = recruiterIds.length
-    ? await createAdminClient().from("profiles").select("id, full_name").in("id", recruiterIds as string[])
+    ? await admin.from("profiles").select("id, full_name").in("id", recruiterIds as string[])
     : { data: [] }
   const profileMap = Object.fromEntries((profiles ?? []).map((p: { id: string; full_name: string | null }) => [p.id, p.full_name]))
 
   // Application counts per job
   const jobIds = (jobs ?? []).map((j: { id: string }) => j.id)
   const { data: appCounts } = jobIds.length
-    ? await (createAdminClient().schema("recruitment") as any)
+    ? await recruitment
         .from("applications")
         .select("job_id")
         .in("job_id", jobIds)
@@ -103,14 +104,15 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
 
   const admin = createAdminClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const recruitment = admin.schema("recruitment") as any
 
   // Auto-generate reference_number if not provided
   let referenceNumber = parsed.data.reference_number
   if (!referenceNumber) {
     const year   = new Date().getFullYear()
     const prefix = `REC-${year}-`
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: last } = await (admin.schema("recruitment") as any)
+    const { data: last } = await recruitment
       .from("jobs")
       .select("reference_number")
       .like("reference_number", `${prefix}%`)
@@ -123,8 +125,7 @@ export async function POST(req: NextRequest) {
     referenceNumber = `${prefix}${String((isNaN(lastN) ? 0 : lastN) + 1).padStart(3, "0")}`
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: job, error } = await (admin.schema("recruitment") as any)
+  const { data: job, error } = await recruitment
     .from("jobs")
     .insert({ ...parsed.data, reference_number: referenceNumber, created_by: user.id, status: "opened" })
     .select("id, title, reference_number, status, created_at")
@@ -133,8 +134,7 @@ export async function POST(req: NextRequest) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   // Log the opening event
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (admin.schema("recruitment") as any)
+  await recruitment
     .from("job_events")
     .insert({
       job_id: job.id,

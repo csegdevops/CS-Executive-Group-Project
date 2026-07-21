@@ -28,6 +28,7 @@ export async function GET(request: Request) {
     .from("consultations")
     .select("id, company_id, title, status, due_date, updated_at, frameworks, reference_number")
     .order("due_date", { ascending: true, nullsFirst: false })
+    .limit(200)
 
   if (companyId) query = query.eq("company_id", companyId)
   if (statusParam) {

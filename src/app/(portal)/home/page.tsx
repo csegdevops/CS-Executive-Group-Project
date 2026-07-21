@@ -1,4 +1,4 @@
-import { requireAuth, getUserModules } from "@/lib/auth-helpers"
+import { requireAuth, getUserModules, getEnabledModules } from "@/lib/auth-helpers"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -43,8 +43,13 @@ const allModules: Module[] = ["regulatory", "recruitment", "crm"]
 export default async function HomePage() {
   const user = await requireAuth()
   const isSuperAdmin = user.role === "super_admin"
-  const grantedModules = isSuperAdmin ? allModules : await getUserModules(user.id)
+  const [grantedModules, enabledModules] = await Promise.all([
+    isSuperAdmin ? Promise.resolve(allModules) : getUserModules(user.id),
+    getEnabledModules(),
+  ])
   const grantedSet = new Set(grantedModules)
+  const enabledSet = new Set(enabledModules)
+  const visibleModules = allModules.filter((m) => enabledSet.has(m))
 
   return (
     <div>
@@ -54,7 +59,7 @@ export default async function HomePage() {
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
-        {allModules.map((mod) => {
+        {visibleModules.map((mod) => {
           const config = moduleConfig[mod]
           const Icon = config.icon
           const hasAccess = grantedSet.has(mod)

@@ -31,9 +31,11 @@ const FRAMEWORK_LABELS: Record<string, string> = { aicis: "AICIS", reach: "REACH
 
 const POLL_INTERVAL = 30_000
 
-export function OngoingConsultations() {
-  const [consultations, setConsultations] = useState<Consultation[]>([])
-  const [loading, setLoading]             = useState(true)
+export function OngoingConsultations({ initialConsultations }: { initialConsultations: Consultation[] }) {
+  const [consultations, setConsultations] = useState<Consultation[]>(initialConsultations)
+  const [loading, setLoading]             = useState(false)
+  // Starts null to match the server render — set on the client after mount so the
+  // locale-formatted time (which can differ between server and browser) never SSRs.
   const [lastUpdated, setLastUpdated]     = useState<Date | null>(null)
   const [error, setError]                 = useState(false)
 
@@ -54,7 +56,9 @@ export function OngoingConsultations() {
   }, [])
 
   useEffect(() => {
-    fetchConsultations()
+    // Initial data comes from the server-rendered page — skip the redundant
+    // fetch-on-mount and only poll for updates from here on.
+    setLastUpdated(new Date())
     const id = setInterval(fetchConsultations, POLL_INTERVAL)
     return () => clearInterval(id)
   }, [fetchConsultations])

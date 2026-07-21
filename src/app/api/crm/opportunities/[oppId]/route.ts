@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { z } from "zod"
+import { sendOpportunityStageChangedEmail } from "@/lib/email/notifications"
 
 const patchSchema = z.object({
   title:               z.string().min(1).optional(),
@@ -52,8 +53,17 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ op
     update.closed_at = new Date().toISOString()
   }
 
+  const admin = createAdminClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (createAdminClient().schema("crm") as any)
+  const crm = admin.schema("crm") as any
+
+  const { data: current } = await crm
+    .from("opportunities")
+    .select("stage, title, assigned_to")
+    .eq("id", oppId)
+    .single()
+
+  const { data, error } = await crm
     .from("opportunities")
     .update(update)
     .eq("id", oppId)
@@ -62,5 +72,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ op
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   if (!data) return NextResponse.json({ error: "Not found" }, { status: 404 })
+
+  if (current && parsed.data.stage && parsed.data.stage !== current.stage && current.assigned_to) {
+    sendOpportunityStageChangedEmail({
+      opportunityId: oppId,
+      opportunityTitle: current.title,
+      oldStage: current.stage,
+      newStage: parsed.data.stage,
+      recipientUserId: current.assigned_to,
+    }).catch((err) => console.error("[email] opportunity stage-changed notification failed", err))
+  }
+
   return NextResponse.json(data)
 }

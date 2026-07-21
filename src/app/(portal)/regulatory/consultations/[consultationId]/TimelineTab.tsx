@@ -39,6 +39,8 @@ function getMilestone(action: string, details: Record<string, unknown> | null): 
         if (next === "completed")    return "complete"
         if (next === "under_review") return "review"
       }
+      // Non-status edits made while consultation was under_review → show in review section
+      if ((details?.consultation_status as string | undefined) === "under_review") return "review"
       return "consultation"
     }
 
@@ -76,8 +78,12 @@ function describeLog(action: string, details: Record<string, unknown> | null): s
     }
     case "details_updated": {
       if ((details?.field as string | undefined) === "status") {
-        const fmtStatus = (s: unknown) => String(s ?? "").replace(/_/g, " ")
-        return `Status changed from "${fmtStatus(details?.old)}" to "${fmtStatus(details?.new)}"`
+        const STATUS_LABELS: Record<string, string> = {
+          draft: "Draft", in_progress: "In Progress",
+          under_review: "Sent for Review", completed: "Assessment Complete", archived: "Archived",
+        }
+        const next = String(details?.new ?? "")
+        return `Status changed to "${STATUS_LABELS[next] ?? next.replace(/_/g, " ")}"`
       }
       const field = String(details?.field ?? "field").replace(/_/g, " ")
       const fmt = (v: unknown) =>
@@ -271,7 +277,20 @@ export function TimelineTab({
         const entries   = m.noLogs ? [] : (groupedLogs.get(m.key) ?? [])
         const milNotes  = groupedNotes.get(m.key) ?? []
         const isLast    = i === milestones.length - 1
-        const firstDate = entries[0]?.created_at
+
+        // For review/complete milestones, find the log entry that triggered the status change
+        const triggerEntry =
+          (m.key === "review" || m.key === "complete")
+            ? entries.find(
+                (l) =>
+                  l.action === "details_updated" &&
+                  (l.details?.field as string) === "status" &&
+                  (l.details?.new as string) === (m.key === "review" ? "under_review" : "completed")
+              )
+            : undefined
+
+        // Use the trigger event's date as the headline date; fall back to first entry
+        const headlineDate = triggerEntry?.created_at ?? entries[0]?.created_at
 
         return (
           <div key={m.key} className="flex gap-4">
@@ -288,10 +307,13 @@ export function TimelineTab({
 
             {/* Right: milestone heading + log entries + notes */}
             <div className={`pb-6 flex-1 min-w-0 ${!m.done ? "opacity-40" : ""}`}>
-              <div className="flex items-baseline gap-2 mt-0.5">
+              <div className="flex items-baseline gap-2 mt-0.5 flex-wrap">
                 <p className="text-sm font-semibold leading-5">{m.label}</p>
-                {firstDate && (
-                  <span className="text-xs text-muted-foreground">{fmtDate(firstDate)}</span>
+                {triggerEntry?.user_name && (
+                  <span className="text-xs text-muted-foreground">by {triggerEntry.user_name}</span>
+                )}
+                {headlineDate && (
+                  <span className="text-xs text-muted-foreground">{fmtDate(headlineDate)}</span>
                 )}
                 {m.done && (
                   <button

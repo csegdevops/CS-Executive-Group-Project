@@ -27,9 +27,10 @@ export async function GET(req: NextRequest) {
   const companyId  = searchParams.get("company_id")
   const openOnly   = searchParams.get("open") === "1"
 
+  const admin = createAdminClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const admin = createAdminClient().schema("crm") as any
-  let query = admin
+  const crm = admin.schema("crm") as any
+  let query = crm
     .from("opportunities")
     .select("*")
     .order("created_at", { ascending: false })
@@ -47,9 +48,9 @@ export async function GET(req: NextRequest) {
   const contactIds   = [...new Set((opps ?? []).map((o: { contact_id: string | null }) => o.contact_id).filter(Boolean))] as string[]
 
   const [{ data: companies }, { data: profiles }, { data: contacts }] = await Promise.all([
-    companyIds.length ? createAdminClient().from("companies").select("id, name").in("id", companyIds) : { data: [] },
-    profileIds.length ? createAdminClient().from("profiles").select("id, full_name").in("id", profileIds) : { data: [] },
-    contactIds.length ? createAdminClient().from("contacts").select("id, first_name, last_name").in("id", contactIds) : { data: [] },
+    companyIds.length ? admin.from("companies").select("id, name").in("id", companyIds) : { data: [] },
+    profileIds.length ? admin.from("profiles").select("id, full_name").in("id", profileIds) : { data: [] },
+    contactIds.length ? admin.from("contacts").select("id, first_name, last_name").in("id", contactIds) : { data: [] },
   ])
 
   const companyMap = Object.fromEntries((companies ?? []).map((c: { id: string; name: string }) => [c.id, c.name]))

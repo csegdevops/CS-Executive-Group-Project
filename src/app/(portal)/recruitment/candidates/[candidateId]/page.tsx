@@ -4,8 +4,14 @@ import { notFound } from "next/navigation"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { CandidateSkillsEditor } from "./CandidateSkillsEditor"
+import { CandidateEducationTagsEditor } from "./CandidateEducationTagsEditor"
+import { EditCandidateDialog } from "./EditCandidateDialog"
+import { CvUploadButton } from "./CvUploadButton"
+import { DeleteCvButton } from "./DeleteCvButton"
+import { CvParseStatusControl } from "./CvParseStatusControl"
 import { AddToJobDialog } from "./AddToJobDialog"
-import { ChevronLeft, Mail, Phone, MapPin, Shield, FileText, GraduationCap } from "lucide-react"
+import { getCvSignedUrl } from "@/lib/storage/cv-storage"
+import { ChevronLeft, Mail, Phone, MapPin, Shield, FileText, GraduationCap, Briefcase } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const STAGE_LABELS: Record<string, string> = {
@@ -25,7 +31,7 @@ export default async function CandidateProfilePage({ params }: { params: Promise
   const { candidateId } = await params
   const admin = createAdminClient()
 
-  const [{ data: candidate }, { data: applications }] = await Promise.all([
+  const [{ data: candidate }, { data: applications }, { data: lookups }] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (admin.schema("recruitment") as any)
       .from("candidates")
@@ -38,9 +44,22 @@ export default async function CandidateProfilePage({ params }: { params: Promise
       .select("id, job_id, stage, source_channel, created_at, cv_storage_key, cv_original_name")
       .eq("candidate_id", candidateId)
       .order("created_at", { ascending: false }),
+    admin
+      .from("lookup_values")
+      .select("category, value, label")
+      .in("category", ["security_clearance_level", "citizenship_status"]),
   ])
 
   if (!candidate) notFound()
+
+  const lookupLabel = (category: string, value: string | null) =>
+    (lookups ?? []).find((l: { category: string; value: string }) => l.category === category && l.value === value)?.label
+      ?? value ?? ""
+
+  const [cvUrl, clUrl] = await Promise.all([
+    candidate.cv_storage_key ? getCvSignedUrl(candidate.cv_storage_key) : Promise.resolve(null),
+    candidate.cl_storage_key ? getCvSignedUrl(candidate.cl_storage_key) : Promise.resolve(null),
+  ])
 
   const jobIds = [...new Set((applications ?? []).map((a: { job_id: string }) => a.job_id))]
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -61,6 +80,14 @@ export default async function CandidateProfilePage({ params }: { params: Promise
 
   const pct = candidate.profile_completeness_pct ?? 0
 
+  const parsedMetadata = candidate.parsed_metadata as {
+    education?: { institution: string; degree: string | null; field_of_study: string | null; start_date: string | null; end_date: string | null }[]
+    work_experience?: { employer: string; title: string; start_date: string | null; end_date: string | null; description: string | null }[]
+  } | null
+
+  const dateRange = (start: string | null, end: string | null) =>
+    [start, end].filter(Boolean).join(" – ") || null
+
   return (
     <div className="max-w-3xl">
       <Link href="/recruitment/candidates" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4">
@@ -74,8 +101,38 @@ export default async function CandidateProfilePage({ params }: { params: Promise
           <div className="rounded-lg border bg-card p-5">
             <div className="flex items-start justify-between mb-3">
               <div>
-                <h1 className="text-xl font-semibold">{candidate.first_name} {candidate.last_name}</h1>
-                {candidate.current_title && <p className="text-sm text-muted-foreground">{candidate.current_title}</p>}
+                <div className="flex items-center gap-2">
+                  <h1 className="text-xl font-semibold">{candidate.first_name} {candidate.last_name}</h1>
+                  <EditCandidateDialog
+                    candidateId={candidate.id}
+                    initial={{
+                      first_name: candidate.first_name ?? "",
+                      last_name: candidate.last_name ?? "",
+                      email: candidate.email ?? "",
+                      secondary_email: candidate.secondary_email ?? "",
+                      phone: candidate.phone ?? "",
+                      current_title: candidate.current_title ?? "",
+                      current_employer: candidate.current_employer ?? "",
+                      employment_status: candidate.employment_status ?? "employed",
+                      location_city: candidate.location_city ?? "",
+                      location_state: candidate.location_state ?? "",
+                      location_postcode: candidate.location_postcode ?? "",
+                      field_of_study: candidate.field_of_study ?? "",
+                      citizenship_status: candidate.citizenship_status ?? "",
+                      security_clearance_level: candidate.security_clearance_level ?? "",
+                      security_clearance_verified: candidate.security_clearance_verified ?? false,
+                      security_clearance_expiry: candidate.security_clearance_expiry ?? "",
+                    }}
+                  />
+                  {candidate.employment_status === "not_working" && (
+                    <Badge variant="outline" className="text-xs text-muted-foreground">Not currently working</Badge>
+                  )}
+                </div>
+                {candidate.current_title && (
+                  <p className="text-sm text-muted-foreground">
+                    {candidate.employment_status === "not_working" ? "Last: " : ""}{candidate.current_title}
+                  </p>
+                )}
                 {candidate.current_employer && <p className="text-sm text-muted-foreground">{candidate.current_employer}</p>}
               </div>
               <div className="text-right">
@@ -96,6 +153,12 @@ export default async function CandidateProfilePage({ params }: { params: Promise
               <a href={`mailto:${candidate.email}`} className="flex items-center gap-2 text-sm hover:text-primary transition-colors">
                 <Mail className="h-3.5 w-3.5 text-muted-foreground" />{candidate.email}
               </a>
+              {candidate.secondary_email && (
+                <a href={`mailto:${candidate.secondary_email}`} className="flex items-center gap-2 text-sm hover:text-primary transition-colors">
+                  <Mail className="h-3.5 w-3.5 text-muted-foreground" />{candidate.secondary_email}
+                  <span className="text-xs text-muted-foreground">(secondary)</span>
+                </a>
+              )}
               {candidate.phone && (
                 <a href={`tel:${candidate.phone}`} className="flex items-center gap-2 text-sm hover:text-primary transition-colors">
                   <Phone className="h-3.5 w-3.5 text-muted-foreground" />{candidate.phone}
@@ -104,12 +167,17 @@ export default async function CandidateProfilePage({ params }: { params: Promise
               {(candidate.location_city || candidate.location_state) && (
                 <p className="flex items-center gap-2 text-sm text-muted-foreground">
                   <MapPin className="h-3.5 w-3.5" />
-                  {[candidate.location_city, candidate.location_state, candidate.location_country].filter(Boolean).join(", ")}
+                  {[candidate.location_city, candidate.location_state, candidate.location_postcode, candidate.location_country].filter(Boolean).join(", ")}
                 </p>
               )}
               {candidate.field_of_study && (
                 <p className="flex items-center gap-2 text-sm text-muted-foreground">
                   <GraduationCap className="h-3.5 w-3.5" />{candidate.field_of_study}
+                </p>
+              )}
+              {candidate.citizenship_status && (
+                <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Shield className="h-3.5 w-3.5" />{lookupLabel("citizenship_status", candidate.citizenship_status)}
                 </p>
               )}
             </div>
@@ -120,22 +188,106 @@ export default async function CandidateProfilePage({ params }: { params: Promise
                 initialTags={candidate.skills_tags ?? []}
               />
             </div>
+
+            <div className="mt-4 border-t pt-4">
+              <CandidateEducationTagsEditor
+                candidateId={candidate.id}
+                initialTags={candidate.education_tags ?? []}
+              />
+            </div>
           </div>
 
           {/* Security clearance */}
-          {candidate.security_clearance_level && (
+          {candidate.security_clearance_level && candidate.security_clearance_level !== "none" && (
             <div className="rounded-lg border bg-card p-4">
               <div className="flex items-center gap-2 mb-1">
                 <Shield className="h-4 w-4 text-amber-500" />
                 <h3 className="font-medium text-sm">Security Clearance</h3>
               </div>
-              <p className="text-sm">{candidate.security_clearance_level}</p>
+              <p className="text-sm">{lookupLabel("security_clearance_level", candidate.security_clearance_level)}</p>
               {candidate.security_clearance_verified && <Badge variant="outline" className="text-xs mt-1 text-green-700 border-green-200">Verified</Badge>}
               {candidate.security_clearance_expiry && (
                 <p className="text-xs text-muted-foreground mt-1">
                   Expires: {new Date(candidate.security_clearance_expiry).toLocaleDateString("en-AU")}
                 </p>
               )}
+            </div>
+          )}
+
+          {/* Documents */}
+          <div className="rounded-lg border bg-card p-4">
+            <h3 className="font-medium text-sm mb-2">Documents</h3>
+            <div className="flex flex-wrap items-center gap-3 text-sm">
+              <div className="flex items-center gap-1.5">
+                {cvUrl ? (
+                  <a href={cvUrl} target="_blank" rel="noopener" className="flex items-center gap-1.5 text-primary hover:underline">
+                    <FileText className="h-3.5 w-3.5" />{candidate.cv_original_name ?? "View CV"}
+                  </a>
+                ) : (
+                  <span className="text-muted-foreground text-xs">No CV on file</span>
+                )}
+                <CvUploadButton candidateId={candidate.id} docType="cv" />
+                {candidate.cv_storage_key && <DeleteCvButton candidateId={candidate.id} docType="cv" />}
+                {candidate.cv_storage_key && (
+                  <CvParseStatusControl candidateId={candidate.id} status={candidate.cv_parse_status ?? "unparsed"} />
+                )}
+              </div>
+              <div className="flex items-center gap-1.5">
+                {clUrl ? (
+                  <a href={clUrl} target="_blank" rel="noopener" className="flex items-center gap-1.5 text-primary hover:underline">
+                    <FileText className="h-3.5 w-3.5" />{candidate.cl_original_name ?? "View Cover Letter"}
+                  </a>
+                ) : (
+                  <span className="text-muted-foreground text-xs">No cover letter on file</span>
+                )}
+                <CvUploadButton candidateId={candidate.id} docType="cl" />
+                {candidate.cl_storage_key && <DeleteCvButton candidateId={candidate.id} docType="cl" />}
+              </div>
+            </div>
+          </div>
+
+          {/* Work experience (parsed from CV) */}
+          {parsedMetadata?.work_experience && parsedMetadata.work_experience.length > 0 && (
+            <div className="rounded-lg border bg-card p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Briefcase className="h-4 w-4 text-muted-foreground" />
+                <h3 className="font-medium text-sm">Work Experience</h3>
+                <Badge variant="outline" className="text-xs">from CV</Badge>
+              </div>
+              <div className="space-y-3">
+                {parsedMetadata.work_experience.map((w, i) => (
+                  <div key={i} className="text-sm">
+                    <p className="font-medium">{w.title}</p>
+                    <p className="text-muted-foreground">
+                      {w.employer}
+                      {dateRange(w.start_date, w.end_date) && ` · ${dateRange(w.start_date, w.end_date)}`}
+                    </p>
+                    {w.description && <p className="text-xs text-muted-foreground mt-0.5">{w.description}</p>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Education (parsed from CV) */}
+          {parsedMetadata?.education && parsedMetadata.education.length > 0 && (
+            <div className="rounded-lg border bg-card p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <GraduationCap className="h-4 w-4 text-muted-foreground" />
+                <h3 className="font-medium text-sm">Education</h3>
+                <Badge variant="outline" className="text-xs">from CV</Badge>
+              </div>
+              <div className="space-y-3">
+                {parsedMetadata.education.map((e, i) => (
+                  <div key={i} className="text-sm">
+                    <p className="font-medium">{e.institution}</p>
+                    <p className="text-muted-foreground">
+                      {[e.degree, e.field_of_study].filter(Boolean).join(", ")}
+                      {dateRange(e.start_date, e.end_date) && ` · ${dateRange(e.start_date, e.end_date)}`}
+                    </p>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 

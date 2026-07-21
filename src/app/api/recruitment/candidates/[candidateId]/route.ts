@@ -6,12 +6,18 @@ import { z } from "zod"
 const patchSchema = z.object({
   first_name: z.string().min(1).optional(),
   last_name: z.string().min(1).optional(),
+  email: z.string().email().optional(),
+  secondary_email: z.string().email().optional().nullable(),
   phone: z.string().optional().nullable(),
   current_title: z.string().optional().nullable(),
   current_employer: z.string().optional().nullable(),
+  employment_status: z.enum(["employed", "not_working"]).optional(),
   location_city: z.string().optional().nullable(),
   location_state: z.string().optional().nullable(),
+  location_postcode: z.string().optional().nullable(),
+  citizenship_status: z.string().optional().nullable(),
   skills_tags: z.array(z.string()).optional(),
+  education_tags: z.array(z.string()).optional(),
   field_of_study: z.string().optional().nullable(),
   security_clearance_level: z.string().optional().nullable(),
   security_clearance_verified: z.boolean().optional(),
@@ -98,6 +104,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ ca
     .select("id, first_name, last_name, email, profile_completeness_pct, updated_at")
     .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    if (error.code === "23505") return NextResponse.json({ error: "Another candidate already uses that email" }, { status: 409 })
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
   return NextResponse.json(data)
 }

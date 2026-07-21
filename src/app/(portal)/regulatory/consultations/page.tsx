@@ -5,10 +5,17 @@ import { PageHeader } from "@/components/layout/PageHeader"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { Plus, FileDown } from "lucide-react"
-import { ConsultationsAnalytics } from "./ConsultationsAnalytics"
 import { ConsultationsListClient } from "./ConsultationsListClient"
 import { TabBar } from "./TabBar"
 import { Suspense } from "react"
+import dynamic from "next/dynamic"
+
+// recharts is only needed on the analytics tab — keep it out of the main
+// consultations bundle so the default list view doesn't pay for it.
+const ConsultationsAnalytics = dynamic(
+  () => import("./ConsultationsAnalytics").then((mod) => mod.ConsultationsAnalytics),
+  { loading: () => <div className="h-56 flex items-center justify-center text-sm text-muted-foreground">Loading analytics…</div> }
+)
 
 export default async function ConsultationsPage({
   searchParams,

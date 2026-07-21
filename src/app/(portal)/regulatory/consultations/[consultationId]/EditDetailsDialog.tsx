@@ -24,10 +24,13 @@ interface Initial {
 export function EditDetailsDialog({
   consultationId,
   initial,
+  isLocked,
 }: {
   consultationId: string
   initial: Initial
+  isLocked?: boolean
 }) {
+  if (isLocked) return null
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [saving, setSaving] = useState(false)

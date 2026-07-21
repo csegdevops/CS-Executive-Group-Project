@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { logConsultationEvent } from "@/lib/consultation-log"
+import { sendConsultantAssignedEmail } from "@/lib/email/notifications"
 import { NextResponse } from "next/server"
 import { z } from "zod"
 
@@ -87,6 +88,29 @@ export async function POST(request: Request, { params }: Params) {
   }
 
   await logConsultationEvent(consultationId, caller.id, "consultant_assigned", { user_id: parsed.data.user_id })
+
+  const { data: consultation } = await admin
+    .schema("regulatory")
+    .from("consultations")
+    .select("title, company_id")
+    .eq("id", consultationId)
+    .single()
+
+  if (consultation) {
+    const { data: company } = await admin
+      .from("companies")
+      .select("name")
+      .eq("id", consultation.company_id)
+      .single()
+
+    sendConsultantAssignedEmail({
+      consultationId,
+      consultationTitle: consultation.title,
+      companyName: company?.name ?? "",
+      recipientUserId: parsed.data.user_id,
+    }).catch((err) => console.error("[email] consultant-assigned notification failed", err))
+  }
+
   return NextResponse.json({ ok: true }, { status: 201 })
 }
 

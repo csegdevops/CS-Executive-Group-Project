@@ -12,6 +12,12 @@ export function formatDistanceToNow(dateString: string): string {
   return `${Math.floor(diffDays / 365)} years ago`
 }
 
+export function isExactlyDaysAway(dateString: string, days: number): boolean {
+  const target = new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10)
+  const due = dateString.slice(0, 10)
+  return due === target
+}
+
 export function formatDate(dateString: string | null): string {
   if (!dateString) return "—"
   return new Date(dateString).toLocaleDateString("en-AU", {

@@ -35,7 +35,7 @@ export async function proxy(request: NextRequest) {
   if (pathname.startsWith("/api/")) return supabaseResponse
 
   // Redirect unauthenticated users to login
-  const publicPaths = ["/login", "/register", "/auth"]
+  const publicPaths = ["/login", "/register", "/auth", "/forgot-password", "/reset-password"]
   if (!user && !publicPaths.some((p) => pathname.startsWith(p))) {
     const url = request.nextUrl.clone()
     url.pathname = "/login"

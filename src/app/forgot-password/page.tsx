@@ -12,17 +12,36 @@ export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("")
   const [loading, setLoading] = useState(false)
   const [sent, setSent] = useState(false)
+  // Only ever populated for the rate-limit case (see handleSubmit) — every
+  // other failure still falls through to the generic "sent" message so
+  // whether an email is actually registered is never revealed.
+  const [rateLimitError, setRateLimitError] = useState<string | null>(null)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
+    setRateLimitError(null)
 
-    const supabase = createClient()
-    await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
-    })
+    try {
+      const supabase = createClient()
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      })
+      if (error) {
+        console.error("[forgot-password]", error)
+        // 429 is a request-frequency limit, not tied to whether the email
+        // is registered — safe to surface without enabling enumeration.
+        if (error.status === 429) {
+          setRateLimitError(error.message)
+          setLoading(false)
+          return
+        }
+      }
+    } catch (err) {
+      console.error("[forgot-password]", err)
+    }
 
-    // Always show success — prevents email enumeration
+    // Always show success for every other outcome — prevents email enumeration
     setSent(true)
     setLoading(false)
   }
@@ -66,6 +85,10 @@ export default function ForgotPasswordPage() {
                     autoComplete="email"
                   />
                 </div>
+
+                {rateLimitError && (
+                  <p className="text-sm text-destructive">{rateLimitError}</p>
+                )}
 
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? "Sending…" : "Send reset link"}

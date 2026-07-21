@@ -49,9 +49,10 @@ interface Props {
   frameworks: RegulatoryFramework[]
   initialChemicals: ConsultationChemical[]
   products: string[]
+  isLocked?: boolean
 }
 
-export function ChemicalsTab({ consultationId, frameworks, initialChemicals, products }: Props) {
+export function ChemicalsTab({ consultationId, frameworks, initialChemicals, products, isLocked }: Props) {
   const router = useRouter()
   const [chemicals, setChemicals] = useState<ConsultationChemical[]>(initialChemicals)
 
@@ -354,8 +355,8 @@ export function ChemicalsTab({ consultationId, frameworks, initialChemicals, pro
 
   return (
     <div className="space-y-6">
-      {/* Toolbar */}
-      <div className="flex flex-wrap gap-3 items-end">
+      {/* Toolbar — hidden when consultation is locked (completed) */}
+      {!isLocked && <div className="flex flex-wrap gap-3 items-end">
         <form onSubmit={handleAdd} className="flex gap-2 items-end flex-wrap">
 
           {/* Identifier with live search dropdown */}
@@ -485,14 +486,14 @@ export function ChemicalsTab({ consultationId, frameworks, initialChemicals, pro
           frameworks={frameworks}
           onCommitDone={refreshList}
         />
-      </div>
+      </div>}
 
       {/* Chemicals table */}
       {chemicals.length === 0 ? (
         <p className="text-muted-foreground text-sm">No chemicals added yet.</p>
       ) : (
         <div className="border rounded-lg overflow-hidden">
-          {dragId && (
+          {dragId && !isLocked && (
             <p className="text-xs text-blue-600 bg-blue-50/60 px-4 py-1.5 border-b">
               Drag to a product section to reassign
             </p>
@@ -560,7 +561,7 @@ export function ChemicalsTab({ consultationId, frameworks, initialChemicals, pro
                           >
                             <td className="px-4 py-3">
                               <div className="flex items-center gap-2">
-                                <GripVertical className="h-3.5 w-3.5 text-muted-foreground/30 shrink-0" />
+                                {!isLocked && <GripVertical className="h-3.5 w-3.5 text-muted-foreground/30 shrink-0" />}
                                 <AlertCircle className="h-3.5 w-3.5 text-amber-500 shrink-0" />
                                 <span className="italic text-muted-foreground">
                                   {cc.notes ?? "Unresolved ingredient"}
@@ -585,35 +586,39 @@ export function ChemicalsTab({ consultationId, frameworks, initialChemicals, pro
                               <span className="text-xs text-muted-foreground">Not in database</span>
                             </td>
                             <td className="px-4 py-3 text-right flex items-center justify-end gap-1">
-                              <PushToDbDialog
-                                consultationId={consultationId}
-                                consultationChemicalId={cc.id}
-                                initialName={cc.notes ?? ""}
-                                initialCas={cc.alt_cas ?? ""}
-                                frameworks={frameworks}
-                                onSuccess={refreshList}
-                              />
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 text-amber-600 hover:text-amber-800"
-                                title="Link to a known chemical"
-                                onClick={() => isResolving ? setResolvingId(null) : startResolve(cc.id)}
-                              >
-                                {isResolving ? <X className="h-3.5 w-3.5" /> : <Link2 className="h-3.5 w-3.5" />}
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                                onClick={() => handleRemove(cc)}
-                                disabled={removing === cc.id}
-                              >
-                                {removing === cc.id
-                                  ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                  : <Trash2 className="h-3.5 w-3.5" />
-                                }
-                              </Button>
+                              {!isLocked && (
+                                <>
+                                  <PushToDbDialog
+                                    consultationId={consultationId}
+                                    consultationChemicalId={cc.id}
+                                    initialName={cc.notes ?? ""}
+                                    initialCas={cc.alt_cas ?? ""}
+                                    frameworks={frameworks}
+                                    onSuccess={refreshList}
+                                  />
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-amber-600 hover:text-amber-800"
+                                    title="Link to a known chemical"
+                                    onClick={() => isResolving ? setResolvingId(null) : startResolve(cc.id)}
+                                  >
+                                    {isResolving ? <X className="h-3.5 w-3.5" /> : <Link2 className="h-3.5 w-3.5" />}
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                                    onClick={() => handleRemove(cc)}
+                                    disabled={removing === cc.id}
+                                  >
+                                    {removing === cc.id
+                                      ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                      : <Trash2 className="h-3.5 w-3.5" />
+                                    }
+                                  </Button>
+                                </>
+                              )}
                             </td>
                           </tr>
 
@@ -678,7 +683,7 @@ export function ChemicalsTab({ consultationId, frameworks, initialChemicals, pro
                         >
                           <td className="px-4 py-3">
                             <div className="flex items-start gap-2">
-                              <GripVertical className="h-3.5 w-3.5 text-muted-foreground/30 shrink-0 mt-0.5" />
+                              {!isLocked && <GripVertical className="h-3.5 w-3.5 text-muted-foreground/30 shrink-0 mt-0.5" />}
                               <div className="min-w-0">
                                 <Link
                                   href={`/regulatory/chemicals/${chem.id}?from=${backUrl}`}
@@ -744,18 +749,20 @@ export function ChemicalsTab({ consultationId, frameworks, initialChemicals, pro
                             )}
                           </td>
                           <td className="px-4 py-3 text-right">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                              onClick={() => handleRemove(cc)}
-                              disabled={removing === cc.id}
-                            >
-                              {removing === cc.id
-                                ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                : <Trash2 className="h-3.5 w-3.5" />
-                              }
-                            </Button>
+                            {!isLocked && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                                onClick={() => handleRemove(cc)}
+                                disabled={removing === cc.id}
+                              >
+                                {removing === cc.id
+                                  ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  : <Trash2 className="h-3.5 w-3.5" />
+                                }
+                              </Button>
+                            )}
                           </td>
                         </tr>
                       </Fragment>

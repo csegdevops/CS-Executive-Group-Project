@@ -1,5 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { logConsultationEvent } from "@/lib/consultation-log"
+import { sendConsultationStatusChangedEmail } from "@/lib/email/notifications"
 import { NextResponse } from "next/server"
 import { z } from "zod"
 
@@ -108,7 +110,27 @@ export async function PATCH(
       if (oldStr !== newStr) {
         await logConsultationEvent(consultationId, user.id, "details_updated", {
           field, old: oldVal, new: newVal,
+          consultation_status: current.status,
         })
+
+        if (field === "status") {
+          const admin = createAdminClient()
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const { data: consultants } = await (admin.schema("regulatory") as any)
+            .from("consultation_consultants")
+            .select("consultant_id")
+            .eq("consultation_id", consultationId)
+
+          for (const c of (consultants ?? []) as { consultant_id: string }[]) {
+            sendConsultationStatusChangedEmail({
+              consultationId,
+              consultationTitle: data.title,
+              oldStatus: String(oldVal),
+              newStatus: String(newVal),
+              recipientUserId: c.consultant_id,
+            }).catch((err) => console.error("[email] status-changed notification failed", err))
+          }
+        }
       }
     }
   }

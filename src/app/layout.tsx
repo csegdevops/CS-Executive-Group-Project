@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "RegDB — Regulatory Database",
-  description: "Regulatory consulting database portal",
+  title: "CSEG Internal Portal",
+  description: "CS Executive Group Internal Portal",
 };
 
 export default function RootLayout({

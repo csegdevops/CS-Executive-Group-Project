@@ -8,6 +8,12 @@ export type RegulatoryStatus = "listed" | "not_listed" | "exempt" | "restricted"
 export type AliasType = "trade_name" | "synonym" | "iupac" | "cas_rn" | "ec_number"
 export type AliasSource = "pubchem" | "echa" | "manual"
 
+export interface ModuleConfig {
+  module: Module
+  is_enabled: boolean
+  updated_at: string | null
+}
+
 // Lookup values
 export type LookupScope = "global" | "regulatory" | "recruitment" | "crm" | "timesheets"
 
@@ -280,6 +286,26 @@ export interface Database {
           label?: string
           sort_order?: number
           is_active?: boolean
+        }
+        Relationships: []
+      }
+      module_config: {
+        Row: {
+          module:     Module
+          is_enabled: boolean
+          updated_by: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          module:      Module
+          is_enabled?: boolean
+          updated_by?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          is_enabled?: boolean
+          updated_by?: string | null
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -696,17 +722,26 @@ export interface Database {
         Row: {
           id: string
           email: string
+          secondary_email: string | null
           phone: string | null
           first_name: string
           last_name: string
           current_title: string | null
           current_employer: string | null
+          employment_status: "employed" | "not_working"
           location_city: string | null
           location_state: string | null
+          location_postcode: string | null
           location_country: string
+          citizenship_status: string | null
+          cv_storage_key: string | null
+          cv_original_name: string | null
+          cl_storage_key: string | null
+          cl_original_name: string | null
           raw_resume_text: string | null
           parsed_metadata: Record<string, unknown> | null
           skills_tags: string[]
+          education_tags: string[]
           field_of_study: string | null
           profile_completeness_pct: number
           completeness_prompted: boolean
@@ -725,17 +760,26 @@ export interface Database {
         Insert: {
           id?: string
           email: string
+          secondary_email?: string | null
           phone?: string | null
           first_name: string
           last_name: string
           current_title?: string | null
           current_employer?: string | null
+          employment_status?: "employed" | "not_working"
           location_city?: string | null
           location_state?: string | null
+          location_postcode?: string | null
           location_country?: string
+          citizenship_status?: string | null
+          cv_storage_key?: string | null
+          cv_original_name?: string | null
+          cl_storage_key?: string | null
+          cl_original_name?: string | null
           raw_resume_text?: string | null
           parsed_metadata?: Record<string, unknown> | null
           skills_tags?: string[]
+          education_tags?: string[]
           field_of_study?: string | null
           security_clearance_level?: string | null
           security_clearance_verified?: boolean
@@ -745,16 +789,26 @@ export interface Database {
           is_active?: boolean
         }
         Update: {
+          email?: string
+          secondary_email?: string | null
           phone?: string | null
           first_name?: string
           last_name?: string
           current_title?: string | null
           current_employer?: string | null
+          employment_status?: "employed" | "not_working"
           location_city?: string | null
           location_state?: string | null
+          location_postcode?: string | null
+          citizenship_status?: string | null
+          cv_storage_key?: string | null
+          cv_original_name?: string | null
+          cl_storage_key?: string | null
+          cl_original_name?: string | null
           raw_resume_text?: string | null
           parsed_metadata?: Record<string, unknown> | null
           skills_tags?: string[]
+          education_tags?: string[]
           field_of_study?: string | null
           security_clearance_level?: string | null
           security_clearance_verified?: boolean

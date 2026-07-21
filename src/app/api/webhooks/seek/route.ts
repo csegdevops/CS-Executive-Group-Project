@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest, NextResponse, after } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { ingestCv } from "@/lib/cv-parsing/ingest"
 import { createHmac } from "crypto"
 
 /**
@@ -76,33 +77,34 @@ export async function POST(req: NextRequest) {
     const name  = cand?.name as Record<string, string> | undefined
     const phones = (cand?.phoneNumbers as Array<{ number: string }>) ?? []
 
-    // Resolve portal job: match seek_ad_id first, then fall back to reference_number
+    // Resolve portal job and upsert the candidate concurrently — neither depends on the other's result
     const seekJobId = job?.id as string | undefined
     const hirerRef  = seek.hirerJobReference as string | undefined
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: portalJob } = await (admin.schema("recruitment") as any)
-      .from("jobs")
-      .select("id, status")
-      .or(
-        [
-          seekJobId ? `seek_ad_id.eq.${seekJobId}` : null,
-          seekJobId ? `reference_number.eq.${seekJobId}` : null,
-          hirerRef  ? `reference_number.eq.${hirerRef}` : null,
-        ].filter(Boolean).join(",")
-      )
-      .maybeSingle()
+    const recruitment = admin.schema("recruitment") as any
 
-    // Upsert candidate
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: upsertResult, error: upsertError } = await (admin.schema("recruitment") as any)
-      .rpc("upsert_candidate", {
-        p_email:         cand?.email as string ?? "",
-        p_phone:         phones[0]?.number ?? null,
-        p_first_name:    name?.first ?? null,
-        p_last_name:     name?.last ?? null,
-        p_source_channel: "seek_inbound",
-        p_added_by:      null,
-      })
+    const [{ data: portalJob }, { data: upsertResult, error: upsertError }] = await Promise.all([
+      recruitment
+        .from("jobs")
+        .select("id, status")
+        .or(
+          [
+            seekJobId ? `seek_ad_id.eq.${seekJobId}` : null,
+            seekJobId ? `reference_number.eq.${seekJobId}` : null,
+            hirerRef  ? `reference_number.eq.${hirerRef}` : null,
+          ].filter(Boolean).join(",")
+        )
+        .maybeSingle(),
+      recruitment
+        .rpc("upsert_candidate", {
+          p_email:         cand?.email as string ?? "",
+          p_phone:         phones[0]?.number ?? null,
+          p_first_name:    name?.first ?? null,
+          p_last_name:     name?.last ?? null,
+          p_source_channel: "seek_inbound",
+          p_added_by:      null,
+        }),
+    ])
 
     if (upsertError) {
       results.push({ event_id: seek.id, status: "error", error: upsertError.message })
@@ -124,8 +126,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Check duplicate
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: existing } = await (admin.schema("recruitment") as any)
+    const { data: existing } = await recruitment
       .from("applications")
       .select("id, stage")
       .eq("job_id", portalJob.id)
@@ -139,8 +140,7 @@ export async function POST(req: NextRequest) {
 
     // Create application
     const cvLink = (app?.cv as Record<string, string>)?.url ?? null
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: newApp, error: appError } = await (admin.schema("recruitment") as any)
+    const { data: newApp, error: appError } = await recruitment
       .from("applications")
       .insert({
         job_id:         portalJob.id,
@@ -151,7 +151,6 @@ export async function POST(req: NextRequest) {
           seek_job_id:         job?.id,
           cv_url:              cvLink,
         },
-        cv_storage_key:  null, // CV stored externally on Seek; would need to download & upload to Supabase Storage
         stage:           "applied",
       })
       .select("id")
@@ -162,9 +161,20 @@ export async function POST(req: NextRequest) {
       continue
     }
 
+    if (cvLink) {
+      const applicationId = newApp.id
+      after(() =>
+        ingestCv({
+          candidateId,
+          applicationId,
+          docType: "cv",
+          source: { url: cvLink },
+        }).catch((err) => console.error("[seek-webhook] CV ingest failed", err))
+      )
+    }
+
     // Initial stage history
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (admin.schema("recruitment") as any)
+    await recruitment
       .from("application_stage_history")
       .insert({ application_id: newApp.id, from_stage: null, to_stage: "applied", changed_by: null })
 
