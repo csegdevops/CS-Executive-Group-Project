@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { hasPermissionForUser } from "@/lib/auth-helpers"
 import { logConsultationEvent } from "@/lib/consultation-log"
 import { sendConsultantAssignedEmail } from "@/lib/email/notifications"
 import { NextResponse } from "next/server"
@@ -13,14 +14,8 @@ async function requireModuleAdmin(supabase: Awaited<ReturnType<typeof createClie
   const { data: profile } = await supabase
     .from("profiles").select("role").eq("id", user.id).single()
   if (profile?.role === "super_admin") return user
-  const { data: access } = await supabase
-    .from("user_module_access")
-    .select("access_level")
-    .eq("user_id", user.id)
-    .eq("module", "regulatory")
-    .eq("access_level", "admin")
-    .maybeSingle()
-  if (!access) return null
+  const canManage = await hasPermissionForUser(supabase, user.id, "regulatory.consultants.manage")
+  if (!canManage) return null
   return user
 }
 
@@ -34,9 +29,9 @@ export async function GET(_req: Request, { params }: Params) {
 
   const admin = createAdminClient()
 
-  const [profilesRes, accessRes, assignedRes] = await Promise.all([
+  const [profilesRes, regulatoryGroupsRes, assignedRes] = await Promise.all([
     admin.from("profiles").select("id, full_name, is_active").eq("is_active", true).order("full_name"),
-    admin.from("user_module_access").select("user_id").eq("module", "regulatory"),
+    admin.from("user_group_permissions").select("group_id").like("permission_key", "regulatory.%"),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (admin.schema("regulatory") as any)
       .from("consultation_consultants")
@@ -44,8 +39,12 @@ export async function GET(_req: Request, { params }: Params) {
       .eq("consultation_id", consultationId),
   ])
 
+  const regulatoryGroupIds = (regulatoryGroupsRes.data ?? []).map((r) => r.group_id)
+  const { data: memberRows } = regulatoryGroupIds.length
+    ? await admin.from("user_group_members").select("user_id").in("group_id", regulatoryGroupIds)
+    : { data: [] as { user_id: string }[] }
   const regulatoryUserIds = new Set(
-    (accessRes.data ?? []).map((r: { user_id: string }) => r.user_id)
+    (memberRows ?? []).map((r: { user_id: string }) => r.user_id)
   )
   const assignedIds = new Set(
     (assignedRes.data ?? []).map((r: { consultant_id: string }) => r.consultant_id)

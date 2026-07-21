@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { requirePermissionOrSuperAdmin } from "@/lib/auth-helpers"
 import { z } from "zod"
 import type { JobStatus } from "@/types/database"
 import { sendJobDetailsChangedEmail } from "@/lib/email/notifications"
@@ -79,6 +80,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ jo
   const { jobId } = await params
   const body = await req.json()
   const { notes: eventNotes, ...rest } = body
+  // A note-only patch (just a timeline comment) is a low-risk collaborative
+  // action available to any recruitment member; changing actual job fields
+  // requires the elevated edit permission.
+  const isNoteOnly = Object.keys(rest).length === 0
+  const requiredPermission = isNoteOnly ? "recruitment.access" : "recruitment.jobs.edit"
+  if (!(await requirePermissionOrSuperAdmin(supabase, user.id, requiredPermission))) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
+
   const parsed = patchSchema.safeParse({ ...rest, notes: eventNotes })
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
 
@@ -92,15 +102,25 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ jo
   if (!current) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
   const { notes: _, ...updateFields } = parsed.data
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: updated, error } = await (admin.schema("recruitment") as any)
-    .from("jobs")
-    .update(updateFields)
-    .eq("id", jobId)
-    .select("id, title, status, updated_at")
-    .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  // A note-only patch has nothing to set on the jobs row itself — skip the
+  // update (an empty .update({}) would error) and fall straight through to
+  // the job_events insert below.
+  let updated: { id: string; title: string; status: string; updated_at: string }
+  if (Object.keys(updateFields).length > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (admin.schema("recruitment") as any)
+      .from("jobs")
+      .update(updateFields)
+      .eq("id", jobId)
+      .select("id, title, status, updated_at")
+      .single()
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    updated = data
+  } else {
+    updated = { id: jobId, title: current.title, status: current.status, updated_at: new Date().toISOString() }
+  }
 
   // Log status change event if status changed
   if (parsed.data.status && parsed.data.status !== current.status) {

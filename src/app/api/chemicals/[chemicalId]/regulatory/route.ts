@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
+import { requirePermissionOrSuperAdmin } from "@/lib/auth-helpers"
 import { NextResponse } from "next/server"
 import { resolveAndPersistChemical } from "@/lib/chemicals/resolver"
 
@@ -30,6 +31,9 @@ export async function POST(
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (!(await requirePermissionOrSuperAdmin(supabase, user.id, "regulatory.chemicals.manage"))) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
 
   const { data: chemical } = await supabase
     .schema("regulatory")

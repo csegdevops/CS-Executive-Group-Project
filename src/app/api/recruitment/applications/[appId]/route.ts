@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { requirePermissionOrSuperAdmin } from "@/lib/auth-helpers"
 import { z } from "zod"
 
 const patchSchema = z.object({
   stage: z.enum(["applied", "screening", "shortlisted", "interview_1", "interview_2", "reference_check", "offer", "placed", "withdrawn", "rejected"]).optional(),
   notes: z.string().optional(),
+  source_channel: z.enum(["seek_inbound", "company_website", "database_internal", "seek_talent", "linkedin"]).optional(),
   cv_storage_key: z.string().optional(),
   cv_original_name: z.string().optional(),
   cl_storage_key: z.string().optional(),
@@ -82,6 +84,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ ap
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (!(await requirePermissionOrSuperAdmin(supabase, user.id, "recruitment.applications.edit"))) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
 
   const { appId } = await params
   const body = await req.json()
@@ -98,15 +103,28 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ ap
   if (!current) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
   const { stage_notes, ...updateFields } = parsed.data
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: updated, error } = await (admin.schema("recruitment") as any)
-    .from("applications")
-    .update(updateFields)
-    .eq("id", appId)
-    .select("id, stage, notes, updated_at")
-    .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  let updated: { id: string; stage: string; notes: string | null; updated_at: string }
+  if (Object.keys(updateFields).length > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (admin.schema("recruitment") as any)
+      .from("applications")
+      .update(updateFields)
+      .eq("id", appId)
+      .select("id, stage, notes, updated_at")
+      .single()
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    updated = data
+  } else {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data } = await (admin.schema("recruitment") as any)
+      .from("applications")
+      .select("id, stage, notes, updated_at")
+      .eq("id", appId)
+      .single()
+    updated = data
+  }
 
   // If stage changed, insert explicit history row with changed_by (trigger inserts with NULL)
   if (parsed.data.stage && parsed.data.stage !== current.stage) {

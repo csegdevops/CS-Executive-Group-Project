@@ -1,4 +1,4 @@
-import { requireAuth } from "@/lib/auth-helpers"
+import { requireAuth, isModuleAdminForUser } from "@/lib/auth-helpers"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { PageHeader } from "@/components/layout/PageHeader"
@@ -28,16 +28,7 @@ export default async function ConsultationsPage({
   const user = await requireAuth()
   const supabase = await createClient()
 
-  const isAdmin = user.role === "super_admin" || await (async () => {
-    const { data } = await supabase
-      .from("user_module_access")
-      .select("access_level")
-      .eq("user_id", user.id)
-      .eq("module", "regulatory")
-      .eq("access_level", "admin")
-      .maybeSingle()
-    return !!data
-  })()
+  const isAdmin = user.role === "super_admin" || await isModuleAdminForUser(supabase, user.id, "regulatory")
 
   // Analytics tab — skip heavy list queries
   if (showAnalytics && isAdmin) {

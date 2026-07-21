@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { requirePermissionOrSuperAdmin } from "@/lib/auth-helpers"
 import { NextResponse } from "next/server"
 
 export async function DELETE(
@@ -10,6 +11,9 @@ export async function DELETE(
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (!(await requirePermissionOrSuperAdmin(supabase, user.id, "regulatory.chemicals.manage"))) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
 
   const admin = createAdminClient()
   const reg = admin.schema("regulatory")

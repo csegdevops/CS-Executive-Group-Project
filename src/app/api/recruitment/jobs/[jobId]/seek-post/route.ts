@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { requirePermissionOrSuperAdmin } from "@/lib/auth-helpers"
 
 /**
  * Seek Employer API integration stub.
@@ -42,6 +43,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (!(await requirePermissionOrSuperAdmin(supabase, user.id, "recruitment.jobs.edit"))) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
 
   const { jobId } = await params
   const admin = createAdminClient()
@@ -141,6 +145,9 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ j
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (!(await requirePermissionOrSuperAdmin(supabase, user.id, "recruitment.jobs.edit"))) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
 
   if (!SEEK_CONFIGURED) {
     return NextResponse.json({ status: "not_configured" }, { status: 503 })

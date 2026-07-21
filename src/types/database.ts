@@ -309,28 +309,75 @@ export interface Database {
         }
         Relationships: []
       }
-      user_module_access: {
+      user_groups: {
         Row: {
           id: string
+          name: string
+          description: string | null
+          is_locked: boolean
+          created_at: string
+          created_by: string | null
+        }
+        Insert: {
+          id?: string
+          name: string
+          description?: string | null
+          is_locked?: boolean
+          created_by?: string | null
+        }
+        Update: {
+          name?: string
+          description?: string | null
+        }
+        Relationships: []
+      }
+      user_group_permissions: {
+        Row: {
+          id: string
+          group_id: string
+          permission_key: string
+        }
+        Insert: {
+          id?: string
+          group_id: string
+          permission_key: string
+        }
+        Update: Record<string, never>
+        Relationships: [
+          {
+            foreignKeyName: "user_group_permissions_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "user_groups"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      user_group_members: {
+        Row: {
+          id: string
+          group_id: string
           user_id: string
-          module: Module
-          access_level: ModuleAccessLevel
           granted_at: string
           granted_by: string | null
         }
         Insert: {
           id?: string
+          group_id: string
           user_id: string
-          module: Module
-          access_level: ModuleAccessLevel
           granted_by?: string | null
         }
-        Update: {
-          access_level?: ModuleAccessLevel
-        }
+        Update: Record<string, never>
         Relationships: [
           {
-            foreignKeyName: "user_module_access_user_id_fkey"
+            foreignKeyName: "user_group_members_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "user_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_group_members_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"

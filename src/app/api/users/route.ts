@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { getUserPermissionKeys, isModuleAdmin } from "@/lib/auth-helpers"
 import { NextResponse } from "next/server"
 import { z } from "zod"
 
@@ -25,13 +26,10 @@ async function requireAnyModuleAdmin(supabase: Awaited<ReturnType<typeof createC
   const { data: profile } = await supabase
     .from("profiles").select("role").eq("id", user.id).single()
   if (profile?.role === "super_admin") return user
-  const { data: access } = await supabase
-    .from("user_module_access")
-    .select("access_level")
-    .eq("user_id", user.id)
-    .eq("access_level", "admin")
-    .limit(1)
-  if (!access?.length) return null
+
+  const keys = await getUserPermissionKeys(user.id)
+  const isAnyModuleAdmin = (["regulatory", "recruitment", "crm"] as const).some((m) => isModuleAdmin(keys, m))
+  if (!isAnyModuleAdmin) return null
   return user
 }
 

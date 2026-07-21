@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
+import { hasPermissionForUser } from "@/lib/auth-helpers"
 import { NextResponse } from "next/server"
 import { parseExcelBuffer } from "@/lib/import/excel-parser"
 import { parseFormulationRows } from "@/lib/import/formulation-parser"
@@ -20,13 +21,8 @@ async function getRegUser() {
   if (!user) return null
   const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
   if (profile?.role === "super_admin") return user
-  const { data: access } = await supabase
-    .from("user_module_access")
-    .select("id")
-    .eq("user_id", user.id)
-    .eq("module", "regulatory")
-    .maybeSingle()
-  return access ? user : null
+  const canEdit = await hasPermissionForUser(supabase, user.id, "regulatory.consultations.edit")
+  return canEdit ? user : null
 }
 
 export async function POST(request: Request) {

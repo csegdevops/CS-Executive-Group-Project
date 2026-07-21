@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { requirePermissionOrSuperAdmin } from "@/lib/auth-helpers"
 import { logConsultationEvent } from "@/lib/consultation-log"
 import { NextResponse } from "next/server"
 import { z } from "zod"
@@ -53,6 +54,9 @@ export async function POST(request: Request) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (!(await requirePermissionOrSuperAdmin(supabase, user.id, "regulatory.chemicals.manage"))) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
 
   const body = await request.json()
   const parsed = createSchema.safeParse(body)

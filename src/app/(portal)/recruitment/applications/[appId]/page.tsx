@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { ChevronLeft, MapPin, Mail, Phone, Shield, FileText, ExternalLink } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { StageControl } from "./StageControl"
+import { EditApplicationDialog } from "./EditApplicationDialog"
 
 const STAGE_COLORS: Record<string, string> = {
   applied: "bg-slate-100 text-slate-700", screening: "bg-blue-50 text-blue-700",
@@ -157,9 +158,16 @@ export default async function ApplicationDetailPage({ params }: { params: Promis
           <div className="rounded-lg border bg-card p-4 space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="font-medium text-sm">Application</h3>
-              <Badge variant="outline" className={cn("text-xs", STAGE_COLORS[app.stage] ?? "")}>
-                {STAGE_LABELS[app.stage] ?? app.stage}
-              </Badge>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className={cn("text-xs", STAGE_COLORS[app.stage] ?? "")}>
+                  {STAGE_LABELS[app.stage] ?? app.stage}
+                </Badge>
+                <EditApplicationDialog
+                  appId={app.id}
+                  initialNotes={app.notes ?? ""}
+                  initialSourceChannel={app.source_channel}
+                />
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div>

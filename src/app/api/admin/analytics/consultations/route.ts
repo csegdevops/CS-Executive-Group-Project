@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { isModuleAdminForUser } from "@/lib/auth-helpers"
 import { NextResponse } from "next/server"
 
 async function requireAnalyticsAccess(supabase: Awaited<ReturnType<typeof createClient>>) {
@@ -8,14 +9,8 @@ async function requireAnalyticsAccess(supabase: Awaited<ReturnType<typeof create
   const { data: profile } = await supabase
     .from("profiles").select("role").eq("id", user.id).single()
   if (profile?.role === "super_admin") return user
-  const { data: access } = await supabase
-    .from("user_module_access")
-    .select("access_level")
-    .eq("user_id", user.id)
-    .eq("module", "regulatory")
-    .eq("access_level", "admin")
-    .maybeSingle()
-  if (!access) return null
+  const isAdmin = await isModuleAdminForUser(supabase, user.id, "regulatory")
+  if (!isAdmin) return null
   return user
 }
 

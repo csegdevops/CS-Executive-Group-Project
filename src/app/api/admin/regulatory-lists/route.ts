@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
+import { hasPermissionForUser } from "@/lib/auth-helpers"
 import { NextResponse } from "next/server"
 import { parseExcelBuffer, parseExcelBufferAutoDetect, parseExcelBufferRich } from "@/lib/import/excel-parser"
 import { parseAicisRows } from "@/lib/import/aicis-parser"
@@ -23,13 +24,8 @@ async function requireUploadAccess(supabase: Awaited<ReturnType<typeof createCli
   const { data: profile } = await supabase
     .from("profiles").select("role").eq("id", user.id).single()
   if (profile?.role === "super_admin") return user
-  const { data: access } = await supabase
-    .from("user_module_access")
-    .select("access_level")
-    .eq("user_id", user.id)
-    .eq("module", "regulatory")
-    .maybeSingle()
-  if (access?.access_level !== "admin") return null
+  const canManage = await hasPermissionForUser(supabase, user.id, "regulatory.regulatory_lists.manage")
+  if (!canManage) return null
   return user
 }
 

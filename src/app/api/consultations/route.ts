@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { hasPermissionForUser } from "@/lib/auth-helpers"
 import { logConsultationEvent } from "@/lib/consultation-log"
 import { NextResponse } from "next/server"
 import { z } from "zod"
@@ -61,16 +62,10 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  // Any regulatory module member (or super_admin) may create consultations
   const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
   if (profile?.role !== "super_admin") {
-    const { data: access } = await supabase
-      .from("user_module_access")
-      .select("id")
-      .eq("user_id", user.id)
-      .eq("module", "regulatory")
-      .maybeSingle()
-    if (!access) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    const canCreate = await hasPermissionForUser(supabase, user.id, "regulatory.consultations.create")
+    if (!canCreate) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
   const body = await request.json()

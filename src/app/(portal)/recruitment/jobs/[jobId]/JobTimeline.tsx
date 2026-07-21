@@ -49,7 +49,11 @@ export function JobTimeline({ events, jobId }: { events: JobEvent[]; jobId: stri
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ notes: noteText.trim() }),
       })
-      if (!res.ok) { toast.error("Failed to add note"); return }
+      if (!res.ok) {
+        const err = await res.json().catch(() => null)
+        toast.error(typeof err?.error === "string" ? err.error : "Failed to add note")
+        return
+      }
       setNoteText("")
       toast.success("Note added")
       router.refresh()

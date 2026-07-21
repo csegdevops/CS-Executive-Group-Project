@@ -34,6 +34,10 @@ export async function PATCH(
     return NextResponse.json({ error: "You cannot deactivate your own account." }, { status: 403 })
   }
 
+  if (userId === user.id && parsed.data.role === "user") {
+    return NextResponse.json({ error: "You cannot remove your own super admin role." }, { status: 403 })
+  }
+
   const admin = createAdminClient()
   const { error } = await admin
     .from("profiles")

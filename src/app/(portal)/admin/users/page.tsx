@@ -3,36 +3,44 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Badge } from "@/components/ui/badge"
 import { formatDate } from "@/lib/date-helpers"
-import { CreateUserDialog } from "@/app/(portal)/regulatory/admin/users/CreateUserDialog"
-import { UserActions } from "@/app/(portal)/regulatory/admin/users/UserActions"
-import { ManageModulesDialog } from "@/app/(portal)/regulatory/admin/users/ManageModulesDialog"
+import { CreateUserDialog } from "./CreateUserDialog"
+import { UserActions } from "./UserActions"
+import { GroupBadges } from "./GroupBadges"
+import { EditUserDialog } from "./EditUserDialog"
+import { ManageUserGroupsDialog } from "./ManageUserGroupsDialog"
 
 export default async function PlatformUsersPage() {
   const currentUser = await requireSuperAdmin()
   const admin = createAdminClient()
 
-  const [authRes, profilesRes, accessRes] = await Promise.all([
+  const [authRes, profilesRes, groupsRes, membershipsRes] = await Promise.all([
     admin.auth.admin.listUsers({ perPage: 1000 }),
     admin.from("profiles").select("id, full_name, role, is_active, created_at").order("full_name"),
-    admin.from("user_module_access").select("user_id, module, access_level"),
+    admin.from("user_groups").select("id, name, is_locked").order("name"),
+    admin.from("user_group_members").select("user_id, group_id"),
   ])
 
   const emailMap = new Map(
     (authRes.data?.users ?? []).map((u) => [u.id, u.email ?? ""])
   )
 
-  const moduleAccessByUser = new Map<string, { module: string; access_level: string }[]>()
-  for (const row of accessRes.data ?? []) {
-    const list = moduleAccessByUser.get(row.user_id) ?? []
-    list.push({ module: row.module, access_level: row.access_level })
-    moduleAccessByUser.set(row.user_id, list)
+  const allGroups = groupsRes.data ?? []
+  const groupsById = new Map(allGroups.map((g) => [g.id, g]))
+
+  const groupsByUser = new Map<string, { id: string; name: string; is_locked: boolean }[]>()
+  for (const row of membershipsRes.data ?? []) {
+    const group = groupsById.get(row.group_id)
+    if (!group) continue
+    const list = groupsByUser.get(row.user_id) ?? []
+    list.push(group)
+    groupsByUser.set(row.user_id, list)
   }
 
   const users = profilesRes.data ?? []
 
   return (
     <div>
-      <PageHeader title="User Management" description="Manage all platform users and module access">
+      <PageHeader title="User Management" description="Manage all platform users and group access">
         <CreateUserDialog />
       </PageHeader>
 
@@ -43,7 +51,7 @@ export default async function PlatformUsersPage() {
               <th className="text-left px-4 py-3 font-medium">Name</th>
               <th className="text-left px-4 py-3 font-medium">Email</th>
               <th className="text-left px-4 py-3 font-medium">Role</th>
-              <th className="text-left px-4 py-3 font-medium">Modules</th>
+              <th className="text-left px-4 py-3 font-medium">Groups</th>
               <th className="text-left px-4 py-3 font-medium">Status</th>
               <th className="text-left px-4 py-3 font-medium">Joined</th>
               <th className="px-4 py-3" />
@@ -51,40 +59,21 @@ export default async function PlatformUsersPage() {
           </thead>
           <tbody className="divide-y">
             {users.map((u) => {
-              const moduleAccess = u.role === "super_admin"
-                ? []
-                : (moduleAccessByUser.get(u.id) ?? [])
+              const userGroups = u.role === "super_admin" ? [] : (groupsByUser.get(u.id) ?? [])
               const email = emailMap.get(u.id) ?? "—"
+              const isSuperAdmin = u.role === "super_admin"
 
               return (
                 <tr key={u.id} className="hover:bg-muted/30 transition-colors">
                   <td className="px-4 py-3 font-medium">{u.full_name ?? "—"}</td>
                   <td className="px-4 py-3 text-muted-foreground text-xs">{email}</td>
                   <td className="px-4 py-3">
-                    <Badge variant={u.role === "super_admin" ? "default" : "outline"} className="text-xs">
-                      {u.role === "super_admin" ? "Super Admin" : "User"}
+                    <Badge variant={isSuperAdmin ? "default" : "outline"} className="text-xs">
+                      {isSuperAdmin ? "Super Admin" : "User"}
                     </Badge>
                   </td>
                   <td className="px-4 py-3">
-                    {u.role === "super_admin" ? (
-                      <Badge variant="secondary" className="text-xs">Full Access</Badge>
-                    ) : (
-                      <div className="flex flex-wrap gap-1">
-                        {moduleAccess.length === 0 ? (
-                          <span className="text-xs text-muted-foreground">No access</span>
-                        ) : (
-                          moduleAccess.map((a) => (
-                            <Badge
-                              key={a.module}
-                              variant={a.access_level === "admin" ? "default" : "outline"}
-                              className="text-xs capitalize"
-                            >
-                              {a.module.slice(0, 3).toUpperCase()}{a.access_level === "admin" ? " ★" : ""}
-                            </Badge>
-                          ))
-                        )}
-                      </div>
-                    )}
+                    <GroupBadges groups={userGroups} isSuperAdmin={isSuperAdmin} />
                   </td>
                   <td className="px-4 py-3">
                     {u.is_active ? (
@@ -96,10 +85,18 @@ export default async function PlatformUsersPage() {
                   <td className="px-4 py-3 text-muted-foreground text-xs">{formatDate(u.created_at)}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-2 flex-wrap">
-                      <ManageModulesDialog
+                      <EditUserDialog
                         userId={u.id}
-                        isSuperAdmin={u.role === "super_admin"}
-                        initialAccess={moduleAccess}
+                        email={email}
+                        initialFullName={u.full_name ?? ""}
+                        initialRole={u.role}
+                        isSelf={u.id === currentUser.id}
+                      />
+                      <ManageUserGroupsDialog
+                        userId={u.id}
+                        isSuperAdmin={isSuperAdmin}
+                        allGroups={allGroups}
+                        initialGroupIds={userGroups.map((g) => g.id)}
                       />
                       <UserActions userId={u.id} isActive={u.is_active} currentUserId={currentUser.id} />
                     </div>

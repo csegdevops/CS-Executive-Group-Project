@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { requirePermissionOrSuperAdmin } from "@/lib/auth-helpers"
 import { z } from "zod"
 
 const createJobSchema = z.object({
@@ -98,6 +99,9 @@ export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (!(await requirePermissionOrSuperAdmin(supabase, user.id, "recruitment.jobs.create"))) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
 
   const body = await req.json()
   const parsed = createJobSchema.safeParse(body)

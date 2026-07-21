@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
+import { requirePermissionOrSuperAdmin } from "@/lib/auth-helpers"
 import { logConsultationEvent } from "@/lib/consultation-log"
 import { NextResponse } from "next/server"
 import { z } from "zod"
@@ -93,6 +94,9 @@ export async function POST(
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (!(await requirePermissionOrSuperAdmin(supabase, user.id, "regulatory.consultations.edit"))) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
 
   const body = await request.json()
   const parsed = upsertSchema.safeParse(body)
@@ -122,6 +126,9 @@ export async function DELETE(
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (!(await requirePermissionOrSuperAdmin(supabase, user.id, "regulatory.consultations.edit"))) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
 
   const { searchParams } = new URL(request.url)
   const productName = searchParams.get("product_name")

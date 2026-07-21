@@ -13,7 +13,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog"
-import { Plus, Pencil, Trash2 } from "lucide-react"
+import { Plus, Pencil, Trash2, ChevronUp, ChevronDown, Eye, EyeOff } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 import type { LookupScope } from "@/types/database"
@@ -54,7 +54,6 @@ interface Props {
 interface FormState {
   label: string
   value: string
-  sort_order: string
 }
 
 export function LookupValuesManager({ initialValues, visibleScopes, moduleScope }: Props) {
@@ -67,7 +66,7 @@ export function LookupValuesManager({ initialValues, visibleScopes, moduleScope 
   const [addDialog, setAddDialog] = useState<{ open: boolean; scope: LookupScope; category: string } | null>(null)
   const [editDialog, setEditDialog] = useState<LookupValueRow | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<LookupValueRow | null>(null)
-  const [form, setForm] = useState<FormState>({ label: "", value: "", sort_order: "0" })
+  const [form, setForm] = useState<FormState>({ label: "", value: "" })
   const [saving, setSaving] = useState(false)
 
   // Group values by scope → category
@@ -85,12 +84,12 @@ export function LookupValuesManager({ initialValues, visibleScopes, moduleScope 
   }
 
   function openAdd(scope: LookupScope, category: string) {
-    setForm({ label: "", value: "", sort_order: String(values.filter(v => v.scope === scope && v.category === category).length * 10 + 10) })
+    setForm({ label: "", value: "" })
     setAddDialog({ open: true, scope, category })
   }
 
   function openEdit(row: LookupValueRow) {
-    setForm({ label: row.label, value: row.value, sort_order: String(row.sort_order) })
+    setForm({ label: row.label, value: row.value })
     setEditDialog(row)
   }
 
@@ -106,7 +105,7 @@ export function LookupValuesManager({ initialValues, visibleScopes, moduleScope 
           category: addDialog.category,
           value: form.value.trim().toLowerCase().replace(/\s+/g, "_"),
           label: form.label.trim(),
-          sort_order: parseInt(form.sort_order) || 0,
+          sort_order: values.filter(v => v.scope === addDialog.scope && v.category === addDialog.category).length * 10 + 10,
         }),
       })
       if (res.status === 409) { toast.error("A value with that key already exists"); return }
@@ -130,7 +129,6 @@ export function LookupValuesManager({ initialValues, visibleScopes, moduleScope 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           label: form.label.trim(),
-          sort_order: parseInt(form.sort_order) || 0,
         }),
       })
       if (!res.ok) { toast.error("Failed to update"); return }
@@ -153,6 +151,32 @@ export function LookupValuesManager({ initialValues, visibleScopes, moduleScope 
     const updated: LookupValueRow = await res.json()
     setValues(prev => prev.map(v => v.id === updated.id ? updated : v))
     toast.success(updated.is_active ? "Enabled" : "Disabled")
+  }
+
+  async function handleMove(rows: LookupValueRow[], index: number, direction: -1 | 1) {
+    const targetIndex = index + direction
+    if (targetIndex < 0 || targetIndex >= rows.length) return
+    const a = rows[index]
+    const b = rows[targetIndex]
+    try {
+      const [resA, resB] = await Promise.all([
+        fetch(`/api/lookup-values/${a.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sort_order: b.sort_order }),
+        }),
+        fetch(`/api/lookup-values/${b.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sort_order: a.sort_order }),
+        }),
+      ])
+      if (!resA.ok || !resB.ok) { toast.error("Failed to reorder"); return }
+      const [updatedA, updatedB]: LookupValueRow[] = await Promise.all([resA.json(), resB.json()])
+      setValues(prev => prev.map(v => v.id === updatedA.id ? updatedA : v.id === updatedB.id ? updatedB : v))
+    } catch {
+      toast.error("Network error")
+    }
   }
 
   async function handleDelete() {
@@ -228,7 +252,7 @@ export function LookupValuesManager({ initialValues, visibleScopes, moduleScope 
                 {rows.length === 0 && (
                   <p className="px-4 py-3 text-sm text-muted-foreground">No values yet.</p>
                 )}
-                {rows.map(row => (
+                {rows.map((row, index) => (
                   <div key={row.id} className="flex items-center justify-between px-4 py-2.5 group">
                     <div className="flex items-center gap-2 min-w-0">
                       <span className={`text-sm truncate ${!row.is_active ? "text-muted-foreground line-through" : ""}`}>
@@ -242,14 +266,29 @@ export function LookupValuesManager({ initialValues, visibleScopes, moduleScope 
                       )}
                     </div>
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button
+                        size="icon" variant="ghost" className="h-7 w-7"
+                        onClick={() => handleMove(rows, index, -1)}
+                        disabled={index === 0}
+                      >
+                        <ChevronUp className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        size="icon" variant="ghost" className="h-7 w-7"
+                        onClick={() => handleMove(rows, index, 1)}
+                        disabled={index === rows.length - 1}
+                      >
+                        <ChevronDown className="h-3.5 w-3.5" />
+                      </Button>
                       <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(row)}>
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
                       <Button
                         size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground"
                         onClick={() => handleToggleActive(row)}
+                        title={row.is_active ? "Disable" : "Enable"}
                       >
-                        <span className="text-xs font-medium">{row.is_active ? "off" : "on"}</span>
+                        {row.is_active ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
                       </Button>
                       <Button
                         size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive"
@@ -295,15 +334,6 @@ export function LookupValuesManager({ initialValues, visibleScopes, moduleScope 
                 className="font-mono text-sm"
               />
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="add-sort">Sort order</Label>
-              <Input
-                id="add-sort"
-                type="number"
-                value={form.sort_order}
-                onChange={e => setForm(f => ({ ...f, sort_order: e.target.value }))}
-              />
-            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddDialog(null)}>Cancel</Button>
@@ -336,15 +366,6 @@ export function LookupValuesManager({ initialValues, visibleScopes, moduleScope 
             <div className="space-y-1.5">
               <Label>Key <span className="text-muted-foreground text-xs">(read-only)</span></Label>
               <Input value={editDialog?.value ?? ""} disabled className="font-mono text-sm" />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="edit-sort">Sort order</Label>
-              <Input
-                id="edit-sort"
-                type="number"
-                value={form.sort_order}
-                onChange={e => setForm(f => ({ ...f, sort_order: e.target.value }))}
-              />
             </div>
           </div>
           <DialogFooter>

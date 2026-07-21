@@ -7,6 +7,8 @@ import { useTheme } from "next-themes"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
+import { BrandHeader } from "@/components/layout/BrandHeader"
+import { EditProfileDialog } from "@/components/layout/EditProfileDialog"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,15 +41,16 @@ import {
   ChevronsRight,
   TrendingUp,
   CalendarClock,
+  UserCog,
 } from "lucide-react"
-import type { Role, Module } from "@/types/database"
+import type { Role } from "@/types/database"
 
 interface NavItem {
   label: string
   href: string
   icon: React.ElementType
-  adminOnly?: boolean
-  superAdminOnly?: boolean
+  /** If set, only shown when the user (or super_admin) holds this permission key. */
+  permission?: string
 }
 
 const moduleNavItems: Record<string, NavItem[]> = {
@@ -56,9 +59,7 @@ const moduleNavItems: Record<string, NavItem[]> = {
     { label: "Consultations",    href: "/regulatory/consultations",            icon: FileText },
     { label: "Companies",        href: "/regulatory/companies",                icon: Building2 },
     { label: "Chemicals",        href: "/regulatory/chemicals",                icon: Beaker },
-    { label: "Regulatory Lists", href: "/regulatory/admin/regulatory-lists",   icon: Database,       adminOnly: true },
-    { label: "Users",            href: "/regulatory/admin/users",              icon: Users,          adminOnly: true },
-    { label: "Reference Data",   href: "/regulatory/admin/lookup-values",      icon: ListChecks,     adminOnly: true },
+    { label: "Regulatory Lists", href: "/regulatory/admin/regulatory-lists",   icon: Database,       permission: "regulatory.regulatory_lists.manage" },
   ],
   recruitment: [
     { label: "Dashboard",    href: "/recruitment/dashboard",           icon: LayoutDashboard },
@@ -66,8 +67,6 @@ const moduleNavItems: Record<string, NavItem[]> = {
     { label: "Candidates",   href: "/recruitment/candidates",          icon: UserSearch },
     { label: "Applications", href: "/recruitment/applications",        icon: ClipboardList },
     { label: "Tasks",        href: "/recruitment/tasks",               icon: ListChecks },
-    { label: "Users",        href: "/recruitment/admin/users",         icon: Users,          adminOnly: true },
-    { label: "Reference Data",href: "/recruitment/admin/lookup-values",icon: ListChecks,     adminOnly: true },
   ],
   crm: [
     { label: "Dashboard",  href: "/crm/dashboard",   icon: LayoutDashboard },
@@ -92,7 +91,9 @@ const moduleIcons: Record<string, React.ElementType> = {
 interface SidebarProps {
   role: Role
   userName: string | null
-  moduleAdminOf: Module[]
+  email: string
+  /** null = super_admin, who implicitly holds every permission */
+  permissionKeys: string[] | null
 }
 
 function NavLink({ item, collapsed, pathname }: { item: NavItem; collapsed: boolean; pathname: string }) {
@@ -121,12 +122,13 @@ function NavLink({ item, collapsed, pathname }: { item: NavItem; collapsed: bool
   )
 }
 
-export function Sidebar({ role, userName, moduleAdminOf }: SidebarProps) {
+export function Sidebar({ role, userName, email, permissionKeys }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
+  const [editProfileOpen, setEditProfileOpen] = useState(false)
 
   useEffect(() => {
     setMounted(true)
@@ -150,16 +152,12 @@ export function Sidebar({ role, userName, moduleAdminOf }: SidebarProps) {
     ? "crm"
     : null
 
-  const isModuleAdmin = activeModule ? moduleAdminOf.includes(activeModule as Module) : false
   const isSuperAdmin = role === "super_admin"
+  const hasPerm = (key: string) => isSuperAdmin || (permissionKeys?.includes(key) ?? false)
 
   const allNavItems = activeModule ? moduleNavItems[activeModule] ?? [] : []
-  const regularItems = allNavItems.filter(item => !item.adminOnly && !item.superAdminOnly)
-  const adminItems   = allNavItems.filter(item => {
-    if (item.superAdminOnly) return isSuperAdmin
-    if (item.adminOnly)      return isModuleAdmin || isSuperAdmin
-    return false
-  })
+  const regularItems = allNavItems.filter(item => !item.permission)
+  const adminItems   = allNavItems.filter(item => item.permission && hasPerm(item.permission))
 
   const ModuleIcon = activeModule ? moduleIcons[activeModule] : LayoutGrid
 
@@ -171,6 +169,10 @@ export function Sidebar({ role, userName, moduleAdminOf }: SidebarProps) {
   }
 
   const ThemeIcon = !mounted ? Monitor : theme === "dark" ? Moon : theme === "light" ? Sun : Monitor
+
+  function cycleTheme() {
+    setTheme(theme === "light" ? "dark" : theme === "dark" ? "system" : "light")
+  }
 
   return (
     <aside
@@ -185,18 +187,23 @@ export function Sidebar({ role, userName, moduleAdminOf }: SidebarProps) {
           href="/home"
           title={collapsed ? moduleLabels[activeModule] : undefined}
           className={cn(
-            "flex items-center border-b border-sidebar-border shrink-0 hover:bg-sidebar-accent/40 transition-colors group",
-            collapsed ? "justify-center py-5 px-2" : "gap-2 px-6 py-5"
+            "flex border-b border-sidebar-border shrink-0 hover:bg-sidebar-accent/40 transition-colors group",
+            collapsed ? "items-center justify-center py-5 px-2" : "flex-col gap-0.5 px-6 py-4"
           )}
         >
-          {!collapsed && (
-            <ChevronLeft className="h-4 w-4 text-sidebar-foreground/50 group-hover:text-sidebar-foreground transition-colors shrink-0" />
-          )}
-          <ModuleIcon className="h-5 w-5 text-sidebar-primary shrink-0" />
-          {!collapsed && (
-            <span className="font-semibold text-sidebar-foreground truncate">
-              {moduleLabels[activeModule]}
-            </span>
+          {collapsed ? (
+            <ModuleIcon className="h-5 w-5 text-sidebar-primary shrink-0" />
+          ) : (
+            <>
+              <span className="flex items-center gap-1 text-xs text-sidebar-foreground/50 group-hover:text-sidebar-foreground transition-colors">
+                <ChevronLeft className="h-3 w-3 shrink-0" />
+                Home
+              </span>
+              <span className="flex items-center gap-2 font-semibold text-sidebar-foreground truncate">
+                <ModuleIcon className="h-5 w-5 text-sidebar-primary shrink-0" />
+                {moduleLabels[activeModule]}
+              </span>
+            </>
           )}
         </Link>
       ) : (
@@ -208,12 +215,10 @@ export function Sidebar({ role, userName, moduleAdminOf }: SidebarProps) {
             collapsed ? "justify-center py-5 px-2" : "gap-2 px-6 py-5"
           )}
         >
-          <LayoutGrid className="h-5 w-5 text-sidebar-primary shrink-0" />
-          {!collapsed && (
-            <div className="flex flex-col leading-tight">
-              <span className="font-semibold text-sidebar-foreground text-sm">CS Executive Group</span>
-              <span className="font-semibold text-sidebar-foreground text-sm">Portal</span>
-            </div>
+          {collapsed ? (
+            <BrandHeader variant="icon" height={28} />
+          ) : (
+            <BrandHeader variant="full" height={32} />
           )}
         </Link>
       )}
@@ -338,18 +343,8 @@ export function Sidebar({ role, userName, moduleAdminOf }: SidebarProps) {
                   <p className="text-xs text-muted-foreground">{isSuperAdmin ? "Super Admin" : "User"}</p>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuLabel className="text-xs text-muted-foreground font-normal">Appearance</DropdownMenuLabel>
-                <DropdownMenuItem onClick={() => setTheme("light")} className="gap-2 cursor-pointer">
-                  <Sun className="h-4 w-4" />Light
-                  {mounted && theme === "light" && <span className="ml-auto text-xs opacity-60">✓</span>}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setTheme("dark")} className="gap-2 cursor-pointer">
-                  <Moon className="h-4 w-4" />Dark
-                  {mounted && theme === "dark" && <span className="ml-auto text-xs opacity-60">✓</span>}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setTheme("system")} className="gap-2 cursor-pointer">
-                  <Monitor className="h-4 w-4" />System
-                  {mounted && theme === "system" && <span className="ml-auto text-xs opacity-60">✓</span>}
+                <DropdownMenuItem onClick={() => setEditProfileOpen(true)} className="gap-2 cursor-pointer">
+                  <UserCog className="h-4 w-4" />Edit Profile
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleSignOut} className="gap-2 cursor-pointer text-destructive focus:text-destructive">
@@ -357,6 +352,15 @@ export function Sidebar({ role, userName, moduleAdminOf }: SidebarProps) {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={cycleTheme}
+              title={!mounted ? "System theme" : theme === "dark" ? "Dark mode" : theme === "light" ? "Light mode" : "System theme"}
+              className="h-9 w-9 text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
+            >
+              <ThemeIcon className="h-4 w-4" />
+            </Button>
           </div>
         ) : (
           <>
@@ -376,18 +380,8 @@ export function Sidebar({ role, userName, moduleAdminOf }: SidebarProps) {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent side="top" align="end" className="w-44">
-                  <DropdownMenuLabel className="text-xs text-muted-foreground font-normal">Appearance</DropdownMenuLabel>
-                  <DropdownMenuItem onClick={() => setTheme("light")} className="gap-2 cursor-pointer">
-                    <Sun className="h-4 w-4" />Light
-                    {mounted && theme === "light" && <span className="ml-auto text-xs opacity-60">✓</span>}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setTheme("dark")} className="gap-2 cursor-pointer">
-                    <Moon className="h-4 w-4" />Dark
-                    {mounted && theme === "dark" && <span className="ml-auto text-xs opacity-60">✓</span>}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setTheme("system")} className="gap-2 cursor-pointer">
-                    <Monitor className="h-4 w-4" />System
-                    {mounted && theme === "system" && <span className="ml-auto text-xs opacity-60">✓</span>}
+                  <DropdownMenuItem onClick={() => setEditProfileOpen(true)} className="gap-2 cursor-pointer">
+                    <UserCog className="h-4 w-4" />Edit Profile
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleSignOut} className="gap-2 cursor-pointer text-destructive focus:text-destructive">
@@ -400,7 +394,7 @@ export function Sidebar({ role, userName, moduleAdminOf }: SidebarProps) {
               variant="ghost"
               size="sm"
               className="w-full justify-start gap-3 text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground text-xs h-8"
-              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              onClick={cycleTheme}
             >
               <ThemeIcon className="h-3.5 w-3.5" />
               {!mounted ? "System theme" : theme === "dark" ? "Dark mode" : theme === "light" ? "Light mode" : "System theme"}
@@ -408,6 +402,13 @@ export function Sidebar({ role, userName, moduleAdminOf }: SidebarProps) {
           </>
         )}
       </div>
+
+      <EditProfileDialog
+        open={editProfileOpen}
+        onOpenChange={setEditProfileOpen}
+        userName={userName}
+        email={email}
+      />
     </aside>
   )
 }

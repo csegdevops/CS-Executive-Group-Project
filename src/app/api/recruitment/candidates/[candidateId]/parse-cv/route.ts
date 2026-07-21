@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse, after } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { requirePermissionOrSuperAdmin } from "@/lib/auth-helpers"
 import { downloadCvBuffer } from "@/lib/storage/cv-storage"
 import { parseCandidateCv } from "@/lib/cv-parsing/parse-candidate"
 
@@ -11,6 +12,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ can
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (!(await requirePermissionOrSuperAdmin(supabase, user.id, "recruitment.candidates.edit"))) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
 
   const { candidateId } = await params
   const admin = createAdminClient()

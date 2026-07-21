@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Eye, EyeOff } from "lucide-react"
+import { BrandHeader } from "@/components/layout/BrandHeader"
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -60,9 +61,8 @@ export default function RegisterPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted/40 p-4">
       <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase mb-1">CS Executive Group</p>
-          <h1 className="text-2xl font-bold tracking-tight">Internal Portal</h1>
+        <div className="flex justify-center mb-8">
+          <BrandHeader height={48} />
         </div>
 
         <Card>
