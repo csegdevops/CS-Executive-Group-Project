@@ -28,7 +28,6 @@ import {
   LogOut,
   ChevronLeft,
   LayoutGrid,
-  Globe,
   Settings,
   Sun,
   Moon,
@@ -63,6 +62,7 @@ const moduleNavItems: Record<string, NavItem[]> = {
   ],
   recruitment: [
     { label: "Dashboard",    href: "/recruitment/dashboard",           icon: LayoutDashboard },
+    { label: "Clients",      href: "/recruitment/companies",           icon: Building2 },
     { label: "Jobs",         href: "/recruitment/jobs",                icon: Briefcase },
     { label: "Candidates",   href: "/recruitment/candidates",          icon: UserSearch },
     { label: "Applications", href: "/recruitment/applications",        icon: ClipboardList },
@@ -259,34 +259,6 @@ export function Sidebar({ role, userName, email, permissionKeys }: SidebarProps)
                 </p>
               )
             }
-            <Link
-              href="/admin/users"
-              title={collapsed ? "Users" : undefined}
-              className={cn(
-                "flex items-center rounded-md text-sm font-medium transition-colors",
-                collapsed ? "justify-center p-2" : "gap-3 px-3 py-2",
-                pathname.startsWith("/admin/users")
-                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                  : "text-sidebar-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
-              )}
-            >
-              <Users className="h-4 w-4 shrink-0" />
-              {!collapsed && "Users"}
-            </Link>
-            <Link
-              href="/admin/domains"
-              title={collapsed ? "Access Domains" : undefined}
-              className={cn(
-                "flex items-center rounded-md text-sm font-medium transition-colors",
-                collapsed ? "justify-center p-2" : "gap-3 px-3 py-2",
-                pathname.startsWith("/admin/domains")
-                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                  : "text-sidebar-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
-              )}
-            >
-              <Globe className="h-4 w-4 shrink-0" />
-              {!collapsed && "Access Domains"}
-            </Link>
             <Link
               href="/admin/settings"
               title={collapsed ? "Platform Settings" : undefined}

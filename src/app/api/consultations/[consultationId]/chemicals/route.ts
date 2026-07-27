@@ -55,7 +55,7 @@ export async function POST(
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (!(await requirePermissionOrSuperAdmin(supabase, user.id, "regulatory.consultations.edit"))) {
+  if (!(await requirePermissionOrSuperAdmin(supabase, user.id, "regulatory.consultations.chemicals"))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
@@ -153,7 +153,7 @@ export async function PATCH(
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (!(await requirePermissionOrSuperAdmin(supabase, user.id, "regulatory.consultations.edit"))) {
+  if (!(await requirePermissionOrSuperAdmin(supabase, user.id, "regulatory.consultations.chemicals"))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
@@ -274,7 +274,7 @@ export async function DELETE(
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (!(await requirePermissionOrSuperAdmin(supabase, user.id, "regulatory.consultations.edit"))) {
+  if (!(await requirePermissionOrSuperAdmin(supabase, user.id, "regulatory.consultations.chemicals"))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 

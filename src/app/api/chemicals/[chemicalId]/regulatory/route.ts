@@ -31,7 +31,7 @@ export async function POST(
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (!(await requirePermissionOrSuperAdmin(supabase, user.id, "regulatory.chemicals.manage"))) {
+  if (!(await requirePermissionOrSuperAdmin(supabase, user.id, "regulatory.chemicals.regulatory_status"))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 

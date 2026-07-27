@@ -23,12 +23,30 @@ export const PERMISSION_CATALOG: Record<Module, PermissionCategory[]> = {
       category: "Consultations",
       permissions: [
         { key: "regulatory.consultations.create", label: "Create consultations" },
-        { key: "regulatory.consultations.edit", label: "Edit consultations (status, chemicals, products, notes, uploads)" },
+        { key: "regulatory.consultations.edit_details", label: "Edit consultation details (title, status, frameworks, due date)" },
+        { key: "regulatory.consultations.chemicals", label: "Add, resolve & remove consultation chemicals" },
+        { key: "regulatory.consultations.volumes", label: "Edit products & import volumes" },
+        { key: "regulatory.consultations.upload", label: "Upload formulation files" },
+        { key: "regulatory.consultations.notes", label: "Add & delete consultant notes" },
       ],
     },
     { category: "Consultants", permissions: [{ key: "regulatory.consultants.manage", label: "Assign consultants to consultations/companies" }] },
-    { category: "Chemicals", permissions: [{ key: "regulatory.chemicals.manage", label: "Manage the chemical database" }] },
-    { category: "Companies", permissions: [{ key: "companies.manage", label: "Create & edit companies, branches, contacts, activity log" }] },
+    {
+      category: "Chemicals",
+      permissions: [
+        { key: "regulatory.chemicals.manage", label: "Manage the chemical database" },
+        { key: "regulatory.chemicals.regulatory_status", label: "Edit per-framework regulatory status" },
+      ],
+    },
+    {
+      category: "Companies",
+      permissions: [
+        { key: "companies.create", label: "Manually register a company" },
+        { key: "companies.edit", label: "Edit company details & activity log" },
+        { key: "companies.contacts.manage", label: "Add, edit & delete company contacts" },
+        { key: "companies.branches.manage", label: "Add, edit & delete branches" },
+      ],
+    },
     { category: "Regulatory Lists", permissions: [{ key: "regulatory.regulatory_lists.manage", label: "Import AICIS/REACH/TSCA lists" }] },
     { category: "Reference Data", permissions: [{ key: "regulatory.reference_data.manage", label: "Manage Regulatory reference data" }] },
   ],
@@ -57,7 +75,15 @@ export const PERMISSION_CATALOG: Record<Module, PermissionCategory[]> = {
     },
     { category: "Placements", permissions: [{ key: "recruitment.placements.create", label: "Create placements" }] },
     { category: "Tasks", permissions: [{ key: "recruitment.tasks.edit", label: "Manage tasks" }] },
-    { category: "Companies", permissions: [{ key: "companies.manage", label: "Create & edit companies, branches, contacts, activity log" }] },
+    {
+      category: "Companies",
+      permissions: [
+        { key: "companies.create", label: "Manually register a company" },
+        { key: "companies.edit", label: "Edit company details & activity log" },
+        { key: "companies.contacts.manage", label: "Add, edit & delete company contacts" },
+        { key: "companies.branches.manage", label: "Add, edit & delete branches" },
+      ],
+    },
     { category: "Reference Data", permissions: [{ key: "recruitment.reference_data.manage", label: "Manage Recruitment reference data" }] },
   ],
   crm: [
@@ -69,7 +95,15 @@ export const PERMISSION_CATALOG: Record<Module, PermissionCategory[]> = {
         { key: "crm.opportunities.edit", label: "Edit opportunities" },
       ],
     },
-    { category: "Companies", permissions: [{ key: "companies.manage", label: "Create & edit companies, branches, contacts, activity log" }] },
+    {
+      category: "Companies",
+      permissions: [
+        { key: "companies.create", label: "Manually register a company" },
+        { key: "companies.edit", label: "Edit company details & activity log" },
+        { key: "companies.contacts.manage", label: "Add, edit & delete company contacts" },
+        { key: "companies.branches.manage", label: "Add, edit & delete branches" },
+      ],
+    },
     { category: "Reference Data", permissions: [{ key: "crm.reference_data.manage", label: "Manage CRM reference data" }] },
   ],
 }
@@ -102,7 +136,10 @@ export function permissionLabel(key: string): string {
 
 /** Compact form for badges, e.g. "regulatory.consultations.create" -> "Consultations: Create". */
 export function shortPermissionLabel(key: string): string {
-  if (key === "companies.manage") return "Companies"
+  if (key === "companies.create") return "Companies: Register"
+  if (key === "companies.edit") return "Companies: Edit"
+  if (key === "companies.contacts.manage") return "Companies: Contacts"
+  if (key === "companies.branches.manage") return "Companies: Branches"
   const parts = key.split(".")
   const rest = parts[0] in PERMISSION_CATALOG ? parts.slice(1) : parts
   return rest

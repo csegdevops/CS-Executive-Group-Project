@@ -40,7 +40,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ appI
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (admin.schema("recruitment") as any)
       .from("candidates")
-      .select("id, first_name, last_name, email, phone, current_title, current_employer, location_city, location_state, skills_tags, security_clearance_level, profile_completeness_pct")
+      .select("id, first_name, last_name, email, phone, current_title, current_employer, location_city, location_state, skills_tags, security_clearance_level, security_clearance_verified, profile_completeness_pct")
       .eq("id", app.candidate_id)
       .single(),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -57,15 +57,16 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ appI
       .order("changed_at", { ascending: true }),
   ])
 
-  const { data: company } = job
-    ? await admin.from("companies").select("id, name").eq("id", job.company_id).single()
-    : { data: null }
-
-  // Hydrate stage history changers
   const changerIds = [...new Set((history ?? []).filter((h: { changed_by: string | null }) => h.changed_by).map((h: { changed_by: string }) => h.changed_by))]
-  const { data: changers } = changerIds.length
-    ? await admin.from("profiles").select("id, full_name").in("id", changerIds as string[])
-    : { data: [] }
+
+  const [{ data: company }, { data: changers }] = await Promise.all([
+    job
+      ? admin.from("companies").select("id, name").eq("id", job.company_id).single()
+      : Promise.resolve({ data: null }),
+    changerIds.length
+      ? admin.from("profiles").select("id, full_name").in("id", changerIds as string[])
+      : Promise.resolve({ data: [] }),
+  ])
   const changerMap = Object.fromEntries((changers ?? []).map((p: { id: string; full_name: string | null }) => [p.id, p.full_name]))
 
   return NextResponse.json({

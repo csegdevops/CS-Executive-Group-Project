@@ -6,6 +6,7 @@ import { Globe } from "lucide-react"
 import { formatDate } from "@/lib/date-helpers"
 import { AddDomainForm } from "./AddDomainForm"
 import { DeleteDomainButton } from "./DeleteDomainButton"
+import { BackButton } from "../groups/BackButton"
 
 export default async function DomainsPage() {
   await requireSuperAdmin()
@@ -18,6 +19,9 @@ export default async function DomainsPage() {
 
   return (
     <div>
+      <div className="mb-2">
+        <BackButton />
+      </div>
       <PageHeader
         title="Access Domains"
         description="Only email addresses from these domains can self-register on the portal."

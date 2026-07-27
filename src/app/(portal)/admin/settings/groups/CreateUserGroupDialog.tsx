@@ -10,7 +10,6 @@ import {
 } from "@/components/ui/dialog"
 import { Plus, Loader2 } from "lucide-react"
 import { toast } from "sonner"
-import { PermissionsPicker } from "./PermissionsPicker"
 
 export function CreateUserGroupDialog() {
   const router = useRouter()
@@ -18,12 +17,10 @@ export function CreateUserGroupDialog() {
   const [saving, setSaving] = useState(false)
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
-  const [permissionKeys, setPermissionKeys] = useState<string[]>([])
 
   function reset() {
     setName("")
     setDescription("")
-    setPermissionKeys([])
   }
 
   async function handleCreate() {
@@ -33,17 +30,18 @@ export function CreateUserGroupDialog() {
       const res = await fetch("/api/admin/user-groups", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), description: description || undefined, permissionKeys }),
+        body: JSON.stringify({ name: name.trim(), description: description || undefined, permissionKeys: [] }),
       })
       if (!res.ok) {
         const err = await res.json()
         toast.error(err.error ?? "Failed to create group")
         return
       }
+      const { id } = await res.json()
       toast.success("Group created")
       reset()
       setOpen(false)
-      router.refresh()
+      router.push(`/admin/settings/groups/${id}`)
     } catch {
       toast.error("Network error")
     } finally {
@@ -59,9 +57,9 @@ export function CreateUserGroupDialog() {
           New Group
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Create User Group</DialogTitle>
+          <DialogTitle>Create Security Group</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 mt-2">
           <div className="space-y-2">
@@ -72,10 +70,9 @@ export function CreateUserGroupDialog() {
             <Label>Description</Label>
             <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Optional" />
           </div>
-          <div>
-            <Label className="mb-2 block">Permissions</Label>
-            <PermissionsPicker selected={permissionKeys} onChange={setPermissionKeys} />
-          </div>
+          <p className="text-xs text-muted-foreground">
+            You&apos;ll set permissions and add members on the next screen.
+          </p>
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" size="sm" onClick={() => setOpen(false)} disabled={saving}>
               Cancel

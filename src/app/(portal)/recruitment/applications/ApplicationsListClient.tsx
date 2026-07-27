@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { Search, ChevronRight } from "lucide-react"
+import { ApplicationDetailSheet } from "./ApplicationDetailSheet"
 
 const STAGE_COLORS: Record<string, string> = {
   applied:         "bg-slate-100 text-slate-700",
@@ -58,6 +59,13 @@ export function ApplicationsListClient({ applications, jobOptions }: Props) {
   const [q, setQ]           = useState("")
   const [stage, setStage]   = useState("")
   const [jobId, setJobId]   = useState("")
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+
+  function handleRowOpen(e: React.MouseEvent, id: string) {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return
+    e.preventDefault()
+    setSelectedId(id)
+  }
 
   const filtered = applications.filter(a => {
     if (stage && a.stage !== stage) return false
@@ -154,7 +162,7 @@ export function ApplicationsListClient({ applications, jobOptions }: Props) {
               {filtered.map(app => (
                 <tr key={app.id} className="hover:bg-muted/20 transition-colors group">
                   <td className="px-4 py-3">
-                    <Link href={`/recruitment/applications/${app.id}`} className="block">
+                    <Link href={`/recruitment/applications/${app.id}`} className="block" onClick={(e) => handleRowOpen(e, app.id)}>
                       <p className="font-medium hover:underline">{app.candidate_name ?? "Unknown"}</p>
                       {app.candidate_title && <p className="text-xs text-muted-foreground">{app.candidate_title}</p>}
                     </Link>
@@ -177,7 +185,7 @@ export function ApplicationsListClient({ applications, jobOptions }: Props) {
                     {new Date(app.created_at).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "2-digit" })}
                   </td>
                   <td className="px-2 py-3">
-                    <Link href={`/recruitment/applications/${app.id}`}>
+                    <Link href={`/recruitment/applications/${app.id}`} onClick={(e) => handleRowOpen(e, app.id)}>
                       <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-muted-foreground" />
                     </Link>
                   </td>
@@ -187,6 +195,26 @@ export function ApplicationsListClient({ applications, jobOptions }: Props) {
           </table>
         </div>
       )}
+
+      {(() => {
+        const selectedIndex = selectedId ? filtered.findIndex(a => a.id === selectedId) : -1
+        const selectedRow = selectedIndex >= 0 ? filtered[selectedIndex] : null
+        return (
+          <ApplicationDetailSheet
+            applicationId={selectedId}
+            onOpenChange={(open) => { if (!open) setSelectedId(null) }}
+            onNavigate={(direction) => {
+              if (selectedIndex < 0) return
+              const nextIndex = direction === "prev" ? selectedIndex - 1 : selectedIndex + 1
+              if (nextIndex >= 0 && nextIndex < filtered.length) setSelectedId(filtered[nextIndex].id)
+            }}
+            hasPrev={selectedIndex > 0}
+            hasNext={selectedIndex >= 0 && selectedIndex < filtered.length - 1}
+            positionLabel={selectedIndex >= 0 ? `${selectedIndex + 1} of ${filtered.length}` : undefined}
+            refreshToken={selectedRow ? `${selectedRow.stage}:${selectedRow.source_channel}` : undefined}
+          />
+        )
+      })()}
     </div>
   )
 }

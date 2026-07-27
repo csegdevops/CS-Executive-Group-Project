@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   const [{ data: job }, { data: candidate }] = await Promise.all([
-    recruitment.from("jobs").select("title, assigned_recruiter_id").eq("id", placement.job_id).single(),
+    recruitment.from("jobs").select("title, status, vacancies_count, assigned_recruiter_id").eq("id", placement.job_id).single(),
     recruitment.from("candidates").select("first_name, last_name").eq("id", placement.candidate_id).single(),
   ])
 
@@ -64,6 +64,34 @@ export async function POST(req: NextRequest) {
       startDate: placement.start_date,
       recipientUserId: job.assigned_recruiter_id,
     }).catch((err) => console.error("[email] contract-established notification failed", err))
+  }
+
+  // Auto-suggest "filled" once placements reach vacancies_count — status
+  // remains fully editable afterward via JobStatusControl/EditJobDialog
+  // (a vacancy can be filled externally, or deliberately left open).
+  if (job && job.status !== "filled" && job.status !== "closed") {
+    const { count: placedCount } = await recruitment
+      .from("placements")
+      .select("id", { count: "exact", head: true })
+      .eq("job_id", placement.job_id)
+
+    if ((placedCount ?? 0) >= job.vacancies_count) {
+      await recruitment
+        .from("jobs")
+        .update({ status: "filled" })
+        .eq("id", placement.job_id)
+
+      await recruitment
+        .from("job_events")
+        .insert({
+          job_id: placement.job_id,
+          event_type: "filled",
+          previous_status: job.status,
+          new_status: "filled",
+          notes: `Auto-filled — ${placedCount} of ${job.vacancies_count} vacancies placed`,
+          performed_by: user.id,
+        })
+    }
   }
 
   return NextResponse.json(placement, { status: 201 })

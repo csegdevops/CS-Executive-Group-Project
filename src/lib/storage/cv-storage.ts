@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin"
+import { buildDownloadFilename } from "./filename"
 
 const BUCKET = "candidate-documents"
 
@@ -45,6 +46,23 @@ export async function downloadCvBuffer(storageKey: string): Promise<{ buffer: Bu
 
   const buffer = Buffer.from(await data.arrayBuffer())
   return { buffer, mimeType: data.type || "application/octet-stream" }
+}
+
+export async function buildCvDownloadResponse(
+  storageKey: string,
+  firstName: string | null,
+  lastName: string | null,
+  docType: "cv" | "cl"
+): Promise<Response> {
+  const { buffer, mimeType } = await downloadCvBuffer(storageKey)
+  const ext = storageKey.split(".").pop() || "bin"
+  const filename = buildDownloadFilename(firstName, lastName, docType, ext)
+  return new Response(new Uint8Array(buffer), {
+    headers: {
+      "Content-Type": mimeType,
+      "Content-Disposition": `attachment; filename="${filename}"`,
+    },
+  })
 }
 
 export async function deleteCvFile(storageKey: string): Promise<void> {

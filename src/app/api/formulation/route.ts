@@ -21,7 +21,7 @@ async function getRegUser() {
   if (!user) return null
   const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
   if (profile?.role === "super_admin") return user
-  const canEdit = await hasPermissionForUser(supabase, user.id, "regulatory.consultations.edit")
+  const canEdit = await hasPermissionForUser(supabase, user.id, "regulatory.consultations.upload")
   return canEdit ? user : null
 }
 

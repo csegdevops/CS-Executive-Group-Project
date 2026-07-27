@@ -33,6 +33,7 @@ interface Job {
   company_name: string | null
   recruiter_name: string | null
   application_count: number
+  vacancies_count: number
   created_at: string
 }
 
@@ -170,6 +171,9 @@ export function JobsListClient({ jobs, companies, recruiters }: Props) {
                           )}
                           {job.employment_type && (
                             <span className="text-xs text-muted-foreground capitalize">{job.employment_type}</span>
+                          )}
+                          {job.vacancies_count > 1 && (
+                            <Badge variant="outline" className="text-xs">×{job.vacancies_count}</Badge>
                           )}
                         </div>
                       </div>

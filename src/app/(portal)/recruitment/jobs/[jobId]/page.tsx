@@ -6,6 +6,7 @@ import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { MapPin, Building2, Shield, ExternalLink, ChevronLeft } from "lucide-react"
 import { JobStatusControl } from "./JobStatusControl"
+import { EditJobDialog } from "./EditJobDialog"
 import { SeekPostButton } from "./SeekPostButton"
 import { JobApplicationsTab } from "./JobApplicationsTab"
 import { JobTimeline } from "./JobTimeline"
@@ -33,7 +34,7 @@ export default async function JobDetailPage({
 
   const admin = createAdminClient()
 
-  const [{ data: job }, { data: applications }, { data: events }] = await Promise.all([
+  const [{ data: job }, { data: applications }, { data: events }, { count: placedCount }] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (admin.schema("recruitment") as any)
       .from("jobs")
@@ -55,17 +56,26 @@ export default async function JobDetailPage({
       .select("id, event_type, previous_status, new_status, notes, created_at, performed_by")
       .eq("job_id", jobId)
       .order("created_at", { ascending: true }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (admin.schema("recruitment") as any)
+      .from("placements")
+      .select("id", { count: "exact", head: true })
+      .eq("job_id", jobId),
   ])
 
   if (!job) notFound()
 
-  // Hydrate company name
-  const { data: company } = await admin.from("companies").select("id, name").eq("id", job.company_id).single()
+  // Hydrate company name + full companies list (for the edit dialog's disabled company field)
+  const [{ data: company }, { data: companies }, { data: recruiterProfiles }] = await Promise.all([
+    admin.from("companies").select("id, name").eq("id", job.company_id).single(),
+    admin.from("companies").select("id, name").order("name"),
+    admin.from("profiles").select("id, full_name").order("full_name"),
+  ])
 
   // Hydrate candidate names for applications
   const candIds = [...new Set((applications ?? []).map((a: { candidate_id: string }) => a.candidate_id))]
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: candidates } = candIds.length
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ? await (admin.schema("recruitment") as any)
         .from("candidates")
         .select("id, first_name, last_name, email, current_title, profile_completeness_pct")
@@ -128,6 +138,25 @@ export default async function JobDetailPage({
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <JobStatusControl jobId={job.id} currentStatus={job.status} />
+          <EditJobDialog
+            jobId={job.id}
+            companies={(companies ?? []).map((c: { id: string; name: string }) => ({ id: c.id, name: c.name }))}
+            recruiters={(recruiterProfiles ?? []).map((p: { id: string; full_name: string | null }) => ({ id: p.id, name: p.full_name ?? "Unknown" }))}
+            initial={{
+              company_id: job.company_id,
+              title: job.title,
+              location: job.location,
+              employment_type: job.employment_type,
+              vacancies_count: job.vacancies_count,
+              salary_min: job.salary_min,
+              salary_max: job.salary_max,
+              contract_duration_weeks: job.contract_duration_weeks,
+              security_clearance_required: job.security_clearance_required,
+              assigned_recruiter_id: job.assigned_recruiter_id,
+              description: job.description,
+              requirements: job.requirements,
+            }}
+          />
         </div>
       </div>
 
@@ -161,6 +190,8 @@ export default async function JobDetailPage({
               { label: "Salary max", value: job.salary_max ? `$${job.salary_max.toLocaleString()}` : "—" },
               { label: "Security clearance", value: job.security_clearance_required ? "Required" : "Not required" },
               { label: "Contract duration", value: job.contract_duration_weeks ? `${job.contract_duration_weeks} weeks` : "—" },
+              { label: "Vacancies", value: String(job.vacancies_count ?? 1) },
+              { label: "Placed", value: `${placedCount ?? 0} of ${job.vacancies_count ?? 1}` },
             ].map(({ label, value }) => (
               <div key={label}>
                 <p className="text-xs text-muted-foreground mb-0.5">{label}</p>

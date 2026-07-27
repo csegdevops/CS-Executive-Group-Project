@@ -6,7 +6,16 @@ import { Button } from "@/components/ui/button"
 import { Trash2, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 
-export function DeleteUserGroupButton({ groupId, groupName }: { groupId: string; groupName: string }) {
+export function DeleteUserGroupButton({
+  groupId,
+  groupName,
+  redirectTo,
+}: {
+  groupId: string
+  groupName: string
+  /** If set, navigate here after a successful delete instead of just refreshing in place. */
+  redirectTo?: string
+}) {
   const router = useRouter()
   const [deleting, setDeleting] = useState(false)
 
@@ -21,6 +30,7 @@ export function DeleteUserGroupButton({ groupId, groupName }: { groupId: string;
         return
       }
       toast.success("Group deleted")
+      if (redirectTo) router.push(redirectTo)
       router.refresh()
     } catch {
       toast.error("Network error")

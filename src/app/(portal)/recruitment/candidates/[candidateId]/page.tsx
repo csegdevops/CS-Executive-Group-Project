@@ -10,7 +10,6 @@ import { CvUploadButton } from "./CvUploadButton"
 import { DeleteCvButton } from "./DeleteCvButton"
 import { CvParseStatusControl } from "./CvParseStatusControl"
 import { AddToJobDialog } from "./AddToJobDialog"
-import { getCvSignedUrl } from "@/lib/storage/cv-storage"
 import { ChevronLeft, Mail, Phone, MapPin, Shield, FileText, GraduationCap, Briefcase } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -55,11 +54,6 @@ export default async function CandidateProfilePage({ params }: { params: Promise
   const lookupLabel = (category: string, value: string | null) =>
     (lookups ?? []).find((l: { category: string; value: string }) => l.category === category && l.value === value)?.label
       ?? value ?? ""
-
-  const [cvUrl, clUrl] = await Promise.all([
-    candidate.cv_storage_key ? getCvSignedUrl(candidate.cv_storage_key) : Promise.resolve(null),
-    candidate.cl_storage_key ? getCvSignedUrl(candidate.cl_storage_key) : Promise.resolve(null),
-  ])
 
   const jobIds = [...new Set((applications ?? []).map((a: { job_id: string }) => a.job_id))]
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -219,9 +213,9 @@ export default async function CandidateProfilePage({ params }: { params: Promise
             <h3 className="font-medium text-sm mb-2">Documents</h3>
             <div className="flex flex-wrap items-center gap-3 text-sm">
               <div className="flex items-center gap-1.5">
-                {cvUrl ? (
-                  <a href={cvUrl} target="_blank" rel="noopener" className="flex items-center gap-1.5 text-primary hover:underline">
-                    <FileText className="h-3.5 w-3.5" />{candidate.cv_original_name ?? "View CV"}
+                {candidate.cv_storage_key ? (
+                  <a href={`/api/recruitment/candidates/${candidate.id}/cv?type=cv`} className="flex items-center gap-1.5 text-primary hover:underline">
+                    <FileText className="h-3.5 w-3.5" />{candidate.cv_original_name ?? "Download CV"}
                   </a>
                 ) : (
                   <span className="text-muted-foreground text-xs">No CV on file</span>
@@ -233,9 +227,9 @@ export default async function CandidateProfilePage({ params }: { params: Promise
                 )}
               </div>
               <div className="flex items-center gap-1.5">
-                {clUrl ? (
-                  <a href={clUrl} target="_blank" rel="noopener" className="flex items-center gap-1.5 text-primary hover:underline">
-                    <FileText className="h-3.5 w-3.5" />{candidate.cl_original_name ?? "View Cover Letter"}
+                {candidate.cl_storage_key ? (
+                  <a href={`/api/recruitment/candidates/${candidate.id}/cv?type=cl`} className="flex items-center gap-1.5 text-primary hover:underline">
+                    <FileText className="h-3.5 w-3.5" />{candidate.cl_original_name ?? "Download Cover Letter"}
                   </a>
                 ) : (
                   <span className="text-muted-foreground text-xs">No cover letter on file</span>

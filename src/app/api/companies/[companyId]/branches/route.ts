@@ -37,7 +37,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ com
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (!(await requirePermissionOrSuperAdmin(supabase, user.id, "companies.manage"))) {
+  if (!(await requirePermissionOrSuperAdmin(supabase, user.id, "companies.branches.manage"))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 

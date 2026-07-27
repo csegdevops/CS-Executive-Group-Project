@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xargs grep -l \"retryOptions\")",
+      "Bash(node \"C:/Users/kcmut/AppData/Local/Temp/claude/d--Project-CS-Executive-Group-Project/3ba98a20-76ac-4657-9430-9f238eb272aa/scratchpad/test-gemini-parse.mjs\")",
+      "Bash(cp \"C:/Users/kcmut/AppData/Local/Temp/claude/d--Project-CS-Executive-Group-Project/3ba98a20-76ac-4657-9430-9f238eb272aa/scratchpad/test-gemini-parse.mjs\" \"d:/Project/CS Executive Group Project/test-gemini-parse.mjs\")",
+      "Bash(node test-gemini-parse.mjs)",
+      "Bash(tasklist)",
+      "Bash(node test-cv-parse-repro.mjs)",
+      "Bash(curl -s -i -X POST \"http://localhost:3000/api/recruitment/candidates/a2024ec4-aa84-45b0-922b-eda95a115d39/parse-cv\")",
+      "Bash(curl -s -i -X DELETE \"http://localhost:3000/api/recruitment/candidates/a2024ec4-aa84-45b0-922b-eda95a115d39/cv?type=cv\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" \"http://localhost:3000/api/recruitment/candidates/a2024ec4-aa84-45b0-922b-eda95a115d39\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" \"http://localhost:3000/api/recruitment/candidates\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" -X POST \"http://localhost:3000/api/recruitment/candidates/a2024ec4-aa84-45b0-922b-eda95a115d39/parse-cv\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" -X DELETE \"http://localhost:3000/api/recruitment/candidates/a2024ec4-aa84-45b0-922b-eda95a115d39/cv?type=cv\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" -X POST \"http://localhost:3000/api/recruitment/candidates/a2024ec4-aa84-45b0-922b-eda95a115d39/cv\")",
+      "Read(//d/Project/CS Executive Group Project/**)",
+      "Bash(wmic process *)",
+      "Bash(powershell -Command \"\\(Get-Process -Id 35368\\).StartTime\")",
+      "PowerShell(npm run lint)"
+    ]
+  }
+}

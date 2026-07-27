@@ -17,7 +17,7 @@ export default async function JobsPage() {
       .select(`
         id, title, reference_number, location, employment_type,
         status, security_clearance_required, salary_min, salary_max, salary_currency,
-        company_id, assigned_recruiter_id, created_at
+        vacancies_count, company_id, assigned_recruiter_id, created_at
       `)
       .order("created_at", { ascending: false })
       .limit(300),
@@ -27,8 +27,8 @@ export default async function JobsPage() {
 
   // Application counts
   const jobIds = (jobs ?? []).map((j: { id: string }) => j.id)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: appRows } = jobIds.length
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ? await (admin.schema("recruitment") as any)
         .from("applications")
         .select("job_id")

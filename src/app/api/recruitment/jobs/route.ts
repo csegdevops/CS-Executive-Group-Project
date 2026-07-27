@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
     .select(`
       id, title, reference_number, location, employment_type,
       status, security_clearance_required, salary_min, salary_max, salary_currency,
-      created_at, updated_at,
+      vacancies_count, created_at, updated_at,
       company_id, assigned_recruiter_id, created_by
     `)
     .order("created_at", { ascending: false })

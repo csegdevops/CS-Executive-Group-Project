@@ -24,7 +24,7 @@ async function verifyAccess(consultationId: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
-  if (!(await requirePermissionOrSuperAdmin(supabase, user.id, "regulatory.consultations.edit"))) return null
+  if (!(await requirePermissionOrSuperAdmin(supabase, user.id, "regulatory.consultations.upload"))) return null
 
   // Verify the user can read this consultation — RLS on consultations handles access control.
   // If the user lacks access, the query returns null and we reject the request.

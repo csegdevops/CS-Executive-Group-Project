@@ -28,7 +28,7 @@ export type JobStatus = "opened" | "posted" | "active" | "paused" | "filled" | "
 export type JobEventType = "opened" | "posted" | "active" | "paused" | "filled" | "closed" | "note"
 export type ApplicationStage = "applied" | "screening" | "shortlisted" | "interview_1" | "interview_2" | "reference_check" | "offer" | "placed" | "withdrawn" | "rejected"
 export type ApplicationSource = "seek_inbound" | "company_website" | "database_internal" | "seek_talent" | "linkedin"
-export type EmploymentType = "permanent" | "contract" | "casual"
+export type EmploymentType = "permanent" | "contract" | "casual" | "full_time" | "part_time"
 export type PlacementType = "permanent" | "contract"
 export type PlacementStatus = "confirmed" | "started" | "completed" | "cancelled"
 export type TaskType = "finance_invoice" | "finance_contract" | "security_clearance" | "general"
@@ -883,8 +883,10 @@ export interface Database {
           salary_currency: string
           contract_duration_weeks: number | null
           security_clearance_required: boolean
+          vacancies_count: number
           status: JobStatus
           assigned_recruiter_id: string | null
+          seek_ad_id: string | null
           created_by: string | null
           created_at: string
           updated_at: string
@@ -903,8 +905,10 @@ export interface Database {
           salary_currency?: string
           contract_duration_weeks?: number | null
           security_clearance_required?: boolean
+          vacancies_count?: number
           status?: JobStatus
           assigned_recruiter_id?: string | null
+          seek_ad_id?: string | null
           created_by?: string | null
         }
         Update: {
@@ -917,8 +921,10 @@ export interface Database {
           salary_max?: number | null
           contract_duration_weeks?: number | null
           security_clearance_required?: boolean
+          vacancies_count?: number
           status?: JobStatus
           assigned_recruiter_id?: string | null
+          seek_ad_id?: string | null
         }
         Relationships: []
       }
