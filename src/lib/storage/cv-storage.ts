@@ -27,16 +27,34 @@ export async function uploadCvBuffer(params: {
 
 // Downloads a file from an external, source-provided URL (Seek, Gravity Forms)
 // so we hold a durable copy of our own rather than depending on the source
-// staying reachable.
-export async function fetchExternalFile(url: string): Promise<{ buffer: Buffer; mimeType: string; originalName: string }> {
-  const res = await fetch(url)
-  if (!res.ok) throw new Error(`Failed to fetch external file: ${res.status}`)
+// staying reachable. Retries a few times with a short delay — WordPress file
+// upload plugins (e.g. a "rename uploaded file" hook) can leave a brief
+// window where the entry's recorded URL doesn't 404 by the time gform's
+// after-submission hook fires but the physical file isn't actually there
+// yet. This runs inside ingestCv's after() callback, so the extra latency
+// never affects the request that triggered it.
+export async function fetchExternalFile(
+  url: string,
+  attempts = 3,
+  retryDelayMs = 2000
+): Promise<{ buffer: Buffer; mimeType: string; originalName: string }> {
+  let lastError: unknown
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      const res = await fetch(url)
+      if (!res.ok) throw new Error(`Failed to fetch external file: ${res.status}`)
 
-  const mimeType = res.headers.get("content-type") ?? "application/octet-stream"
-  const buffer = Buffer.from(await res.arrayBuffer())
-  const originalName = new URL(url).pathname.split("/").pop() || "resume"
+      const mimeType = res.headers.get("content-type") ?? "application/octet-stream"
+      const buffer = Buffer.from(await res.arrayBuffer())
+      const originalName = new URL(url).pathname.split("/").pop() || "resume"
 
-  return { buffer, mimeType, originalName }
+      return { buffer, mimeType, originalName }
+    } catch (err) {
+      lastError = err
+      if (attempt < attempts) await new Promise((resolve) => setTimeout(resolve, retryDelayMs))
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error(String(lastError))
 }
 
 export async function downloadCvBuffer(storageKey: string): Promise<{ buffer: Buffer; mimeType: string }> {
