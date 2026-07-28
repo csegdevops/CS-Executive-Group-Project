@@ -4,10 +4,13 @@ import { ingestCv } from "@/lib/cv-parsing/ingest"
 import { z } from "zod"
 
 /**
- * PUBLIC endpoint — no session auth. Receives job applications pushed by the
- * `gform_after_submission_4` action hook on the WordPress site (Gravity Forms
- * form #4, posted server-side via wp_remote_post — not the GF Webhooks
- * Add-On, so the payload shape is custom and fixed on the WordPress side).
+ * PUBLIC endpoint — no session auth. Receives job applications pushed by a
+ * `gform_after_submission_<form_id>` action hook on the WordPress site
+ * (posted server-side via wp_remote_post — not the GF Webhooks Add-On, so
+ * the payload shape is custom and fixed on the WordPress side). Sends
+ * first_name/last_name separately (not a combined full_name) since Gravity
+ * Forms' Name field type already splits them into sub-fields, and so does
+ * recruitment.candidates.
  *
  * Auth: shared secret in the `x-api-key` header, checked against
  * GRAVITY_FORMS_SECRET (same env var used by /api/public/apply's HMAC path
@@ -25,7 +28,8 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const applicationSchema = z.object({
   job_reference:              z.string().optional(),
   where_did_you_hear:         z.string().optional(),
-  full_name:                  z.string().min(1),
+  first_name:                 z.string().min(1),
+  last_name:                  z.string().optional().default(""),
   email:                      z.string().email(),
   phone:                      z.string().optional(),
   linkedin:                   z.string().optional(),
@@ -47,12 +51,6 @@ const applicationSchema = z.object({
   permission_to_store:        z.union([z.string(), z.boolean()]).optional(),
   wp_entry_id:                z.union([z.string(), z.number()]).optional(),
 })
-
-function splitName(fullName: string): { first: string; last: string } {
-  const parts = fullName.trim().split(/\s+/)
-  if (parts.length === 1) return { first: parts[0], last: "" }
-  return { first: parts.slice(0, -1).join(" "), last: parts[parts.length - 1] }
-}
 
 export async function POST(req: NextRequest) {
   const secret = process.env.GRAVITY_FORMS_SECRET
@@ -96,14 +94,12 @@ export async function POST(req: NextRequest) {
     if (byRef) jobId = byRef.id
   }
 
-  const { first, last } = splitName(data.full_name)
-
   const { data: upsertResult, error: upsertError } = await recruitment
     .rpc("upsert_candidate", {
       p_email:          data.email,
       p_phone:          data.phone ?? null,
-      p_first_name:     first,
-      p_last_name:      last,
+      p_first_name:     data.first_name,
+      p_last_name:      data.last_name,
       p_location_state: data.state ?? null,
       p_source_channel: "company_website",
       p_added_by:       null,
