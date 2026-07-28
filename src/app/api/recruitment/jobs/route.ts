@@ -18,6 +18,8 @@ const createJobSchema = z.object({
   contract_duration_weeks: z.number().int().positive().optional(),
   security_clearance_required: z.boolean().default(false),
   reference_number: z.string().optional(),
+  required_skills: z.array(z.string()).optional().default([]),
+  required_education_tags: z.array(z.string()).optional().default([]),
 })
 
 // GET /api/recruitment/jobs?status=active&company_id=...&q=...&page=1
@@ -135,7 +137,12 @@ export async function POST(req: NextRequest) {
     .select("id, title, reference_number, status, created_at")
     .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    if (error.code === "23505") {
+      return NextResponse.json({ error: "That reference number is already in use by another job" }, { status: 409 })
+    }
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
 
   // Log the opening event
   await recruitment

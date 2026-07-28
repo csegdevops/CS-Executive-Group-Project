@@ -23,6 +23,11 @@ const patchSchema = z.object({
   security_clearance_level: z.string().optional().nullable(),
   security_clearance_verified: z.boolean().optional(),
   security_clearance_expiry: z.string().optional().nullable(),
+  linkedin_url: z.string().url().optional().nullable(),
+  seek_talent_profile_url: z.string().url().optional().nullable(),
+  preferred_work_types: z.array(z.string()).optional(),
+  current_salary: z.number().nonnegative().optional().nullable(),
+  base_salary_expected: z.string().optional().nullable(),
   is_active: z.boolean().optional(),
 })
 

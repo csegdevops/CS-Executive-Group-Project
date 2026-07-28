@@ -4,8 +4,9 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
-import { Pencil } from "lucide-react"
+import { Pencil, Search } from "lucide-react"
 import { toast } from "sonner"
 
 interface LookupValue { value: string; label: string }
@@ -21,14 +22,20 @@ export function CandidateSkillsEditor({ candidateId, initialTags }: Props) {
   const [allTags, setAllTags] = useState<LookupValue[]>([])
   const [selected, setSelected] = useState<string[]>(initialTags)
   const [saving, setSaving] = useState(false)
+  const [q, setQ] = useState("")
 
   useEffect(() => {
     if (!open) return
+    setQ("")
     fetch("/api/lookup-values?scope=recruitment&category=skill_tag")
       .then(r => r.json())
       .then(d => setAllTags(Array.isArray(d) ? d : []))
       .catch(() => {})
   }, [open])
+
+  const filteredTags = q.trim()
+    ? allTags.filter(t => t.label.toLowerCase().includes(q.trim().toLowerCase()))
+    : allTags
 
   function toggle(v: string) {
     setSelected(prev => prev.includes(v) ? prev.filter(t => t !== v) : [...prev, v])
@@ -77,8 +84,12 @@ export function CandidateSkillsEditor({ candidateId, initialTags }: Props) {
           <DialogHeader><DialogTitle>Edit skills &amp; tags</DialogTitle></DialogHeader>
           <div className="py-2">
             <p className="text-xs text-muted-foreground mb-3">Select all that apply. These tags power the candidate search.</p>
-            <div className="flex flex-wrap gap-2">
-              {allTags.map(t => {
+            <div className="relative mb-3">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Input value={q} onChange={e => setQ(e.target.value)} placeholder="Filter…" className="pl-8" />
+            </div>
+            <div className="flex flex-wrap gap-2 max-h-72 overflow-y-auto">
+              {filteredTags.map(t => {
                 const on = selected.includes(t.value)
                 return (
                   <button
@@ -95,6 +106,7 @@ export function CandidateSkillsEditor({ candidateId, initialTags }: Props) {
                   </button>
                 )
               })}
+              {filteredTags.length === 0 && <p className="text-xs text-muted-foreground">No matches.</p>}
             </div>
             {selected.length > 0 && (
               <p className="text-xs text-muted-foreground mt-3">{selected.length} selected</p>

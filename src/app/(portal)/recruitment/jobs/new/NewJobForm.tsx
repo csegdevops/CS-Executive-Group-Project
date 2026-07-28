@@ -17,7 +17,7 @@ export function NewJobForm({ companies, recruiters, currentUserId }: Props) {
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState<JobFormState>({ ...emptyJobForm, assigned_recruiter_id: currentUserId })
 
-  function set(k: keyof JobFormState, v: string | boolean) {
+  function set(k: keyof JobFormState, v: string | boolean | string[]) {
     setForm(f => ({ ...f, [k]: v }))
   }
 
@@ -31,6 +31,7 @@ export function NewJobForm({ companies, recruiters, currentUserId }: Props) {
         title: form.title,
         security_clearance_required: form.security_clearance_required,
       }
+      if (form.reference_number)         body.reference_number = form.reference_number
       if (form.location)                 body.location = form.location
       if (form.employment_type)          body.employment_type = form.employment_type
       if (form.vacancies_count)          body.vacancies_count = parseInt(form.vacancies_count) || 1
@@ -40,6 +41,8 @@ export function NewJobForm({ companies, recruiters, currentUserId }: Props) {
       if (form.assigned_recruiter_id)    body.assigned_recruiter_id = form.assigned_recruiter_id
       if (form.description)      body.description = form.description
       if (form.requirements)     body.requirements = form.requirements
+      body.required_skills = form.required_skills
+      body.required_education_tags = form.required_education_tags
 
       const res = await fetch("/api/recruitment/jobs", {
         method: "POST",

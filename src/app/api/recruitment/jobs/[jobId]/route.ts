@@ -19,6 +19,9 @@ const patchSchema = z.object({
   security_clearance_required: z.boolean().optional(),
   assigned_recruiter_id: z.string().uuid().optional().nullable(),
   status: z.enum(["opened", "posted", "active", "paused", "filled", "closed"]).optional(),
+  reference_number: z.string().min(1).max(100).optional(),
+  required_skills: z.array(z.string()).optional(),
+  required_education_tags: z.array(z.string()).optional(),
   notes: z.string().optional(),
 })
 
@@ -116,7 +119,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ jo
       .select("id, title, status, updated_at")
       .single()
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (error) {
+      if (error.code === "23505") {
+        return NextResponse.json({ error: "That reference number is already in use by another job" }, { status: 409 })
+      }
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
     updated = data
   } else {
     updated = { id: jobId, title: current.title, status: current.status, updated_at: new Date().toISOString() }

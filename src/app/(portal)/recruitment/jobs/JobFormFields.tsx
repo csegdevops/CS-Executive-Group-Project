@@ -10,10 +10,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { TagMultiSelect } from "./TagMultiSelect"
 
 export interface JobFormState {
   company_id: string
   title: string
+  reference_number: string
   location: string
   employment_type: string
   vacancies_count: string
@@ -24,11 +26,14 @@ export interface JobFormState {
   assigned_recruiter_id: string
   description: string
   requirements: string
+  required_skills: string[]
+  required_education_tags: string[]
 }
 
 export const emptyJobForm: JobFormState = {
   company_id: "",
   title: "",
+  reference_number: "",
   location: "",
   employment_type: "",
   vacancies_count: "1",
@@ -39,13 +44,15 @@ export const emptyJobForm: JobFormState = {
   assigned_recruiter_id: "",
   description: "",
   requirements: "",
+  required_skills: [],
+  required_education_tags: [],
 }
 
 interface LookupValue { value: string; label: string }
 
 interface Props {
   form: JobFormState
-  set: (k: keyof JobFormState, v: string | boolean) => void
+  set: (k: keyof JobFormState, v: string | boolean | string[]) => void
   companies: { id: string; name: string }[]
   recruiters: { id: string; name: string }[]
   /** The API doesn't support reassigning a job's client company after creation — disable the field rather than show a control that silently does nothing. */
@@ -82,6 +89,21 @@ export function JobFormFields({ form, set, companies, recruiters, companyDisable
       <div className="space-y-1.5">
         <Label htmlFor="title">Job title *</Label>
         <Input id="title" value={form.title} onChange={e => set("title", e.target.value)} placeholder="e.g. Senior Program Manager" />
+      </div>
+
+      {/* Reference number */}
+      <div className="space-y-1.5">
+        <Label htmlFor="ref-num">Reference number</Label>
+        <Input
+          id="ref-num"
+          value={form.reference_number}
+          onChange={e => set("reference_number", e.target.value)}
+          placeholder="Auto-generated if left blank"
+          className="font-mono"
+        />
+        <p className="text-xs text-muted-foreground">
+          Must be unique. Use this same value as the job reference on Seek and on the website apply form so applications match back to this job.
+        </p>
       </div>
 
       {/* Location */}
@@ -159,6 +181,29 @@ export function JobFormFields({ form, set, companies, recruiters, companyDisable
         />
         Security clearance required
       </label>
+
+      {/* Required skills + education — power automatic candidate matching */}
+      <div className="border-t pt-4 space-y-4">
+        <TagMultiSelect
+          label="Required skills"
+          scope="recruitment"
+          category="skill_tag"
+          value={form.required_skills}
+          onChange={(v) => set("required_skills", v)}
+          placeholder="No required skills set"
+        />
+        <TagMultiSelect
+          label="Required education background"
+          scope="recruitment"
+          category="education_field"
+          value={form.required_education_tags}
+          onChange={(v) => set("required_education_tags", v)}
+          placeholder="No required education background set"
+        />
+        <p className="text-xs text-muted-foreground">
+          Used to automatically surface matching candidates from the talent pool on the job&apos;s Matches tab.
+        </p>
+      </div>
 
       {/* Description */}
       <div className="space-y-1.5">

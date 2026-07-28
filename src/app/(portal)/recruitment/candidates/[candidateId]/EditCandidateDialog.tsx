@@ -36,6 +36,11 @@ interface Initial {
   security_clearance_level: string
   security_clearance_verified: boolean
   security_clearance_expiry: string
+  linkedin_url: string
+  seek_talent_profile_url: string
+  preferred_work_types: string[]
+  current_salary: string
+  base_salary_expected: string
 }
 
 export function EditCandidateDialog({
@@ -50,6 +55,8 @@ export function EditCandidateDialog({
   const [saving, setSaving] = useState(false)
   const [clearanceOptions, setClearanceOptions] = useState<LookupValue[]>([])
   const [citizenshipOptions, setCitizenshipOptions] = useState<LookupValue[]>([])
+  const [workTypeOptions, setWorkTypeOptions] = useState<LookupValue[]>([])
+  const [salaryBandOptions, setSalaryBandOptions] = useState<LookupValue[]>([])
 
   const [firstName, setFirstName]   = useState(initial.first_name)
   const [lastName, setLastName]     = useState(initial.last_name)
@@ -69,6 +76,11 @@ export function EditCandidateDialog({
   const [clearanceLevel, setClearanceLevel] = useState(initial.security_clearance_level || NO_CLEARANCE)
   const [clearanceVerified, setClearanceVerified] = useState(initial.security_clearance_verified)
   const [clearanceExpiry, setClearanceExpiry] = useState(initial.security_clearance_expiry)
+  const [linkedinUrl, setLinkedinUrl] = useState(initial.linkedin_url)
+  const [seekTalentUrl, setSeekTalentUrl] = useState(initial.seek_talent_profile_url)
+  const [preferredWorkTypes, setPreferredWorkTypes] = useState<string[]>(initial.preferred_work_types)
+  const [currentSalary, setCurrentSalary] = useState(initial.current_salary)
+  const [salaryBand, setSalaryBand] = useState(initial.base_salary_expected || NONE)
 
   useEffect(() => {
     if (!open) return
@@ -80,7 +92,25 @@ export function EditCandidateDialog({
       .then((r) => r.json())
       .then((d) => setCitizenshipOptions(Array.isArray(d) ? d : []))
       .catch(() => {})
+    fetch("/api/lookup-values?scope=recruitment&category=employment_type")
+      .then((r) => r.json())
+      .then((d) => setWorkTypeOptions(Array.isArray(d) ? d : []))
+      .catch(() => {})
+    fetch("/api/lookup-values?scope=recruitment&category=salary_band")
+      .then((r) => r.json())
+      .then((d) => setSalaryBandOptions(Array.isArray(d) ? d : []))
+      .catch(() => {})
   }, [open])
+
+  function toggleWorkType(value: string) {
+    setPreferredWorkTypes((prev) => prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value])
+  }
+
+  function normalizeUrl(v: string): string | null {
+    const trimmed = v.trim()
+    if (!trimmed) return null
+    return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
+  }
 
   const hasClearance = clearanceLevel !== NO_CLEARANCE
 
@@ -109,6 +139,11 @@ export function EditCandidateDialog({
           security_clearance_level: clearanceLevel === NO_CLEARANCE ? "none" : clearanceLevel,
           security_clearance_verified: hasClearance ? clearanceVerified : false,
           security_clearance_expiry: hasClearance ? (clearanceExpiry || null) : null,
+          linkedin_url: normalizeUrl(linkedinUrl),
+          seek_talent_profile_url: normalizeUrl(seekTalentUrl),
+          preferred_work_types: preferredWorkTypes,
+          current_salary: currentSalary.trim() ? parseFloat(currentSalary) : null,
+          base_salary_expected: salaryBand === NONE ? null : salaryBand,
         }),
       })
       if (!res.ok) {
@@ -208,6 +243,55 @@ export function EditCandidateDialog({
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="border-t pt-4 space-y-3">
+            <div>
+              <Label className="mb-1">LinkedIn Profile</Label>
+              <Input value={linkedinUrl} onChange={(e) => setLinkedinUrl(e.target.value)} placeholder="linkedin.com/in/…" />
+            </div>
+            <div>
+              <Label className="mb-1">Seek Talent Profile</Label>
+              <Input value={seekTalentUrl} onChange={(e) => setSeekTalentUrl(e.target.value)} placeholder="seek.com.au/talent-search/profile/…" />
+            </div>
+          </div>
+
+          <div className="border-t pt-4 space-y-3">
+            <div>
+              <Label className="mb-1.5">Preferred Work Type</Label>
+              <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+                {workTypeOptions.map((o) => (
+                  <label key={o.value} className="flex items-center gap-1.5 text-sm cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={preferredWorkTypes.includes(o.value)}
+                      onChange={() => toggleWorkType(o.value)}
+                      className="rounded"
+                    />
+                    {o.label}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="mb-1">Current Salary (AUD)</Label>
+                <Input type="number" min="0" value={currentSalary} onChange={(e) => setCurrentSalary(e.target.value)} placeholder="150000" />
+              </div>
+              <div>
+                <Label className="mb-1">Expected Salary</Label>
+                <Select value={salaryBand} onValueChange={setSalaryBand}>
+                  <SelectTrigger><SelectValue placeholder="Not specified" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NONE}>Not specified</SelectItem>
+                    {salaryBandOptions.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
           </div>
 
           <div className="border-t pt-4">

@@ -795,6 +795,11 @@ export interface Database {
           security_clearance_level: string | null
           security_clearance_verified: boolean
           security_clearance_expiry: string | null
+          linkedin_url: string | null
+          seek_talent_profile_url: string | null
+          preferred_work_types: string[]
+          current_salary: number | null
+          base_salary_expected: string | null
           source_channel: ApplicationSource | null
           cv_parse_status: CvParseStatus
           cv_parsed_by: CvParsedBy | null
@@ -831,6 +836,11 @@ export interface Database {
           security_clearance_level?: string | null
           security_clearance_verified?: boolean
           security_clearance_expiry?: string | null
+          linkedin_url?: string | null
+          seek_talent_profile_url?: string | null
+          preferred_work_types?: string[]
+          current_salary?: number | null
+          base_salary_expected?: string | null
           source_channel?: ApplicationSource | null
           added_by?: string | null
           is_active?: boolean
@@ -860,11 +870,36 @@ export interface Database {
           security_clearance_level?: string | null
           security_clearance_verified?: boolean
           security_clearance_expiry?: string | null
+          linkedin_url?: string | null
+          seek_talent_profile_url?: string | null
+          preferred_work_types?: string[]
+          current_salary?: number | null
+          base_salary_expected?: string | null
           cv_parse_status?: CvParseStatus
           cv_parsed_by?: CvParsedBy | null
           cv_parsed_at?: string | null
           completeness_prompted?: boolean
           is_active?: boolean
+        }
+        Relationships: []
+      }
+      candidate_notes: {
+        Row: {
+          id: string
+          candidate_id: string
+          author_id: string
+          content: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          candidate_id: string
+          author_id: string
+          content: string
+        }
+        Update: {
+          content?: string
         }
         Relationships: []
       }
@@ -887,6 +922,8 @@ export interface Database {
           status: JobStatus
           assigned_recruiter_id: string | null
           seek_ad_id: string | null
+          required_skills: string[]
+          required_education_tags: string[]
           created_by: string | null
           created_at: string
           updated_at: string
@@ -909,10 +946,13 @@ export interface Database {
           status?: JobStatus
           assigned_recruiter_id?: string | null
           seek_ad_id?: string | null
+          required_skills?: string[]
+          required_education_tags?: string[]
           created_by?: string | null
         }
         Update: {
           title?: string
+          reference_number?: string | null
           description?: string | null
           requirements?: string | null
           employment_type?: EmploymentType | null
@@ -925,6 +965,8 @@ export interface Database {
           status?: JobStatus
           assigned_recruiter_id?: string | null
           seek_ad_id?: string | null
+          required_skills?: string[]
+          required_education_tags?: string[]
         }
         Relationships: []
       }
@@ -1133,6 +1175,7 @@ export interface Database {
           p_raw_resume_text?: string | null
           p_parsed_metadata?: Record<string, unknown> | null
           p_skills_tags?: string[] | null
+          p_field_of_study?: string | null
           p_source_channel?: string | null
           p_added_by?: string | null
         }
@@ -1149,6 +1192,19 @@ export interface Database {
           current_employer: string | null
           skills_tags: string[]
           rank: number
+        }>
+      }
+      merge_candidates: {
+        Args: { p_primary_id: string; p_duplicate_id: string; p_merged_by: string }
+        Returns: Array<{
+          primary_id: string
+          duplicate_id: string
+          applications_moved: number
+          applications_dropped: number
+          placements_moved: number
+          tasks_moved: number
+          notes_moved: number
+          secondary_email_set: boolean
         }>
       }
     }

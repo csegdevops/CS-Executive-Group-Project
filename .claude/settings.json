@@ -17,7 +17,9 @@
       "Read(//d/Project/CS Executive Group Project/**)",
       "Bash(wmic process *)",
       "Bash(powershell -Command \"\\(Get-Process -Id 35368\\).StartTime\")",
-      "PowerShell(npm run lint)"
+      "PowerShell(npm run lint)",
+      "Bash(node -e \"const icons = require\\('lucide-react'\\); console.log\\('Linkedin' in icons, 'MessageSquare' in icons, 'DollarSign' in icons, 'ExternalLink' in icons\\)\")",
+      "Bash(node -e \"const icons = require\\('lucide-react'\\); console.log\\(Object.keys\\(icons\\).filter\\(k => /linkedin/i.test\\(k\\)\\)\\)\")"
     ]
   }
 }

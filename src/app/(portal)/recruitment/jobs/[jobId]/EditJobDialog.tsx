@@ -15,6 +15,7 @@ interface Props {
   initial: {
     company_id: string
     title: string
+    reference_number: string | null
     location: string | null
     employment_type: string | null
     vacancies_count: number
@@ -25,6 +26,8 @@ interface Props {
     assigned_recruiter_id: string | null
     description: string | null
     requirements: string | null
+    required_skills: string[]
+    required_education_tags: string[]
   }
 }
 
@@ -32,6 +35,7 @@ function toFormState(initial: Props["initial"]): JobFormState {
   return {
     company_id: initial.company_id,
     title: initial.title,
+    reference_number: initial.reference_number ?? "",
     location: initial.location ?? "",
     employment_type: initial.employment_type ?? "",
     vacancies_count: String(initial.vacancies_count),
@@ -42,6 +46,8 @@ function toFormState(initial: Props["initial"]): JobFormState {
     assigned_recruiter_id: initial.assigned_recruiter_id ?? "",
     description: initial.description ?? "",
     requirements: initial.requirements ?? "",
+    required_skills: initial.required_skills ?? [],
+    required_education_tags: initial.required_education_tags ?? [],
   }
 }
 
@@ -51,7 +57,7 @@ export function EditJobDialog({ jobId, companies, recruiters, initial }: Props) 
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState<JobFormState>(() => toFormState(initial))
 
-  function set(k: keyof JobFormState, v: string | boolean) {
+  function set(k: keyof JobFormState, v: string | boolean | string[]) {
     setForm(f => ({ ...f, [k]: v }))
   }
 
@@ -62,6 +68,7 @@ export function EditJobDialog({ jobId, companies, recruiters, initial }: Props) 
     try {
       const body: Record<string, unknown> = {
         title: form.title,
+        reference_number: form.reference_number || undefined,
         security_clearance_required: form.security_clearance_required,
         location: form.location || null,
         employment_type: form.employment_type || undefined,
@@ -72,6 +79,8 @@ export function EditJobDialog({ jobId, companies, recruiters, initial }: Props) 
         assigned_recruiter_id: form.assigned_recruiter_id || null,
         description: form.description || undefined,
         requirements: form.requirements || undefined,
+        required_skills: form.required_skills,
+        required_education_tags: form.required_education_tags,
       }
 
       const res = await fetch(`/api/recruitment/jobs/${jobId}`, {

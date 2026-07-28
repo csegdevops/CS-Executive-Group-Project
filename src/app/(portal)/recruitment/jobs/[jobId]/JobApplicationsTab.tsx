@@ -1,9 +1,11 @@
 "use client"
 
+import { useState } from "react"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { UserCircle, Calendar } from "lucide-react"
+import { ApplicationDetailSheet } from "../../applications/ApplicationDetailSheet"
 
 const STAGES = ["applied", "screening", "shortlisted", "interview_1", "interview_2", "reference_check", "offer", "placed", "withdrawn", "rejected"] as const
 type Stage = typeof STAGES[number]
@@ -61,6 +63,14 @@ interface Application {
 }
 
 export function JobApplicationsTab({ applications, jobId }: { applications: Application[]; jobId: string }) {
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+
+  function handleRowOpen(e: React.MouseEvent, id: string) {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return
+    e.preventDefault()
+    setSelectedId(id)
+  }
+
   if (applications.length === 0) {
     return (
       <div className="text-center py-16 text-sm text-muted-foreground border rounded-lg">
@@ -73,6 +83,9 @@ export function JobApplicationsTab({ applications, jobId }: { applications: Appl
   // Group by active pipeline stages (exclude terminal)
   const pipeline = applications.filter(a => !["placed", "withdrawn", "rejected"].includes(a.stage))
   const terminal = applications.filter(a => ["placed", "withdrawn", "rejected"].includes(a.stage))
+  const ordered = [...pipeline, ...terminal]
+  const selectedIndex = selectedId ? ordered.findIndex(a => a.id === selectedId) : -1
+  const selectedRow = selectedIndex >= 0 ? ordered[selectedIndex] : null
 
   return (
     <div className="space-y-6">
@@ -101,10 +114,10 @@ export function JobApplicationsTab({ applications, jobId }: { applications: Appl
             </tr>
           </thead>
           <tbody className="divide-y">
-            {[...pipeline, ...terminal].map(app => (
+            {ordered.map(app => (
               <tr key={app.id} className="hover:bg-muted/20 transition-colors">
                 <td className="px-4 py-3">
-                  <Link href={`/recruitment/applications/${app.id}`} className="hover:underline">
+                  <Link href={`/recruitment/applications/${app.id}`} className="hover:underline" onClick={(e) => handleRowOpen(e, app.id)}>
                     <div className="flex items-center gap-2">
                       <UserCircle className="h-5 w-5 text-muted-foreground/40 shrink-0" />
                       <div>
@@ -137,6 +150,20 @@ export function JobApplicationsTab({ applications, jobId }: { applications: Appl
           </tbody>
         </table>
       </div>
+
+      <ApplicationDetailSheet
+        applicationId={selectedId}
+        onOpenChange={(open) => { if (!open) setSelectedId(null) }}
+        onNavigate={(direction) => {
+          if (selectedIndex < 0) return
+          const nextIndex = direction === "prev" ? selectedIndex - 1 : selectedIndex + 1
+          if (nextIndex >= 0 && nextIndex < ordered.length) setSelectedId(ordered[nextIndex].id)
+        }}
+        hasPrev={selectedIndex > 0}
+        hasNext={selectedIndex >= 0 && selectedIndex < ordered.length - 1}
+        positionLabel={selectedIndex >= 0 ? `${selectedIndex + 1} of ${ordered.length}` : undefined}
+        refreshToken={selectedRow ? `${selectedRow.stage}:${selectedRow.source_channel}` : undefined}
+      />
     </div>
   )
 }

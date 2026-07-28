@@ -10,6 +10,8 @@ import { EditJobDialog } from "./EditJobDialog"
 import { SeekPostButton } from "./SeekPostButton"
 import { JobApplicationsTab } from "./JobApplicationsTab"
 import { JobTimeline } from "./JobTimeline"
+import { JobMatchesTab } from "./JobMatchesTab"
+import { findMatchingCandidates } from "@/lib/recruitment/find-matching-candidates"
 import { cn } from "@/lib/utils"
 
 const STATUS_COLORS: Record<string, string> = {
@@ -66,10 +68,11 @@ export default async function JobDetailPage({
   if (!job) notFound()
 
   // Hydrate company name + full companies list (for the edit dialog's disabled company field)
-  const [{ data: company }, { data: companies }, { data: recruiterProfiles }] = await Promise.all([
+  const [{ data: company }, { data: companies }, { data: recruiterProfiles }, matches] = await Promise.all([
     admin.from("companies").select("id, name").eq("id", job.company_id).single(),
     admin.from("companies").select("id, name").order("name"),
     admin.from("profiles").select("id, full_name").order("full_name"),
+    findMatchingCandidates(admin, jobId, job.required_skills ?? [], job.required_education_tags ?? []),
   ])
 
   // Hydrate candidate names for applications
@@ -145,6 +148,7 @@ export default async function JobDetailPage({
             initial={{
               company_id: job.company_id,
               title: job.title,
+              reference_number: job.reference_number,
               location: job.location,
               employment_type: job.employment_type,
               vacancies_count: job.vacancies_count,
@@ -155,6 +159,8 @@ export default async function JobDetailPage({
               assigned_recruiter_id: job.assigned_recruiter_id,
               description: job.description,
               requirements: job.requirements,
+              required_skills: job.required_skills ?? [],
+              required_education_tags: job.required_education_tags ?? [],
             }}
           />
         </div>
@@ -162,7 +168,7 @@ export default async function JobDetailPage({
 
       {/* Tabs */}
       <div className="flex gap-1 border-b mb-6">
-        {["applications", "overview", "timeline"].map(t => (
+        {["applications", "matches", "overview", "timeline"].map(t => (
           <Link
             key={t}
             href={`/recruitment/jobs/${jobId}?tab=${t}`}
@@ -173,7 +179,9 @@ export default async function JobDetailPage({
                 : "border-transparent text-muted-foreground hover:text-foreground"
             )}
           >
-            {t === "applications" ? `Applications (${enrichedApps.length})` : t}
+            {t === "applications" ? `Applications (${enrichedApps.length})`
+              : t === "matches" ? `Matches (${matches.length})`
+              : t}
           </Link>
         ))}
       </div>
@@ -211,6 +219,19 @@ export default async function JobDetailPage({
               <p className="text-sm whitespace-pre-wrap text-foreground/90">{job.requirements}</p>
             </div>
           )}
+          {(job.required_skills?.length > 0 || job.required_education_tags?.length > 0) && (
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Required Skills &amp; Education</p>
+              <div className="flex flex-wrap gap-1.5">
+                {(job.required_skills as string[] ?? []).map((s: string) => (
+                  <Badge key={s} variant="secondary" className="text-xs">{s.replace(/_/g, " ")}</Badge>
+                ))}
+                {(job.required_education_tags as string[] ?? []).map((e: string) => (
+                  <Badge key={e} variant="outline" className="text-xs">{e.replace(/_/g, " ")}</Badge>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Seek section */}
           <SeekPostButton
@@ -224,6 +245,14 @@ export default async function JobDetailPage({
 
       {tab === "applications" && (
         <JobApplicationsTab applications={enrichedApps} jobId={jobId} />
+      )}
+
+      {tab === "matches" && (
+        <JobMatchesTab
+          jobId={jobId}
+          matches={matches}
+          hasRequirements={(job.required_skills?.length ?? 0) + (job.required_education_tags?.length ?? 0) > 0}
+        />
       )}
 
       {tab === "timeline" && (

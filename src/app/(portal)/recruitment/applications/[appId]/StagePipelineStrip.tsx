@@ -22,23 +22,18 @@ export function StagePipelineStrip({ stage }: { stage: string }) {
   const currentStageIdx = PIPELINE_STAGES.indexOf(stage)
 
   return (
-    <div className="flex items-center mb-6 overflow-x-auto py-1 px-0.5 -mx-0.5">
+    <div className="flex flex-wrap gap-1.5 mb-6">
       {PIPELINE_STAGES.map((s, i) => {
         const done = i < currentStageIdx
         const curr = i === currentStageIdx
         return (
-          <div key={s} className="flex items-center shrink-0">
-            <div className={cn(
-              "px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors",
-              curr  ? cn(STAGE_COLORS[s], "ring-2 ring-inset ring-current font-semibold") :
-              done  ? "bg-green-500/10 text-green-700" :
-                      "bg-muted/50 text-muted-foreground"
-            )}>
-              {STAGE_LABELS[s]}
-            </div>
-            {i < PIPELINE_STAGES.length - 1 && (
-              <div className={cn("h-px w-4 mx-1", done ? "bg-green-500/30" : "bg-border")} />
-            )}
+          <div key={s} className={cn(
+            "px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors",
+            curr  ? cn(STAGE_COLORS[s], "ring-2 ring-inset ring-current font-semibold") :
+            done  ? "bg-green-500/10 text-green-700" :
+                    "bg-muted/50 text-muted-foreground"
+          )}>
+            {STAGE_LABELS[s]}
           </div>
         )
       })}

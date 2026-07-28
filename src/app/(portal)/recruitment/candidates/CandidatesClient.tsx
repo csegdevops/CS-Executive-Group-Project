@@ -6,7 +6,7 @@ import Link from "next/link"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
-import { Search, Shield, ChevronRight } from "lucide-react"
+import { Search, Shield, ChevronRight, Users } from "lucide-react"
 import { AddCandidateDialog } from "./AddCandidateDialog"
 
 interface Candidate {
@@ -47,7 +47,7 @@ function CompletenessDot({ pct }: { pct: number }) {
   )
 }
 
-export function CandidatesClient({ candidates }: { candidates: Candidate[] }) {
+export function CandidatesClient({ candidates, duplicateClusterCount = 0 }: { candidates: Candidate[]; duplicateClusterCount?: number }) {
   const router = useRouter()
   const [q, setQ] = useState("")
   const [searchResults, setSearchResults] = useState<Candidate[] | null>(null)
@@ -96,6 +96,16 @@ export function CandidatesClient({ candidates }: { candidates: Candidate[] }) {
           />
         </div>
         <AddCandidateDialog onAdded={() => router.refresh()} />
+        {duplicateClusterCount > 0 && (
+          <Link
+            href="/recruitment/candidates/duplicates"
+            className="flex items-center gap-1.5 h-8 px-3 text-xs rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors shrink-0"
+          >
+            <Users className="h-3.5 w-3.5" />
+            Review duplicates
+            <Badge variant="secondary" className="text-xs py-0 px-1.5">{duplicateClusterCount}</Badge>
+          </Link>
+        )}
       </div>
 
       <p className="text-xs text-muted-foreground mb-3">

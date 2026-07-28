@@ -64,6 +64,7 @@ export const PERMISSION_CATALOG: Record<Module, PermissionCategory[]> = {
       permissions: [
         { key: "recruitment.candidates.create", label: "Create candidates" },
         { key: "recruitment.candidates.edit", label: "Edit candidates (incl. CV upload, re-parse)" },
+        { key: "recruitment.candidates.merge", label: "Merge duplicate candidate profiles" },
       ],
     },
     {

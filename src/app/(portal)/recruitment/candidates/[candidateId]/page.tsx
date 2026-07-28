@@ -10,7 +10,8 @@ import { CvUploadButton } from "./CvUploadButton"
 import { DeleteCvButton } from "./DeleteCvButton"
 import { CvParseStatusControl } from "./CvParseStatusControl"
 import { AddToJobDialog } from "./AddToJobDialog"
-import { ChevronLeft, Mail, Phone, MapPin, Shield, FileText, GraduationCap, Briefcase } from "lucide-react"
+import { CandidateNotesSection } from "./CandidateNotesSection"
+import { ChevronLeft, Mail, Phone, MapPin, Shield, FileText, GraduationCap, Briefcase, ExternalLink, DollarSign } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const STAGE_LABELS: Record<string, string> = {
@@ -46,7 +47,7 @@ export default async function CandidateProfilePage({ params }: { params: Promise
     admin
       .from("lookup_values")
       .select("category, value, label")
-      .in("category", ["security_clearance_level", "citizenship_status"]),
+      .in("category", ["security_clearance_level", "citizenship_status", "employment_type", "salary_band"]),
   ])
 
   if (!candidate) notFound()
@@ -116,6 +117,11 @@ export default async function CandidateProfilePage({ params }: { params: Promise
                       security_clearance_level: candidate.security_clearance_level ?? "",
                       security_clearance_verified: candidate.security_clearance_verified ?? false,
                       security_clearance_expiry: candidate.security_clearance_expiry ?? "",
+                      linkedin_url: candidate.linkedin_url ?? "",
+                      seek_talent_profile_url: candidate.seek_talent_profile_url ?? "",
+                      preferred_work_types: candidate.preferred_work_types ?? [],
+                      current_salary: candidate.current_salary != null ? String(candidate.current_salary) : "",
+                      base_salary_expected: candidate.base_salary_expected ?? "",
                     }}
                   />
                   {candidate.employment_status === "not_working" && (
@@ -173,6 +179,31 @@ export default async function CandidateProfilePage({ params }: { params: Promise
                 <p className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Shield className="h-3.5 w-3.5" />{lookupLabel("citizenship_status", candidate.citizenship_status)}
                 </p>
+              )}
+              {candidate.linkedin_url && (
+                <a href={candidate.linkedin_url} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-sm hover:text-primary transition-colors">
+                  <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />LinkedIn Profile
+                </a>
+              )}
+              {candidate.seek_talent_profile_url && (
+                <a href={candidate.seek_talent_profile_url} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-sm hover:text-primary transition-colors">
+                  <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />Seek Talent Profile
+                </a>
+              )}
+              {(candidate.current_salary != null || candidate.base_salary_expected) && (
+                <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <DollarSign className="h-3.5 w-3.5" />
+                  {candidate.current_salary != null && `Current: $${Number(candidate.current_salary).toLocaleString()}`}
+                  {candidate.current_salary != null && candidate.base_salary_expected && " · "}
+                  {candidate.base_salary_expected && `Expects: ${lookupLabel("salary_band", candidate.base_salary_expected)}`}
+                </p>
+              )}
+              {candidate.preferred_work_types && candidate.preferred_work_types.length > 0 && (
+                <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                  {(candidate.preferred_work_types as string[]).map((t) => (
+                    <Badge key={t} variant="outline" className="text-xs capitalize">{lookupLabel("employment_type", t)}</Badge>
+                  ))}
+                </div>
               )}
             </div>
 
@@ -300,6 +331,8 @@ export default async function CandidateProfilePage({ params }: { params: Promise
               </p>
             </div>
           )}
+
+          <CandidateNotesSection candidateId={candidate.id} />
         </div>
 
         {/* Right: meta + applications */}
