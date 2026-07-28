@@ -9,6 +9,7 @@ import { ApplicationInfoCard } from "./ApplicationInfoCard"
 import { StageHistoryTimeline } from "./StageHistoryTimeline"
 import { JobSummaryCard } from "./JobSummaryCard"
 import { StageControl } from "./StageControl"
+import { DeleteApplicationButton } from "../DeleteApplicationButton"
 
 export default async function ApplicationDetailPage({ params }: { params: Promise<{ appId: string }> }) {
   await requireModuleAccess("recruitment")
@@ -63,9 +64,12 @@ export default async function ApplicationDetailPage({ params }: { params: Promis
 
   return (
     <div className="max-w-3xl">
-      <Link href="/recruitment/applications" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4">
-        <ChevronLeft className="h-3.5 w-3.5" />All Applications
-      </Link>
+      <div className="flex items-center justify-between mb-4">
+        <Link href="/recruitment/applications" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+          <ChevronLeft className="h-3.5 w-3.5" />All Applications
+        </Link>
+        <DeleteApplicationButton applicationId={app.id} redirectTo="/recruitment/applications" />
+      </div>
 
       <StagePipelineStrip stage={app.stage} />
 

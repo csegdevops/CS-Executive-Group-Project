@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { requirePermissionOrSuperAdmin } from "@/lib/auth-helpers"
+import { deleteCvFile } from "@/lib/storage/cv-storage"
 import { z } from "zod"
 
 const patchSchema = z.object({
@@ -118,4 +119,53 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ ca
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
   return NextResponse.json(data)
+}
+
+// DELETE /api/recruitment/candidates/[candidateId]
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ candidateId: string }> }) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (!(await requirePermissionOrSuperAdmin(supabase, user.id, "recruitment.candidates.edit"))) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
+
+  const { candidateId } = await params
+  const admin = createAdminClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const recruitment = admin.schema("recruitment") as any
+
+  const { data: candidate } = await recruitment.from("candidates").select("id").eq("id", candidateId).single()
+  if (!candidate) return NextResponse.json({ error: "Not found" }, { status: 404 })
+
+  // Applications reference candidates with ON DELETE RESTRICT (and any
+  // placement always implies an application) — rather than a raw DB error,
+  // give a clear instruction to remove those first.
+  const { count } = await recruitment
+    .from("applications")
+    .select("id", { count: "exact", head: true })
+    .eq("candidate_id", candidateId)
+  if ((count ?? 0) > 0) {
+    return NextResponse.json(
+      { error: "This candidate has existing applications — delete those first before deleting the candidate profile." },
+      { status: 409 }
+    )
+  }
+
+  // candidate_notes cascades automatically; candidate_documents rows cascade
+  // too, but their Storage objects don't — clean those up explicitly first.
+  const { data: docs } = await recruitment
+    .from("candidate_documents")
+    .select("storage_key")
+    .eq("candidate_id", candidateId)
+  await Promise.all(
+    (docs ?? []).map((d: { storage_key: string }) =>
+      deleteCvFile(d.storage_key).catch((err) => console.error("[candidates] document cleanup failed", err))
+    )
+  )
+
+  const { error: deleteError } = await recruitment.from("candidates").delete().eq("id", candidateId)
+  if (deleteError) return NextResponse.json({ error: deleteError.message }, { status: 500 })
+
+  return new NextResponse(null, { status: 204 })
 }

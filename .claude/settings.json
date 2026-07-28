@@ -28,7 +28,20 @@
       "Bash(curl -sS -o /dev/null -w \"HTTP %{http_code}\\\\n\" https://vercel.com)",
       "Bash(nslookup portal.csexecutivegroup.com.au)",
       "Bash(nslookup csexecutivegroup.com.au)",
-      "Bash(nslookup portal.csexecutivegroup.com)"
+      "Bash(nslookup portal.csexecutivegroup.com)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(curl -sS -i -o /dev/null -w \"HTTP %{http_code}\\\\nContent-Type: %{content_type}\\\\nSize: %{size_download} bytes\\\\n\" \"https://www.csexecutivegroup.com/wp-content/uploads/gravity_forms/20-cdc741892e92ce124246a47c3d40b7ba/2026/07/kasun_palavinnage_advm0726_resume.docx\")",
+      "Bash(curl -sS -o /dev/null -w \"HTTP %{http_code}\\\\n\" \"https://www.csexecutivegroup.com/wp-content/uploads/gravity_forms/20-cdc741892e92ce124246a47c3d40b7ba/2026/07/kasun_palavinnage_advm0726_resume.docx\")",
+      "Bash(curl -sS -o /dev/null -w \"HTTP %{http_code}\\\\n\" \"https://csexecutivegroup.com/wp-content/uploads/gravity_forms/20-cdc741892e92ce124246a47c3d40b7ba/2026/07/kasun_palavinnage_advm0726_resume.docx\")",
+      "Bash(curl -sS -o /dev/null -w \"resume: HTTP %{http_code}\\\\n\" \"https://www.csexecutivegroup.com/wp-content/uploads/gravity_forms/20-cdc741892e92ce124246a47c3d40b7ba/2026/07/kasun_palavinnage_advm0726_resume.docx\")",
+      "Bash(curl -sS -o /dev/null -w \"cover letter: HTTP %{http_code}\\\\n\" \"https://www.csexecutivegroup.com/wp-content/uploads/gravity_forms/20-cdc741892e92ce124246a47c3d40b7ba/2026/07/kasun_palavinnage_advm0726_coverletter.docx\")",
+      "Bash(curl -sS -I \"https://www.csexecutivegroup.com/wp-content/uploads/gravity_forms/20-cdc741892e92ce124246a47c3d40b7ba/2026/07/\")",
+      "Bash(curl -sS \"https://www.csexecutivegroup.com/wp-content/uploads/gravity_forms/20-cdc741892e92ce124246a47c3d40b7ba/2026/07/\")",
+      "Bash(curl -sS -o /tmp/dirlist.html -w \"size: %{size_download} bytes, content-type: %{content_type}\\\\n\" \"https://www.csexecutivegroup.com/wp-content/uploads/gravity_forms/20-cdc741892e92ce124246a47c3d40b7ba/2026/07/\")",
+      "Bash(curl -sS -o /dev/null -w \"resume \\(latest-cv-11.docx\\): HTTP %{http_code}, size %{size_download}\\\\n\" \"https://www.csexecutivegroup.com/wp-content/uploads/gravity_forms/20-cdc741892e92ce124246a47c3d40b7ba/2026/07/latest-cv-11.docx\")",
+      "Bash(curl -sS -o /dev/null -w \"cover letter \\(latest-cv-1.docx\\): HTTP %{http_code}, size %{size_download}\\\\n\" \"https://www.csexecutivegroup.com/wp-content/uploads/gravity_forms/20-cdc741892e92ce124246a47c3d40b7ba/2026/07/latest-cv-1.docx\")"
     ],
     "additionalDirectories": [
       "d:\\Project\\CS Executive Group Project\\src\\app\\(portal)\\recruitment\\candidates\\[candidateId]"

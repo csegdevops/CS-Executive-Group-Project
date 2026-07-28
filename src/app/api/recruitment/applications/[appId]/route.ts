@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { requirePermissionOrSuperAdmin } from "@/lib/auth-helpers"
+import { deleteCvFile } from "@/lib/storage/cv-storage"
 import { z } from "zod"
 
 const patchSchema = z.object({
@@ -142,4 +143,54 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ ap
   }
 
   return NextResponse.json(updated)
+}
+
+// DELETE /api/recruitment/applications/[appId]
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ appId: string }> }) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (!(await requirePermissionOrSuperAdmin(supabase, user.id, "recruitment.applications.edit"))) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
+
+  const { appId } = await params
+  const admin = createAdminClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const recruitment = admin.schema("recruitment") as any
+
+  const { data: app } = await recruitment
+    .from("applications")
+    .select("id, cv_storage_key, cl_storage_key")
+    .eq("id", appId)
+    .single()
+  if (!app) return NextResponse.json({ error: "Not found" }, { status: 404 })
+
+  // A placement represents a real, confirmed hire (with its own finance/
+  // clearance tasks) — don't let a routine "delete application" click take
+  // that out too. Removing the placement first is a separate, deliberate step.
+  const { data: placement } = await recruitment
+    .from("placements")
+    .select("id")
+    .eq("application_id", appId)
+    .maybeSingle()
+  if (placement) {
+    return NextResponse.json(
+      { error: "This application has a confirmed placement — remove the placement before deleting the application." },
+      { status: 409 }
+    )
+  }
+
+  if (app.cv_storage_key) {
+    await deleteCvFile(app.cv_storage_key).catch((err) => console.error("[applications] cv cleanup failed", err))
+  }
+  if (app.cl_storage_key) {
+    await deleteCvFile(app.cl_storage_key).catch((err) => console.error("[applications] cl cleanup failed", err))
+  }
+
+  // application_stage_history cascades automatically via application_id.
+  const { error } = await recruitment.from("applications").delete().eq("id", appId)
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  return new NextResponse(null, { status: 204 })
 }

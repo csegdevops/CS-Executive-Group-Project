@@ -7,6 +7,7 @@ import { CandidateSkillsEditor } from "./CandidateSkillsEditor"
 import { CandidateEducationTagsEditor } from "./CandidateEducationTagsEditor"
 import { EditCandidateDialog } from "./EditCandidateDialog"
 import { CandidateDocumentsSection } from "./CandidateDocumentsSection"
+import { DeleteCandidateButton } from "./DeleteCandidateButton"
 import { AddToJobDialog } from "./AddToJobDialog"
 import { CandidateNotesSection } from "./CandidateNotesSection"
 import { ChevronLeft, Mail, Phone, MapPin, Shield, FileText, GraduationCap, Briefcase, ExternalLink, DollarSign } from "lucide-react"
@@ -140,6 +141,11 @@ export default async function CandidateProfilePage({ params }: { params: Promise
                   {candidate.employment_status === "not_working" && (
                     <Badge variant="outline" className="text-xs text-muted-foreground">Not currently working</Badge>
                   )}
+                  <DeleteCandidateButton
+                    candidateId={candidate.id}
+                    candidateName={`${candidate.first_name} ${candidate.last_name}`}
+                    redirectTo="/recruitment/candidates"
+                  />
                 </div>
                 {candidate.current_title && (
                   <p className="text-sm text-muted-foreground">

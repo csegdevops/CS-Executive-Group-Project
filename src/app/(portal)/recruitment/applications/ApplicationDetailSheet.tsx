@@ -10,6 +10,7 @@ import { ApplicationInfoCard, type ApplicationInfo } from "./[appId]/Application
 import { StageHistoryTimeline, type StageHistoryEntry } from "./[appId]/StageHistoryTimeline"
 import { JobSummaryCard, type JobSummary } from "./[appId]/JobSummaryCard"
 import { StageControl } from "./[appId]/StageControl"
+import { DeleteApplicationButton } from "./DeleteApplicationButton"
 
 interface ApplicationDetail extends ApplicationInfo {
   candidate: CandidateSummary | null
@@ -81,6 +82,9 @@ export function ApplicationDetailSheet({
             {positionLabel && <p className="text-xs text-muted-foreground">{positionLabel}</p>}
           </div>
           <div className="flex items-center gap-1 shrink-0">
+            {data && (
+              <DeleteApplicationButton applicationId={data.id} onDeleted={() => onOpenChange(false)} />
+            )}
             <Button variant="outline" size="icon" className="h-7 w-7" disabled={!hasPrev} onClick={() => onNavigate("prev")} title="Previous (↑)">
               <ChevronUp className="h-4 w-4" />
             </Button>
