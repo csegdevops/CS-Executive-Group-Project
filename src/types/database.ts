@@ -781,10 +781,6 @@ export interface Database {
           location_postcode: string | null
           location_country: string
           citizenship_status: string | null
-          cv_storage_key: string | null
-          cv_original_name: string | null
-          cl_storage_key: string | null
-          cl_original_name: string | null
           raw_resume_text: string | null
           parsed_metadata: Record<string, unknown> | null
           skills_tags: string[]
@@ -824,10 +820,6 @@ export interface Database {
           location_postcode?: string | null
           location_country?: string
           citizenship_status?: string | null
-          cv_storage_key?: string | null
-          cv_original_name?: string | null
-          cl_storage_key?: string | null
-          cl_original_name?: string | null
           raw_resume_text?: string | null
           parsed_metadata?: Record<string, unknown> | null
           skills_tags?: string[]
@@ -858,10 +850,6 @@ export interface Database {
           location_state?: string | null
           location_postcode?: string | null
           citizenship_status?: string | null
-          cv_storage_key?: string | null
-          cv_original_name?: string | null
-          cl_storage_key?: string | null
-          cl_original_name?: string | null
           raw_resume_text?: string | null
           parsed_metadata?: Record<string, unknown> | null
           skills_tags?: string[]
@@ -900,6 +888,31 @@ export interface Database {
         }
         Update: {
           content?: string
+        }
+        Relationships: []
+      }
+      candidate_documents: {
+        Row: {
+          id: string
+          candidate_id: string
+          application_id: string | null
+          doc_type: "cv" | "cl"
+          storage_key: string
+          original_name: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          candidate_id: string
+          application_id?: string | null
+          doc_type: "cv" | "cl"
+          storage_key: string
+          original_name?: string | null
+        }
+        Update: {
+          application_id?: string | null
+          storage_key?: string
+          original_name?: string | null
         }
         Relationships: []
       }

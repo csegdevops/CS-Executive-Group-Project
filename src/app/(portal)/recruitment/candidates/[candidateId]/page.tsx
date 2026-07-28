@@ -6,9 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { CandidateSkillsEditor } from "./CandidateSkillsEditor"
 import { CandidateEducationTagsEditor } from "./CandidateEducationTagsEditor"
 import { EditCandidateDialog } from "./EditCandidateDialog"
-import { CvUploadButton } from "./CvUploadButton"
-import { DeleteCvButton } from "./DeleteCvButton"
-import { CvParseStatusControl } from "./CvParseStatusControl"
+import { CandidateDocumentsSection } from "./CandidateDocumentsSection"
 import { AddToJobDialog } from "./AddToJobDialog"
 import { CandidateNotesSection } from "./CandidateNotesSection"
 import { ChevronLeft, Mail, Phone, MapPin, Shield, FileText, GraduationCap, Briefcase, ExternalLink, DollarSign } from "lucide-react"
@@ -31,7 +29,7 @@ export default async function CandidateProfilePage({ params }: { params: Promise
   const { candidateId } = await params
   const admin = createAdminClient()
 
-  const [{ data: candidate }, { data: applications }, { data: lookups }] = await Promise.all([
+  const [{ data: candidate }, { data: applications }, { data: lookups }, { data: documents }] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (admin.schema("recruitment") as any)
       .from("candidates")
@@ -48,6 +46,12 @@ export default async function CandidateProfilePage({ params }: { params: Promise
       .from("lookup_values")
       .select("category, value, label")
       .in("category", ["security_clearance_level", "citizenship_status", "employment_type", "salary_band"]),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (admin.schema("recruitment") as any)
+      .from("candidate_documents")
+      .select("id, doc_type, application_id, original_name, created_at")
+      .eq("candidate_id", candidateId)
+      .order("created_at", { ascending: false }),
   ])
 
   if (!candidate) notFound()
@@ -72,6 +76,15 @@ export default async function CandidateProfilePage({ params }: { params: Promise
 
   const jobMap     = Object.fromEntries((jobs ?? []).map((j: Record<string, unknown>) => [j.id, j]))
   const companyMap = Object.fromEntries((companies ?? []).map((c: { id: string; name: string }) => [c.id, c.name]))
+
+  // application_id -> job title, reusing the applications/jobs already fetched above
+  const appJobTitleMap = Object.fromEntries(
+    (applications ?? []).map((a: { id: string; job_id: string }) => [a.id, (jobMap[a.job_id] as { title?: string } | undefined)?.title ?? null])
+  )
+  const documentsWithSource = (documents ?? []).map((d: Record<string, unknown>) => ({
+    ...d,
+    job_title: d.application_id ? appJobTitleMap[d.application_id as string] ?? null : null,
+  }))
 
   const pct = candidate.profile_completeness_pct ?? 0
 
@@ -240,36 +253,11 @@ export default async function CandidateProfilePage({ params }: { params: Promise
           )}
 
           {/* Documents */}
-          <div className="rounded-lg border bg-card p-4">
-            <h3 className="font-medium text-sm mb-2">Documents</h3>
-            <div className="flex flex-wrap items-center gap-3 text-sm">
-              <div className="flex items-center gap-1.5">
-                {candidate.cv_storage_key ? (
-                  <a href={`/api/recruitment/candidates/${candidate.id}/cv?type=cv`} className="flex items-center gap-1.5 text-primary hover:underline">
-                    <FileText className="h-3.5 w-3.5" />{candidate.cv_original_name ?? "Download CV"}
-                  </a>
-                ) : (
-                  <span className="text-muted-foreground text-xs">No CV on file</span>
-                )}
-                <CvUploadButton candidateId={candidate.id} docType="cv" />
-                {candidate.cv_storage_key && <DeleteCvButton candidateId={candidate.id} docType="cv" />}
-                {candidate.cv_storage_key && (
-                  <CvParseStatusControl candidateId={candidate.id} status={candidate.cv_parse_status ?? "unparsed"} />
-                )}
-              </div>
-              <div className="flex items-center gap-1.5">
-                {candidate.cl_storage_key ? (
-                  <a href={`/api/recruitment/candidates/${candidate.id}/cv?type=cl`} className="flex items-center gap-1.5 text-primary hover:underline">
-                    <FileText className="h-3.5 w-3.5" />{candidate.cl_original_name ?? "Download Cover Letter"}
-                  </a>
-                ) : (
-                  <span className="text-muted-foreground text-xs">No cover letter on file</span>
-                )}
-                <CvUploadButton candidateId={candidate.id} docType="cl" />
-                {candidate.cl_storage_key && <DeleteCvButton candidateId={candidate.id} docType="cl" />}
-              </div>
-            </div>
-          </div>
+          <CandidateDocumentsSection
+            candidateId={candidate.id}
+            documents={documentsWithSource}
+            cvParseStatus={candidate.cv_parse_status ?? "unparsed"}
+          />
 
           {/* Work experience (parsed from CV) */}
           {parsedMetadata?.work_experience && parsedMetadata.work_experience.length > 0 && (

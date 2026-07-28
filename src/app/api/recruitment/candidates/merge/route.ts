@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { requirePermissionOrSuperAdmin } from "@/lib/auth-helpers"
+import { pruneCandidateDocuments } from "@/lib/storage/cv-storage"
 import { z } from "zod"
 
 const mergeSchema = z.object({
@@ -32,6 +33,17 @@ export async function POST(req: NextRequest) {
     })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 409 })
+
+  // Repointing the duplicate's document history onto the primary can push
+  // it past the 3-per-type limit — the RPC can delete the excess rows in
+  // SQL but can't reach the Storage API to delete the underlying files, so
+  // that cleanup happens here instead.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const recruitment = admin.schema("recruitment") as any
+  await Promise.all([
+    pruneCandidateDocuments(recruitment, parsed.data.primary_id, "cv"),
+    pruneCandidateDocuments(recruitment, parsed.data.primary_id, "cl"),
+  ])
 
   return NextResponse.json(data?.[0] ?? data)
 }

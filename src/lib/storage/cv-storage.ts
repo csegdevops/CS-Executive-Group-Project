@@ -71,6 +71,25 @@ export async function deleteCvFile(storageKey: string): Promise<void> {
   if (error) throw new Error(`CV delete failed: ${error.message}`)
 }
 
+// Keeps a candidate's document history down to the 3 most recent rows per
+// doc_type — call after inserting a new candidate_documents row, or after
+// repointing rows onto a candidate (e.g. a merge) that could push it over.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function pruneCandidateDocuments(recruitment: any, candidateId: string, docType: "cv" | "cl"): Promise<void> {
+  const { data: history } = await recruitment
+    .from("candidate_documents")
+    .select("id, storage_key")
+    .eq("candidate_id", candidateId)
+    .eq("doc_type", docType)
+    .order("created_at", { ascending: false })
+
+  const excess = (history ?? []).slice(3) as { id: string; storage_key: string }[]
+  if (excess.length === 0) return
+
+  await Promise.all(excess.map((d) => deleteCvFile(d.storage_key).catch((err) => console.error("[cv-prune] failed", err))))
+  await recruitment.from("candidate_documents").delete().in("id", excess.map((d) => d.id))
+}
+
 export async function getCvSignedUrl(storageKey: string, expiresInSeconds = 300): Promise<string | null> {
   const admin = createAdminClient()
   const { data, error } = await admin.storage

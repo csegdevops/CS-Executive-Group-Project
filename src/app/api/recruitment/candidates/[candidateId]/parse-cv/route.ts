@@ -19,18 +19,22 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ can
   const { candidateId } = await params
   const admin = createAdminClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: candidate } = await (admin.schema("recruitment") as any)
-    .from("candidates")
-    .select("cv_storage_key")
-    .eq("id", candidateId)
-    .single()
+  const recruitment = admin.schema("recruitment") as any
 
-  if (!candidate?.cv_storage_key) {
+  const { data: currentCv } = await recruitment
+    .from("candidate_documents")
+    .select("storage_key")
+    .eq("candidate_id", candidateId)
+    .eq("doc_type", "cv")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (!currentCv?.storage_key) {
     return NextResponse.json({ error: "No CV on file for this candidate" }, { status: 400 })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (admin.schema("recruitment") as any)
+  await recruitment
     .from("candidates")
     .update({ cv_parse_status: "pending" })
     .eq("id", candidateId)
@@ -39,7 +43,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ can
   after(async () => {
     console.log(`[parse-cv] ${candidateId} after() callback started`)
     try {
-      const { buffer, mimeType } = await downloadCvBuffer(candidate.cv_storage_key)
+      const { buffer, mimeType } = await downloadCvBuffer(currentCv.storage_key)
       console.log(`[parse-cv] ${candidateId} downloaded ${buffer.length} bytes, mimeType=${mimeType}`)
       await parseCandidateCv(candidateId, buffer, mimeType)
       console.log(`[parse-cv] ${candidateId} parseCandidateCv resolved`)
