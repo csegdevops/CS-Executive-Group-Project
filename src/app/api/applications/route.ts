@@ -124,12 +124,32 @@ export async function POST(req: NextRequest) {
   // Check for duplicate application
   const { data: existing } = await recruitment
     .from("applications")
-    .select("id, stage")
+    .select("id, stage, cv_storage_key, cl_storage_key")
     .eq("job_id", jobId)
     .eq("candidate_id", candidateId)
     .maybeSingle()
 
   if (existing) {
+    // Same candidate + job as before — don't create a second application
+    // row, but if the existing one is still missing a CV/CL (e.g. a prior
+    // ingestion attempt failed, which is silent by design) and this
+    // resubmission provides one, retry the attachment against the existing
+    // application instead of silently no-op'ing forever.
+    if (data.resume_url && !existing.cv_storage_key) {
+      const resumeUrl = data.resume_url
+      after(() =>
+        ingestCv({ candidateId, applicationId: existing.id, docType: "cv", source: { url: resumeUrl } })
+          .catch((err) => console.error("[applications] resume re-ingest failed", err))
+      )
+    }
+    if (data.cover_letter_url && !existing.cl_storage_key) {
+      const clUrl = data.cover_letter_url
+      after(() =>
+        ingestCv({ candidateId, applicationId: existing.id, docType: "cl", source: { url: clUrl } })
+          .catch((err) => console.error("[applications] cover letter re-ingest failed", err))
+      )
+    }
+
     return NextResponse.json({
       status: "duplicate_skipped",
       application_id: existing.id,
