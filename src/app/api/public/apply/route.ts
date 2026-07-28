@@ -143,8 +143,9 @@ async function processApplication(req: NextRequest, rawBody: Record<string, unkn
       p_phone:           parsed.data.phone ?? null,
       p_first_name:      parsed.data.first_name,
       p_last_name:       parsed.data.last_name,
-      p_current_title:   parsed.data.current_title ?? null,
-      p_current_employer:parsed.data.current_employer ?? null,
+      // current_title/current_employer deliberately omitted — self-reported
+      // web application data is unverified; these only auto-update once a
+      // candidate is actually placed (trg_update_candidate_on_placement).
       p_location_city:   parsed.data.location_city ?? null,
       p_location_state:  parsed.data.location_state ?? null,
       p_skills_tags:     skillsArray.length ? skillsArray : null,

@@ -44,10 +44,15 @@ export async function parseCandidateCv(candidateId: string, buffer: Buffer, mime
 
     const { data: current } = await recruitment
       .from("candidates")
-      .select("current_title, current_employer, location_city, location_state, phone, field_of_study, skills_tags, education_tags")
+      .select("location_city, location_state, phone, field_of_study, skills_tags, education_tags")
       .eq("id", candidateId)
       .single()
 
+    // current_title/current_employer are deliberately NOT touched here —
+    // they only ever auto-update when a candidate is actually placed (see
+    // trg_update_candidate_on_placement), since CV-reported title/employer
+    // is unverified. The full work history (including title/employer per
+    // role) is still preserved in parsed_metadata.work_experience below.
     await recruitment
       .from("candidates")
       .update({
@@ -57,8 +62,6 @@ export async function parseCandidateCv(candidateId: string, buffer: Buffer, mime
         cv_parsed_by: "gemini",
         cv_parsed_at: new Date().toISOString(),
         phone: current?.phone ?? parsed.phone ?? null,
-        current_title: current?.current_title ?? parsed.current_title ?? null,
-        current_employer: current?.current_employer ?? parsed.current_employer ?? null,
         location_city: current?.location_city ?? parsed.location_city ?? null,
         location_state: current?.location_state ?? parsed.location_state ?? null,
         field_of_study: current?.field_of_study ?? parsed.education[0]?.field_of_study ?? null,
