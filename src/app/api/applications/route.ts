@@ -32,40 +32,45 @@ import { z } from "zod"
  * don't block direct access.
  */
 
-const emptyToUndef = (v: unknown) => (v === "" ? undefined : v)
+// PHP's json_encode(null) sends a JSON `null`, which z.string().optional()
+// rejects (it only accepts undefined/absent) — treat null the same as "".
+const emptyToUndef = (v: unknown) => (v === "" || v === null ? undefined : v)
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
+const optionalString = () => z.preprocess(emptyToUndef, z.string().optional())
+const optionalStringOrNumber = () => z.preprocess(emptyToUndef, z.union([z.string(), z.number()]).optional())
+
 const applicationSchema = z.object({
-  job_reference:              z.string().optional(),
-  where_did_you_hear:         z.string().optional(),
+  job_reference:              optionalString(),
+  where_did_you_hear:         optionalString(),
   first_name:                 z.string().min(1),
   last_name:                  z.string().optional().default(""),
   email:                      z.string().email(),
-  phone:                      z.string().optional(),
-  linkedin:                   z.string().optional(),
-  linkedin_bitly:             z.string().optional(),
-  state:                      z.string().optional(),
+  phone:                      optionalString(),
+  linkedin:                   optionalString(),
+  linkedin_bitly:             optionalString(),
+  state:                      optionalString(),
   permanent_workrights:       z.array(z.string()).optional().default([]),
-  availability:                z.string().optional(),
-  highest_education:          z.string().optional(),
-  year_of_graduation:         z.union([z.string(), z.number()]).optional(),
+  availability:                optionalString(),
+  highest_education:          optionalString(),
+  year_of_graduation:         optionalStringOrNumber(),
   work_location_preferences:  z.array(z.string()).optional().default([]),
   work_type_preference:       z.array(z.string()).optional().default([]),
-  current_salary:             z.union([z.string(), z.number()]).optional(),
-  min_salary_expectation:     z.union([z.string(), z.number()]).optional(),
-  aborginal_torres_islander:  z.string().optional(),
+  current_salary:             optionalStringOrNumber(),
+  min_salary_expectation:     optionalStringOrNumber(),
+  aborginal_torres_islander:  optionalString(),
   cover_letter_url:           z.preprocess(emptyToUndef, z.string().url().optional()),
-  cover_letter_base64:        z.preprocess(emptyToUndef, z.string().optional()),
-  cover_letter_filename:      z.string().optional(),
-  cover_letter_mimetype:      z.string().optional(),
+  cover_letter_base64:        optionalString(),
+  cover_letter_filename:      optionalString(),
+  cover_letter_mimetype:      optionalString(),
   resume_url:                 z.preprocess(emptyToUndef, z.string().url().optional()),
-  resume_base64:              z.preprocess(emptyToUndef, z.string().optional()),
-  resume_filename:            z.string().optional(),
-  resume_mimetype:            z.string().optional(),
-  interested_fields:          z.string().optional(),
-  keep_me_in_the_loop:        z.union([z.string(), z.boolean()]).optional(),
-  permission_to_store:        z.union([z.string(), z.boolean()]).optional(),
-  wp_entry_id:                z.union([z.string(), z.number()]).optional(),
+  resume_base64:              optionalString(),
+  resume_filename:            optionalString(),
+  resume_mimetype:            optionalString(),
+  interested_fields:          optionalString(),
+  keep_me_in_the_loop:        z.preprocess(emptyToUndef, z.union([z.string(), z.boolean()]).optional()),
+  permission_to_store:        z.preprocess(emptyToUndef, z.union([z.string(), z.boolean()]).optional()),
+  wp_entry_id:                z.preprocess(emptyToUndef, z.union([z.string(), z.number()]).optional()),
 })
 
 type FileSource = { buffer: Buffer; mimeType: string; originalName: string } | { url: string }
