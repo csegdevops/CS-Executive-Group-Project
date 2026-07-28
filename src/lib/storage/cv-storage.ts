@@ -52,11 +52,12 @@ export async function buildCvDownloadResponse(
   storageKey: string,
   firstName: string | null,
   lastName: string | null,
-  docType: "cv" | "cl"
+  docType: "cv" | "cl",
+  position = 1
 ): Promise<Response> {
   const { buffer, mimeType } = await downloadCvBuffer(storageKey)
   const ext = storageKey.split(".").pop() || "bin"
-  const filename = buildDownloadFilename(firstName, lastName, docType, ext)
+  const filename = buildDownloadFilename(firstName, lastName, docType, ext, position)
   return new Response(new Uint8Array(buffer), {
     headers: {
       "Content-Type": mimeType,

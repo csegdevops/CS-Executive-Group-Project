@@ -81,9 +81,10 @@ export function CandidateDocumentsSection({ candidateId, documents, cvParseStatu
             <a
               href={`/api/recruitment/candidates/${candidateId}/documents/${d.id}`}
               className="flex items-center gap-1.5 text-primary hover:underline min-w-0"
+              title={d.original_name ?? undefined}
             >
               <FileText className="h-3.5 w-3.5 shrink-0" />
-              <span className="truncate max-w-40">{d.original_name ?? (docType === "cv" ? "CV" : "Cover letter")}</span>
+              <span className="shrink-0">{docType === "cv" ? "Resume" : "Cover Letter"} {i + 1}</span>
             </a>
             {i === 0 && <Badge variant="outline" className="text-xs shrink-0">Current</Badge>}
             <span className="text-xs text-muted-foreground shrink-0">

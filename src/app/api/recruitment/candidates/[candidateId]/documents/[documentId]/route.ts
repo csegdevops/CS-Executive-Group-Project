@@ -31,7 +31,18 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ cand
 
   if (!doc) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
-  return buildCvDownloadResponse(doc.storage_key, candidate?.first_name ?? null, candidate?.last_name ?? null, doc.doc_type)
+  // Rank among this candidate's retained documents of the same type,
+  // newest-first (1 = current) — feeds the unified Resume_1/Resume_2/...
+  // download filename, matching the "Resume 1"/"Resume 2" list labels.
+  const { data: siblings } = await recruitment
+    .from("candidate_documents")
+    .select("id")
+    .eq("candidate_id", candidateId)
+    .eq("doc_type", doc.doc_type)
+    .order("created_at", { ascending: false })
+  const position = (siblings ?? []).findIndex((s: { id: string }) => s.id === documentId) + 1
+
+  return buildCvDownloadResponse(doc.storage_key, candidate?.first_name ?? null, candidate?.last_name ?? null, doc.doc_type, position || 1)
 }
 
 // DELETE /api/recruitment/candidates/[candidateId]/documents/[documentId] —

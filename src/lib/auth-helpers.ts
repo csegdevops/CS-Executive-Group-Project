@@ -133,6 +133,8 @@ export async function hasModuleAccessForUser(
   userId: string,
   module: Module
 ): Promise<boolean> {
+  const { data: profile } = await supabase.from("profiles").select("role").eq("id", userId).single()
+  if (profile?.role === "super_admin") return true
   const keys = await fetchUserPermissionKeys(supabase, userId)
   return hasModuleAccess(keys, module)
 }

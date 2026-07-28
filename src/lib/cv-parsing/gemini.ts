@@ -13,8 +13,14 @@ function buildSchema(vocab: CvParseVocabulary, includeRawText: boolean) {
       location_city: { type: Type.STRING, nullable: true },
       location_state: { type: Type.STRING, nullable: true },
       skills: { type: Type.ARRAY, items: { type: Type.STRING } },
-      matched_skill_tags: { type: Type.ARRAY, items: { type: Type.STRING, enum: vocab.skillTags } },
-      matched_education_tags: { type: Type.ARRAY, items: { type: Type.STRING, enum: vocab.educationFields } },
+      // No `enum` constraint here: Gemini's structured-output schema rejects
+      // requests once the vocabulary is large enough (this repo's skill_tag
+      // list alone is 100+ values) with a 400 INVALID_ARGUMENT. The prompt
+      // already instructs the model to pick only from the fixed list; the
+      // guarantee that only real vocabulary values come back is enforced by
+      // filtering the response below instead of by the schema.
+      matched_skill_tags: { type: Type.ARRAY, items: { type: Type.STRING } },
+      matched_education_tags: { type: Type.ARRAY, items: { type: Type.STRING } },
       education: {
         type: Type.ARRAY,
         items: {
@@ -99,6 +105,8 @@ export const geminiCvParser: CvParser = {
     if (!text) throw new Error("Gemini returned no output")
 
     const parsed = JSON.parse(text)
+    const skillTagSet = new Set(vocabulary.skillTags)
+    const educationFieldSet = new Set(vocabulary.educationFields)
     return {
       phone: parsed.phone ?? null,
       current_title: parsed.current_title ?? null,
@@ -106,8 +114,14 @@ export const geminiCvParser: CvParser = {
       location_city: parsed.location_city ?? null,
       location_state: parsed.location_state ?? null,
       skills: Array.isArray(parsed.skills) ? parsed.skills : [],
-      matched_skill_tags: Array.isArray(parsed.matched_skill_tags) ? parsed.matched_skill_tags : [],
-      matched_education_tags: Array.isArray(parsed.matched_education_tags) ? parsed.matched_education_tags : [],
+      // Not schema-enforced (see buildSchema) — filter here instead so the
+      // CvParseVocabulary guarantee documented in types.ts still holds.
+      matched_skill_tags: Array.isArray(parsed.matched_skill_tags)
+        ? parsed.matched_skill_tags.filter((t: unknown) => typeof t === "string" && skillTagSet.has(t))
+        : [],
+      matched_education_tags: Array.isArray(parsed.matched_education_tags)
+        ? parsed.matched_education_tags.filter((t: unknown) => typeof t === "string" && educationFieldSet.has(t))
+        : [],
       education: Array.isArray(parsed.education) ? parsed.education : [],
       work_experience: Array.isArray(parsed.work_experience) ? parsed.work_experience : [],
       raw_text: input.kind === "text" ? input.text : (typeof parsed.raw_text === "string" ? parsed.raw_text : ""),
