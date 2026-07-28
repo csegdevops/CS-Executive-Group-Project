@@ -22,7 +22,13 @@
       "Bash(node -e \"const icons = require\\('lucide-react'\\); console.log\\(Object.keys\\(icons\\).filter\\(k => /linkedin/i.test\\(k\\)\\)\\)\")",
       "Bash(rm \"d:/Project/CS Executive Group Project/src/app/api/recruitment/candidates/[candidateId]/cv/route.ts\")",
       "Bash(rmdir \"d:/Project/CS Executive Group Project/src/app/api/recruitment/candidates/[candidateId]/cv\")",
-      "Bash(rm \"d:/Project/CS Executive Group Project/src/app/\\(portal\\)/recruitment/candidates/[candidateId]/CvUploadButton.tsx\" \"d:/Project/CS Executive Group Project/src/app/\\(portal\\)/recruitment/candidates/[candidateId]/DeleteCvButton.tsx\" && echo done)"
+      "Bash(rm \"d:/Project/CS Executive Group Project/src/app/\\(portal\\)/recruitment/candidates/[candidateId]/CvUploadButton.tsx\" \"d:/Project/CS Executive Group Project/src/app/\\(portal\\)/recruitment/candidates/[candidateId]/DeleteCvButton.tsx\" && echo done)",
+      "Bash(git fetch *)",
+      "Bash(git rev-list *)",
+      "Bash(curl -sS -o /dev/null -w \"HTTP %{http_code}\\\\n\" https://vercel.com)",
+      "Bash(nslookup portal.csexecutivegroup.com.au)",
+      "Bash(nslookup csexecutivegroup.com.au)",
+      "Bash(nslookup portal.csexecutivegroup.com)"
     ],
     "additionalDirectories": [
       "d:\\Project\\CS Executive Group Project\\src\\app\\(portal)\\recruitment\\candidates\\[candidateId]"

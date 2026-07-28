@@ -36,6 +36,8 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Headers": "Content-Type, x-gf-signature",
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 const applySchema = z.object({
   first_name:        z.string().min(1),
   last_name:         z.string().min(1),
@@ -110,16 +112,22 @@ async function processApplication(req: NextRequest, rawBody: Record<string, unkn
 
   const admin = createAdminClient()
 
-  // Resolve job from reference_number or UUID
+  // Resolve job from reference_number or UUID. `id` is uuid-typed — only
+  // include the `id.eq.` clause when the reference actually looks like a
+  // UUID, otherwise Postgres rejects the whole OR filter with an
+  // invalid-input-syntax error (silently, if the error isn't checked) and
+  // no job ever matches, even when reference_number matches exactly.
   let jobId: string | null = null
   if (parsed.data.job_reference) {
     const ref = parsed.data.job_reference
+    const filter = UUID_RE.test(ref) ? `reference_number.eq.${ref},id.eq.${ref}` : `reference_number.eq.${ref}`
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: byRef } = await (admin.schema("recruitment") as any)
+    const { data: byRef, error: byRefError } = await (admin.schema("recruitment") as any)
       .from("jobs")
       .select("id, status")
-      .or(`reference_number.eq.${ref},id.eq.${ref}`)
+      .or(filter)
       .maybeSingle()
+    if (byRefError) console.error("[public/apply] job lookup failed", byRefError)
     if (byRef) jobId = byRef.id
   }
 

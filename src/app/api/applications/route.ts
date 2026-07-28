@@ -20,6 +20,7 @@ import { z } from "zod"
  */
 
 const emptyToUndef = (v: unknown) => (v === "" ? undefined : v)
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 const applicationSchema = z.object({
   job_reference:              z.string().optional(),
@@ -77,14 +78,21 @@ export async function POST(req: NextRequest) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recruitment = admin.schema("recruitment") as any
 
-  // Resolve job from reference_number or UUID
+  // Resolve job from reference_number or UUID. `id` is uuid-typed — only
+  // include the `id.eq.` clause when the reference actually looks like a
+  // UUID, otherwise Postgres rejects the whole OR filter with an
+  // invalid-input-syntax error (silently, if the error isn't checked) and
+  // no job ever matches, even when reference_number matches exactly.
   let jobId: string | null = null
   if (data.job_reference) {
-    const { data: byRef } = await recruitment
+    const ref = data.job_reference
+    const filter = UUID_RE.test(ref) ? `reference_number.eq.${ref},id.eq.${ref}` : `reference_number.eq.${ref}`
+    const { data: byRef, error: byRefError } = await recruitment
       .from("jobs")
       .select("id, status")
-      .or(`reference_number.eq.${data.job_reference},id.eq.${data.job_reference}`)
+      .or(filter)
       .maybeSingle()
+    if (byRefError) console.error("[applications] job lookup failed", byRefError)
     if (byRef) jobId = byRef.id
   }
 
