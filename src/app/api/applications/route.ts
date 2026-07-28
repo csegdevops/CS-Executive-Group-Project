@@ -20,6 +20,16 @@ import { z } from "zod"
  * (reference_number, falling back to id) — the WP form's hidden job
  * reference field should be populated with the same reference_number shown
  * in the portal's job edit dialog.
+ *
+ * CV/cover letter delivery: prefer `resume_base64`/`cover_letter_base64`
+ * (WordPress reads the file off its own local filesystem and sends the
+ * bytes directly) over `resume_url`/`cover_letter_url` (we fetch the file
+ * ourselves). The base64 path exists because some WP hosts block direct
+ * external HTTP access to the Gravity Forms uploads directory (a common
+ * hardening step) while PHP running on that same server can still read the
+ * file locally just fine — sending bytes directly sidesteps that
+ * restriction entirely. URL delivery is kept as a fallback for hosts that
+ * don't block direct access.
  */
 
 const emptyToUndef = (v: unknown) => (v === "" ? undefined : v)
@@ -45,12 +55,37 @@ const applicationSchema = z.object({
   min_salary_expectation:     z.union([z.string(), z.number()]).optional(),
   aborginal_torres_islander:  z.string().optional(),
   cover_letter_url:           z.preprocess(emptyToUndef, z.string().url().optional()),
+  cover_letter_base64:        z.preprocess(emptyToUndef, z.string().optional()),
+  cover_letter_filename:      z.string().optional(),
+  cover_letter_mimetype:      z.string().optional(),
   resume_url:                 z.preprocess(emptyToUndef, z.string().url().optional()),
+  resume_base64:              z.preprocess(emptyToUndef, z.string().optional()),
+  resume_filename:            z.string().optional(),
+  resume_mimetype:            z.string().optional(),
   interested_fields:          z.string().optional(),
   keep_me_in_the_loop:        z.union([z.string(), z.boolean()]).optional(),
   permission_to_store:        z.union([z.string(), z.boolean()]).optional(),
   wp_entry_id:                z.union([z.string(), z.number()]).optional(),
 })
+
+type FileSource = { buffer: Buffer; mimeType: string; originalName: string } | { url: string }
+
+function resolveFileSource(
+  base64: string | undefined,
+  filename: string | undefined,
+  mimetype: string | undefined,
+  url: string | undefined
+): FileSource | null {
+  if (base64) {
+    return {
+      buffer: Buffer.from(base64, "base64"),
+      mimeType: mimetype || "application/octet-stream",
+      originalName: filename || "file",
+    }
+  }
+  if (url) return { url }
+  return null
+}
 
 export async function POST(req: NextRequest) {
   const secret = process.env.GRAVITY_FORMS_SECRET
@@ -135,19 +170,23 @@ export async function POST(req: NextRequest) {
     // ingestion attempt failed, which is silent by design) and this
     // resubmission provides one, retry the attachment against the existing
     // application instead of silently no-op'ing forever.
-    if (data.resume_url && !existing.cv_storage_key) {
-      const resumeUrl = data.resume_url
-      after(() =>
-        ingestCv({ candidateId, applicationId: existing.id, docType: "cv", source: { url: resumeUrl } })
-          .catch((err) => console.error("[applications] resume re-ingest failed", err))
-      )
+    if (!existing.cv_storage_key) {
+      const resumeSource = resolveFileSource(data.resume_base64, data.resume_filename, data.resume_mimetype, data.resume_url)
+      if (resumeSource) {
+        after(() =>
+          ingestCv({ candidateId, applicationId: existing.id, docType: "cv", source: resumeSource })
+            .catch((err) => console.error("[applications] resume re-ingest failed", err))
+        )
+      }
     }
-    if (data.cover_letter_url && !existing.cl_storage_key) {
-      const clUrl = data.cover_letter_url
-      after(() =>
-        ingestCv({ candidateId, applicationId: existing.id, docType: "cl", source: { url: clUrl } })
-          .catch((err) => console.error("[applications] cover letter re-ingest failed", err))
-      )
+    if (!existing.cl_storage_key) {
+      const clSource = resolveFileSource(data.cover_letter_base64, data.cover_letter_filename, data.cover_letter_mimetype, data.cover_letter_url)
+      if (clSource) {
+        after(() =>
+          ingestCv({ candidateId, applicationId: existing.id, docType: "cl", source: clSource })
+            .catch((err) => console.error("[applications] cover letter re-ingest failed", err))
+        )
+      }
     }
 
     return NextResponse.json({
@@ -183,6 +222,8 @@ export async function POST(req: NextRequest) {
         permission_to_store:        data.permission_to_store ?? null,
         cover_letter_url:           data.cover_letter_url ?? null,
         resume_url:                 data.resume_url ?? null,
+        resume_delivery:            data.resume_base64 ? "base64" : data.resume_url ? "url" : null,
+        cover_letter_delivery:      data.cover_letter_base64 ? "base64" : data.cover_letter_url ? "url" : null,
       },
       stage: "applied",
     })
@@ -193,17 +234,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Could not create application" }, { status: 500 })
   }
 
-  if (data.resume_url) {
-    const resumeUrl = data.resume_url
+  const resumeSource = resolveFileSource(data.resume_base64, data.resume_filename, data.resume_mimetype, data.resume_url)
+  if (resumeSource) {
     after(() =>
-      ingestCv({ candidateId, applicationId: app.id, docType: "cv", source: { url: resumeUrl } })
+      ingestCv({ candidateId, applicationId: app.id, docType: "cv", source: resumeSource })
         .catch((err) => console.error("[applications] resume ingest failed", err))
     )
   }
-  if (data.cover_letter_url) {
-    const clUrl = data.cover_letter_url
+  const clSource = resolveFileSource(data.cover_letter_base64, data.cover_letter_filename, data.cover_letter_mimetype, data.cover_letter_url)
+  if (clSource) {
     after(() =>
-      ingestCv({ candidateId, applicationId: app.id, docType: "cl", source: { url: clUrl } })
+      ingestCv({ candidateId, applicationId: app.id, docType: "cl", source: clSource })
         .catch((err) => console.error("[applications] cover letter ingest failed", err))
     )
   }
