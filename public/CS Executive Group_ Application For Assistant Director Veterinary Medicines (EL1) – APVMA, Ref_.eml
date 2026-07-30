@@ -1,0 +1,75 @@
+Received: from TYZPR06MB6190.apcprd06.prod.outlook.com (2603:1096:400:33f::13)
+ by TYSPR06MB7158.apcprd06.prod.outlook.com with HTTPS; Thu, 30 Jul 2026
+ 00:45:52 +0000
+Authentication-Results: dkim=none (message not signed)
+ header.d=none;dmarc=none action=none header.from=csexecgroup.com;
+Received: from SI2PR06MB5364.apcprd06.prod.outlook.com (2603:1096:4:1ec::5) by
+ TYZPR06MB6190.apcprd06.prod.outlook.com (2603:1096:400:33f::13) with
+ Microsoft SMTP Server (version=TLS1_2,
+ cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) id 15.21.270.12; Thu, 30 Jul
+ 2026 00:45:49 +0000
+Received: from SI2PR06MB5364.apcprd06.prod.outlook.com
+ ([fe80::18d9:fb0:f575:478]) by SI2PR06MB5364.apcprd06.prod.outlook.com
+ ([fe80::18d9:fb0:f575:478%5]) with mapi id 15.21.0270.009; Thu, 30 Jul 2026
+ 00:45:49 +0000
+Date: Thu, 30 Jul 2026 00:45:48 +0000
+To: <recruiters@csexecgroup.com>, <database@csexecgroup.com>,
+	<helen@csexecgroup.com>, <kasun@csexecgroup.com>
+From: via CSEG <noreply@csexecgroup.com>
+Subject: =?UTF-8?Q?CS_Executive_Group:_Application_For_Assistant_Director_Veterinary_Medicines_(EL1)_=E2=80=93_APVMA,_Ref:?=
+Message-ID: <JwTbQZ1jVffTNrINntv9ZHQnHiTKAX98cQnKIS2w@www.csexecutivegroup.com>
+X-Mailer: WPMailSMTP/Mailer/smtp 4.9.0
+Content-Type: text/html; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+X-MS-Exchange-Organization-ExpirationStartTime: 30 Jul 2026 00:45:49.4687
+ (UTC)
+X-MS-Exchange-Organization-ExpirationStartTimeReason: OriginalSubmit
+X-MS-Exchange-Organization-ExpirationInterval: 1:00:00:00.0000000
+X-MS-Exchange-Organization-ExpirationIntervalReason: OriginalSubmit
+X-MS-Exchange-Organization-Network-Message-Id: a287cb1a-cd9c-466a-2269-08deedd3e687
+X-MS-Exchange-Organization-AuthSource: SI2PR06MB5364.apcprd06.prod.outlook.com
+X-MS-Exchange-Organization-AuthAs: Internal
+X-MS-Exchange-Organization-AuthMechanism: 06
+X-ClientProxiedBy: SI2PR02CA0004.apcprd02.prod.outlook.com
+ (2603:1096:4:194::14) To SI2PR06MB5364.apcprd06.prod.outlook.com
+ (2603:1096:4:1ec::5)
+X-MS-Exchange-Organization-MessageDirectionality: Originating
+Return-Path: noreply@csexecgroup.com
+X-MS-Exchange-MessageSentRepresentingType: 1
+X-MS-PublicTrafficType: Email
+X-MS-TrafficTypeDiagnostic: SI2PR06MB5364:EE_|TYZPR06MB6190:EE_|TYSPR06MB7158:EE_
+X-MS-Office365-Filtering-Correlation-Id: a287cb1a-cd9c-466a-2269-08deedd3e687
+X-MS-Exchange-Organization-SCL: 1
+X-Microsoft-Antispam: BCL:0;ARA:13230040|23010399003|366016|6143699003|10067099003|8096899003|56012099006|18002099003|41050700001;
+X-Forefront-Antispam-Report: CIP:255.255.255.255;CTRY:;LANG:en;SCL:1;SRV:;IPV:NLI;SFV:NSPM;H:SI2PR06MB5364.apcprd06.prod.outlook.com;PTR:;CAT:NONE;SFS:(13230040)(23010399003)(366016)(6143699003)(10067099003)(8096899003)(56012099006)(18002099003)(41050700001);DIR:INT;
+X-MS-Exchange-CrossTenant-Network-Message-Id: a287cb1a-cd9c-466a-2269-08deedd3e687
+X-MS-Exchange-CrossTenant-AuthSource: SI2PR06MB5364.apcprd06.prod.outlook.com
+X-MS-Exchange-CrossTenant-AuthAs: Internal
+X-MS-Exchange-CrossTenant-OriginalArrivalTime: 30 Jul 2026 00:45:49.6735
+ (UTC)
+X-MS-Exchange-CrossTenant-FromEntityHeader: Hosted
+X-MS-Exchange-CrossTenant-Id: f7aa6089-e218-4455-b51f-01029d46b323
+X-MS-Exchange-CrossTenant-MailboxType: HOSTED
+X-MS-Exchange-CrossTenant-UserPrincipalName: DvgoeuE7kXvsAZs1M/awLAyDzZ5G34xhW3y0a5fhhMxcYsVTaGXcg2YzShQg63PZ/E5veXGl/4YjQXpHknY5tw==
+X-MS-Exchange-Transport-CrossTenantHeadersStamped: TYZPR06MB6190
+X-MS-Exchange-Transport-EndToEndLatency: 00:00:02.4509251
+X-MS-Exchange-Processed-By-BccFoldering: 15.21.0270.009
+X-Microsoft-Antispam-Mailbox-Delivery:
+	ucf:0;jmr:0;auth:0;dest:I;ENG:(910005)(944506478)(944626604)(920097)(425001)(930201)(20251009189)(140003);
+X-Microsoft-Antispam-Message-Info:
+	DKRq2honUZnUlZIuAKiTyX8/1Q6fvlYcqP2a6121JbMgiHkLesPEO9G+el84/nTAs9uQDUz16SaxAXq3QYF8viTT1qnXBTdlEU7q2g81GqcparUcAL7ki/pmqXpUAPKAScmmRmAqI4xnvEYv7C0qfG40D3arsJmuaC5KJXL3DY0f/6h7A3+Y0d/krbkFSxDqDTCCjNA7M57M53+9n6Ng03Th6v9pNQta9gBvCydzcnV+zBjdRjmqAioWiP5Nu5QYVEvVBNjii+7HjNoS4yJGPBuybrz1W/bi5wUQyB0MEwsM0Ap3uQ4TAPP3bmmgFYZp1X5AOBcMg5NKEsAWEiKz3qJeX1Eo10QU2llJu6ZLNUKaw2/OUWQLH9kGnsmNGES3beXG6OccdH1TQpCCN+sHq7IYFjlNp2NOokcReTR4KzVN+8LYX471e1lwhnFU5XmksqCMwLgXumVKB5ihu65MgjKbezZm4GXcNlCOTfl/wrYFqm8+xI9+4XxUCNesfYYrWmJEwNlqUpjiGjwLua+ocp/SJmuVeS3sQ5Exs+Vb78OXIczcK0bnLLpS/O/5iHp8
+MIME-Version: 1.0
+
+<html><head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"><title>CS Executive Group: Application For Assistant Director Veterinary Medicines (EL1) – APVMA, Ref: </title>
+	</head>
+	<body>
+		<table width="99%" border="0" cellpadding="1" cellspacing="0" bgcolor="#EAEAEA"><tr><td>
+                            <table width="100%" border="0" cellpadding="5" cellspacing="0" bgcolor="#FFFFFF">
+                            </table>
+                        </td>
+                   </tr>
+               </table>
+	</body>
+</html>
+

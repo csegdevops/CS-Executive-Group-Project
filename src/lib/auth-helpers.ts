@@ -1,3 +1,4 @@
+import { cache } from "react"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { redirect } from "next/navigation"
@@ -10,7 +11,12 @@ export interface AuthUser {
   full_name: string | null
 }
 
-export async function getAuthUser(): Promise<AuthUser | null> {
+/**
+ * Layout and page both call this (directly or via requireAuth/requireModuleAccess/etc.)
+ * on every protected route. cache() collapses those into a single getUser() + profile
+ * round trip per request instead of one per caller.
+ */
+export const getAuthUser = cache(async (): Promise<AuthUser | null> => {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
@@ -29,7 +35,7 @@ export async function getAuthUser(): Promise<AuthUser | null> {
     role: profile.role as Role,
     full_name: profile.full_name,
   }
-}
+})
 
 export async function requireAuth(): Promise<AuthUser> {
   const user = await getAuthUser()
@@ -53,11 +59,14 @@ type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>
  * always read through the admin (service-role) client regardless of what
  * client the caller passed in. This function runs entirely server-side and
  * is never reachable from the browser, so that's safe.
+ *
+ * Cached by userId (the passed-in client is unused — every call already
+ * goes through its own admin client — so caching on the client reference
+ * would never dedupe anything). requireModuleAccess, getUserModules, and
+ * a layout+page pair can all resolve the same user's keys within one
+ * request for a single round trip instead of one each.
  */
-async function fetchUserPermissionKeys(
-  _supabase: SupabaseServerClient,
-  userId: string
-): Promise<string[]> {
+const fetchUserPermissionKeysCached = cache(async (userId: string): Promise<string[]> => {
   const admin = createAdminClient()
   const { data: memberships } = await admin
     .from("user_group_members")
@@ -71,6 +80,13 @@ async function fetchUserPermissionKeys(
     .select("permission_key")
     .in("group_id", groupIds)
   return (grants ?? []).map((g) => g.permission_key)
+})
+
+async function fetchUserPermissionKeys(
+  _supabase: SupabaseServerClient,
+  userId: string
+): Promise<string[]> {
+  return fetchUserPermissionKeysCached(userId)
 }
 
 export async function getUserPermissionKeys(userId: string): Promise<string[]> {
@@ -175,14 +191,15 @@ export async function requireAdmin(): Promise<AuthUser> {
   return requireSuperAdmin()
 }
 
-export async function getEnabledModules(): Promise<Module[]> {
+/** Layout and page both call this on every protected route — cached per request. */
+export const getEnabledModules = cache(async (): Promise<Module[]> => {
   const supabase = await createClient()
   const { data } = await supabase
     .from("module_config")
     .select("module")
     .eq("is_enabled", true)
   return (data ?? []).map((r) => r.module as Module)
-}
+})
 
 /** Redirects to /home if the module is disabled system-wide. No super_admin bypass. */
 export async function requireModuleEnabled(module: Module): Promise<void> {

@@ -58,7 +58,26 @@
       "Bash(curl -s -D - -o /dev/null http://localhost:3000/)",
       "Bash(curl -s -D - -o /dev/null http://localhost:3000/home)",
       "Bash(curl -s -D - -o /dev/null http://localhost:3000/login)",
-      "Bash(taskkill //PID 6268 //F)"
+      "Bash(taskkill //PID 6268 //F)",
+      "Bash(chromium-cli --help)",
+      "Bash(npx --yes playwright --version)",
+      "Bash(node -e \"const {chromium} = require\\('playwright'\\); \\(async\\(\\)=>{try{const b = await chromium.launch\\({args:['--no-sandbox']}\\); console.log\\('launched ok'\\); await b.close\\(\\);}catch\\(e\\){console.log\\('ERR', e.message\\)}}\\)\\(\\)\")",
+      "Bash(npx --yes playwright install chromium)",
+      "Bash(curl -sf http://localhost:3000/login -o /dev/null)",
+      "Bash(NODE_PATH=\"/d/Project/CS Executive Group Project/node_modules\" node -e \"require.resolve\\('playwright'\\)\")",
+      "Read(//c/Users/kcmut/AppData/Local/npm-cache/_npx/**)",
+      "Read(//c/Users/kcmut/.npm/**)",
+      "Bash(NODE_PATH=\"/c/Users/kcmut/AppData/Local/npm-cache/_npx/361ceb562f3b3235/node_modules\" node login-test.js)",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code} in %{time_total}s\\\\n\" --max-time 10 https://ozzqjpootznjbcpctynj.supabase.co/auth/v1/health)",
+      "Bash(taskkill //F //FI \"IMAGENAME eq node.exe\" //FI \"MEMUSAGE gt 100000\")",
+      "Bash(node -e \"const c=require\\('./cookies.json'\\); console.log\\(c.map\\(x=>x.name\\).join\\(', '\\)\\)\")",
+      "Bash(export NEXT_PUBLIC_SUPABASE_URL=\"https://ozzqjpootznjbcpctynj.supabase.co\")",
+      "Bash(export NEXT_PUBLIC_SUPABASE_ANON_KEY=\"sb_publishable_D1BnrJYWye9DB8KfYX1LnA_eRvVmCzY\")",
+      "Bash(NODE_PATH=\"/d/Project/CS Executive Group Project/node_modules\" node raw-getuser-test.js)",
+      "Bash(node -e ' *)",
+      "Bash(curl -s -o /dev/null -w 'profiles REST query: HTTP %{http_code} in %{time_total}s\\\\n' -H 'apikey: __TRACKED_VAR__' -H 'Authorization: Bearer __TRACKED_VAR__' 'https://ozzqjpootznjbcpctynj.supabase.co/rest/v1/profiles?id=eq.__TRACKED_VAR__&select=role')",
+      "Bash(curl -s -H 'apikey: __TRACKED_VAR__' -H 'Authorization: Bearer __TRACKED_VAR__' 'https://ozzqjpootznjbcpctynj.supabase.co/rest/v1/profiles?id=eq.__TRACKED_VAR__&select=role')",
+      "mcp__supabase__get_logs"
     ],
     "additionalDirectories": [
       "d:\\Project\\CS Executive Group Project\\src\\app\\(portal)\\recruitment\\candidates\\[candidateId]"
