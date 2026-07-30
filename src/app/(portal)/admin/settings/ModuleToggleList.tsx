@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { FlaskConical, Users, Building2 } from "lucide-react"
+import { FlaskConical, Users } from "lucide-react"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import type { ModuleConfig, Module } from "@/types/database"
@@ -15,13 +15,8 @@ const MODULE_META: Record<Module, { label: string; description: string; icon: Re
   },
   recruitment: {
     label: "Recruitment",
-    description: "Job postings, candidates, applications and hiring pipelines.",
+    description: "Job postings, candidates, applications, and client/BD relationships.",
     icon: Users,
-  },
-  crm: {
-    label: "CRM",
-    description: "Client relationships, leads and account management.",
-    icon: Building2,
   },
 }
 
@@ -68,7 +63,7 @@ export function ModuleToggleList({ configs }: { configs: ModuleConfig[] }) {
 
   return (
     <div className="border rounded-lg divide-y text-sm">
-      {(["regulatory", "recruitment", "crm"] as Module[]).map((mod) => {
+      {(["regulatory", "recruitment"] as Module[]).map((mod) => {
         const meta   = MODULE_META[mod]
         const Icon   = meta.icon
         const on     = states[mod] ?? true

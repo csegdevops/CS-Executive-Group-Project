@@ -18,7 +18,7 @@ const patchSchema = z.object({
   notes:               z.string().optional().nullable(),
 })
 
-// GET /api/crm/opportunities/[oppId]
+// GET /api/recruitment/opportunities/[oppId]
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ oppId: string }> }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -26,7 +26,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ opp
 
   const { oppId } = await params
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (createAdminClient().schema("crm") as any)
+  const { data, error } = await (createAdminClient().schema("recruitment") as any)
     .from("opportunities")
     .select("*")
     .eq("id", oppId)
@@ -36,12 +36,12 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ opp
   return NextResponse.json(data)
 }
 
-// PATCH /api/crm/opportunities/[oppId]
+// PATCH /api/recruitment/opportunities/[oppId]
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ oppId: string }> }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (!(await requirePermissionOrSuperAdmin(supabase, user.id, "crm.opportunities.edit"))) {
+  if (!(await requirePermissionOrSuperAdmin(supabase, user.id, "recruitment.opportunities.edit"))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
@@ -59,15 +59,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ op
 
   const admin = createAdminClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const crm = admin.schema("crm") as any
+  const recruitment = admin.schema("recruitment") as any
 
-  const { data: current } = await crm
+  const { data: current } = await recruitment
     .from("opportunities")
     .select("stage, title, assigned_to")
     .eq("id", oppId)
     .single()
 
-  const { data, error } = await crm
+  const { data, error } = await recruitment
     .from("opportunities")
     .update(update)
     .eq("id", oppId)

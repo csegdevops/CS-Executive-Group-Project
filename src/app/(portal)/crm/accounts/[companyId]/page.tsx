@@ -1,25 +1,13 @@
-import { requireAuth } from "@/lib/auth-helpers"
-import { CompanyDetailContent } from "@/app/(portal)/companies/[companyId]/CompanyDetailContent"
+import { redirect } from "next/navigation"
 
-export default async function CrmCompanyPage({
+export default async function Page({
   params,
   searchParams,
 }: {
   params: Promise<{ companyId: string }>
   searchParams: Promise<{ tab?: string }>
 }) {
-  const user = await requireAuth()
   const { companyId } = await params
-  const { tab = "overview" } = await searchParams
-
-  return (
-    <CompanyDetailContent
-      companyId={companyId}
-      tab={tab}
-      backHref="/crm/accounts"
-      backLabel="Accounts"
-      basePath={`/crm/accounts/${companyId}`}
-      user={user}
-    />
-  )
+  const { tab } = await searchParams
+  redirect(`/recruitment/companies/${companyId}${tab ? `?tab=${tab}` : ""}`)
 }

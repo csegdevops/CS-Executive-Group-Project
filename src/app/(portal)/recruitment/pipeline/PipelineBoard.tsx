@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { formatDate } from "@/lib/date-helpers"
 import { toast } from "sonner"
@@ -56,7 +55,7 @@ export function PipelineBoard({ initialOpps }: Props) {
     } else {
       setOpps(prev => prev.map(o => o.id === opp.id ? { ...o, stage: newStage } : o))
     }
-    const res = await fetch(`/api/crm/opportunities/${opp.id}`, {
+    const res = await fetch(`/api/recruitment/opportunities/${opp.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ stage: newStage }),
@@ -106,7 +105,7 @@ export function PipelineBoard({ initialOpps }: Props) {
                 )}
                 {cards.map(opp => (
                   <div key={opp.id} className="border rounded-lg p-3 bg-card hover:shadow-sm transition-shadow">
-                    <Link href={`/crm/accounts/${opp.company_id}?tab=pipeline`} className="font-medium text-sm hover:underline block truncate">
+                    <Link href={`/recruitment/companies/${opp.company_id}?tab=pipeline`} className="font-medium text-sm hover:underline block truncate">
                       {opp.title}
                     </Link>
                     <p className="text-xs text-muted-foreground truncate mt-0.5">{opp.company_name}</p>

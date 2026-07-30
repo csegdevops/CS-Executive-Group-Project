@@ -10,7 +10,7 @@ const createSchema = z.object({
   body:             z.string().optional().nullable(),
   contact_id:       z.string().uuid().optional().nullable(),
   occurred_at:      z.string().optional(),
-  linked_module:    z.enum(["regulatory", "recruitment", "crm"]).optional().nullable(),
+  linked_module:    z.enum(["regulatory", "recruitment"]).optional().nullable(),
   linked_record_id: z.string().uuid().optional().nullable(),
 })
 

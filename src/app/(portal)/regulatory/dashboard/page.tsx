@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
 import { Building2, FileText, Clock, CheckCircle2, PenLine } from "lucide-react"
 import { OngoingConsultations } from "./OngoingConsultations"
+import { CrmStatusBadge } from "@/components/crm/CrmStatusBadge"
+import { isDormant } from "@/lib/crm/summary"
 
 export default async function DashboardPage() {
   const user = await requireAuth()
@@ -14,7 +16,7 @@ export default async function DashboardPage() {
   // Get companies the user can access (RLS scoped)
   const { data: companies } = await supabase
     .from("companies")
-    .select("id, name, country, industry")
+    .select("id, name, country, industry, crm_status, last_activity_at")
     .eq("is_active", true)
     .order("name")
 
@@ -103,12 +105,18 @@ export default async function DashboardPage() {
                   <div className="flex items-start justify-between gap-2">
                     <CardTitle className="text-base leading-snug">
                       <Link
-                        href={`/regulatory/admin/companies/${company.id}`}
+                        href={`/regulatory/companies/${company.id}`}
                         className="hover:underline"
                       >
                         {company.name}
                       </Link>
                     </CardTitle>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <CrmStatusBadge status={company.crm_status} />
+                      {isDormant(company.last_activity_at) && (
+                        <span className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" title="Needs attention — no recent CRM activity" />
+                      )}
+                    </div>
                   </div>
                   {(company.industry || company.country) && (
                     <CardDescription className="text-xs">

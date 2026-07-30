@@ -42,7 +42,6 @@ const SCOPE_LABELS: Record<string, string> = {
   recruitment: "Recruitment",
   regulatory:  "Regulatory",
   timesheets:  "Timesheets",
-  crm:         "CRM",
 }
 
 interface Props {

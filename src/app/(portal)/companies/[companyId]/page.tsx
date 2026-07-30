@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation"
 
-// Redirect bare /companies/[id] links to the CRM-context URL so the sidebar stays intact.
-// Module-specific entry points live at /regulatory/companies/[id], /crm/accounts/[id], etc.
+// Redirect bare /companies/[id] links to the Recruitment-context URL so the sidebar stays intact.
+// Module-specific entry points live at /regulatory/companies/[id], /recruitment/companies/[id], etc.
 export default async function CompanyRedirectPage({
   params,
   searchParams,
@@ -11,5 +11,5 @@ export default async function CompanyRedirectPage({
 }) {
   const { companyId } = await params
   const { tab } = await searchParams
-  redirect(`/crm/accounts/${companyId}${tab ? `?tab=${tab}` : ""}`)
+  redirect(`/recruitment/companies/${companyId}${tab ? `?tab=${tab}` : ""}`)
 }

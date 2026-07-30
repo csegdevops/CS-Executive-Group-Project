@@ -67,7 +67,7 @@ export function NewOpportunityDialog({ companyId, companyName, contacts, profile
       }
       if (form.value) body.value = parseFloat(form.value)
 
-      const res = await fetch("/api/crm/opportunities", {
+      const res = await fetch("/api/recruitment/opportunities", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),

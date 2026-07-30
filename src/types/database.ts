@@ -1,6 +1,6 @@
 export type Role = "super_admin" | "user"
 export type ModuleAccessLevel = "admin" | "member"
-export type Module = "regulatory" | "recruitment" | "crm"
+export type Module = "regulatory" | "recruitment"
 export type AssignmentType = "primary" | "temporary"
 export type ConsultationStatus = "draft" | "in_progress" | "under_review" | "completed" | "archived"
 export type RegulatoryFramework = "aicis" | "reach" | "tsca"
@@ -15,7 +15,7 @@ export interface ModuleConfig {
 }
 
 // Lookup values
-export type LookupScope = "global" | "regulatory" | "recruitment" | "crm" | "timesheets"
+export type LookupScope = "global" | "regulatory" | "recruitment" | "timesheets"
 
 // CRM
 export type ContactActivity = "call" | "email" | "meeting" | "note"
@@ -1157,6 +1157,54 @@ export interface Database {
         }
         Relationships: []
       }
+      opportunities: {
+        Row: {
+          id: string
+          company_id: string
+          contact_id: string | null
+          title: string
+          stage: OpportunityStage
+          value: number | null
+          currency: string
+          module: OpportunityModule | null
+          assigned_to: string | null
+          expected_close_date: string | null
+          closed_at: string | null
+          close_reason: string | null
+          notes: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          company_id: string
+          contact_id?: string | null
+          title: string
+          stage?: OpportunityStage
+          value?: number | null
+          currency?: string
+          module?: OpportunityModule | null
+          assigned_to?: string | null
+          expected_close_date?: string | null
+          closed_at?: string | null
+          close_reason?: string | null
+          notes?: string | null
+          created_by?: string | null
+        }
+        Update: {
+          title?: string
+          stage?: OpportunityStage
+          value?: number | null
+          module?: OpportunityModule | null
+          assigned_to?: string | null
+          expected_close_date?: string | null
+          closed_at?: string | null
+          close_reason?: string | null
+          notes?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       v_stagnant_applications: {
@@ -1221,62 +1269,6 @@ export interface Database {
         }>
       }
     }
-    Enums: Record<string, never>
-    CompositeTypes: Record<string, never>
-  }
-  crm: {
-    Tables: {
-      opportunities: {
-        Row: {
-          id: string
-          company_id: string
-          contact_id: string | null
-          title: string
-          stage: OpportunityStage
-          value: number | null
-          currency: string
-          module: OpportunityModule | null
-          assigned_to: string | null
-          expected_close_date: string | null
-          closed_at: string | null
-          close_reason: string | null
-          notes: string | null
-          created_by: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          company_id: string
-          contact_id?: string | null
-          title: string
-          stage?: OpportunityStage
-          value?: number | null
-          currency?: string
-          module?: OpportunityModule | null
-          assigned_to?: string | null
-          expected_close_date?: string | null
-          closed_at?: string | null
-          close_reason?: string | null
-          notes?: string | null
-          created_by?: string | null
-        }
-        Update: {
-          title?: string
-          stage?: OpportunityStage
-          value?: number | null
-          module?: OpportunityModule | null
-          assigned_to?: string | null
-          expected_close_date?: string | null
-          closed_at?: string | null
-          close_reason?: string | null
-          notes?: string | null
-        }
-        Relationships: []
-      }
-    }
-    Views: Record<string, never>
-    Functions: Record<string, never>
     Enums: Record<string, never>
     CompositeTypes: Record<string, never>
   }

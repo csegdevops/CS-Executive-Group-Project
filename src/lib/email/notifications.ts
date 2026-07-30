@@ -170,7 +170,7 @@ export async function sendOpportunityStageChangedEmail(params: {
       opportunityTitle: params.opportunityTitle,
       oldStage: params.oldStage,
       newStage: params.newStage,
-      opportunityUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/crm/pipeline`,
+      opportunityUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/recruitment/pipeline`,
     })
   )
 

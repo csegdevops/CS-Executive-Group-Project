@@ -1,9 +1,11 @@
 import { requireAuth, getUserModules, getEnabledModules } from "@/lib/auth-helpers"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { getCrmSummary } from "@/lib/crm/summary"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
-import { FlaskConical, Users, Building2, Lock, ArrowRight } from "lucide-react"
+import { FlaskConical, Users, Lock, ArrowRight } from "lucide-react"
 import type { Module } from "@/types/database"
 
 interface ModuleConfig {
@@ -23,22 +25,15 @@ const moduleConfig: Record<Module, ModuleConfig> = {
     colorClass: "text-blue-600",
   },
   recruitment: {
-    label: "Recruitment Database",
-    description: "Manage job postings, candidates and hiring pipelines",
+    label: "Recruitment",
+    description: "Jobs, candidates, and client relationships in one place",
     href: "/recruitment/dashboard",
     icon: Users,
     colorClass: "text-green-600",
   },
-  crm: {
-    label: "CRM",
-    description: "Client relationships, leads and account management",
-    href: "/crm/dashboard",
-    icon: Building2,
-    colorClass: "text-purple-600",
-  },
 }
 
-const allModules: Module[] = ["regulatory", "recruitment", "crm"]
+const allModules: Module[] = ["regulatory", "recruitment"]
 
 export default async function HomePage() {
   const user = await requireAuth()
@@ -50,6 +45,10 @@ export default async function HomePage() {
   const grantedSet = new Set(grantedModules)
   const enabledSet = new Set(enabledModules)
   const visibleModules = allModules.filter((m) => enabledSet.has(m))
+
+  const crmSummary = visibleModules.includes("recruitment") && grantedSet.has("recruitment")
+    ? await getCrmSummary(createAdminClient())
+    : null
 
   return (
     <div>
@@ -92,6 +91,21 @@ export default async function HomePage() {
                   <CardDescription className="text-sm">{config.description}</CardDescription>
                 </CardHeader>
                 <CardContent>
+                  {mod === "recruitment" && crmSummary && (
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground mb-2">
+                      <span>
+                        Pipeline: <span className="font-medium text-foreground">
+                          {crmSummary.pipelineValueAud > 0 ? `AUD ${crmSummary.pipelineValueAud.toLocaleString()}` : "—"}
+                        </span>
+                      </span>
+                      {crmSummary.dormantAccounts.length > 0 && (
+                        <span className="flex items-center gap-1 text-amber-600">
+                          <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                          {crmSummary.dormantAccounts.length} dormant
+                        </span>
+                      )}
+                    </div>
+                  )}
                   <div className="flex items-center gap-1 text-xs text-muted-foreground group-hover:text-foreground transition-colors">
                     Open <ArrowRight className="h-3 w-3" />
                   </div>

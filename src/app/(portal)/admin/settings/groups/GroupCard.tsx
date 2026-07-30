@@ -8,7 +8,7 @@ import type { UserGroupWithGrants } from "./page"
 
 function moduleOf(key: string): Module | null {
   const [prefix] = key.split(".")
-  return prefix === "regulatory" || prefix === "recruitment" || prefix === "crm" ? prefix : null
+  return prefix === "regulatory" || prefix === "recruitment" ? prefix : null
 }
 
 export function GroupCard({ group }: { group: UserGroupWithGrants }) {

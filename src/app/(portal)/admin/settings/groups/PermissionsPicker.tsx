@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import type { Module } from "@/types/database"
 
-const TABS: (Module | "timesheets")[] = ["regulatory", "recruitment", "crm", "timesheets"]
+const TABS: (Module | "timesheets")[] = ["regulatory", "recruitment", "timesheets"]
 
 export function PermissionsPicker({
   selected,

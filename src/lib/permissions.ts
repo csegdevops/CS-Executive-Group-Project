@@ -12,8 +12,8 @@ export interface PermissionCategory {
 
 /**
  * Full permission catalog, grouped by module. `companies.manage` is a
- * shared (non-module-prefixed) key shown identically in the Regulatory,
- * Recruitment, and CRM tabs since `companies` is a genuinely cross-module
+ * shared (non-module-prefixed) key shown identically in the Regulatory
+ * and Recruitment tabs since `companies` is a genuinely cross-module
  * table.
  */
 export const PERMISSION_CATALOG: Record<Module, PermissionCategory[]> = {
@@ -77,6 +77,13 @@ export const PERMISSION_CATALOG: Record<Module, PermissionCategory[]> = {
     { category: "Placements", permissions: [{ key: "recruitment.placements.create", label: "Create placements" }] },
     { category: "Tasks", permissions: [{ key: "recruitment.tasks.edit", label: "Manage tasks" }] },
     {
+      category: "Opportunities",
+      permissions: [
+        { key: "recruitment.opportunities.create", label: "Create opportunities" },
+        { key: "recruitment.opportunities.edit", label: "Edit opportunities" },
+      ],
+    },
+    {
       category: "Companies",
       permissions: [
         { key: "companies.create", label: "Manually register a company" },
@@ -87,32 +94,11 @@ export const PERMISSION_CATALOG: Record<Module, PermissionCategory[]> = {
     },
     { category: "Reference Data", permissions: [{ key: "recruitment.reference_data.manage", label: "Manage Recruitment reference data" }] },
   ],
-  crm: [
-    { category: "Module", permissions: [{ key: "crm.access", label: "Access the CRM module" }] },
-    {
-      category: "Opportunities",
-      permissions: [
-        { key: "crm.opportunities.create", label: "Create opportunities" },
-        { key: "crm.opportunities.edit", label: "Edit opportunities" },
-      ],
-    },
-    {
-      category: "Companies",
-      permissions: [
-        { key: "companies.create", label: "Manually register a company" },
-        { key: "companies.edit", label: "Edit company details & activity log" },
-        { key: "companies.contacts.manage", label: "Add, edit & delete company contacts" },
-        { key: "companies.branches.manage", label: "Add, edit & delete branches" },
-      ],
-    },
-    { category: "Reference Data", permissions: [{ key: "crm.reference_data.manage", label: "Manage CRM reference data" }] },
-  ],
 }
 
 export const MODULE_LABELS: Record<Module, string> = {
   regulatory: "Regulatory",
   recruitment: "Recruitment",
-  crm: "CRM",
 }
 
 export function allPermissionKeys(): string[] {

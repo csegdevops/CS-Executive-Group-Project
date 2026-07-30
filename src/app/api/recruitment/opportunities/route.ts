@@ -17,7 +17,7 @@ const createSchema = z.object({
   notes:                z.string().optional().nullable(),
 })
 
-// GET /api/crm/opportunities?stage=lead,qualified&company_id=...
+// GET /api/recruitment/opportunities?stage=lead,qualified&company_id=...
 export async function GET(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -30,8 +30,8 @@ export async function GET(req: NextRequest) {
 
   const admin = createAdminClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const crm = admin.schema("crm") as any
-  let query = crm
+  const recruitment = admin.schema("recruitment") as any
+  let query = recruitment
     .from("opportunities")
     .select("*")
     .order("created_at", { ascending: false })
@@ -66,12 +66,12 @@ export async function GET(req: NextRequest) {
   })))
 }
 
-// POST /api/crm/opportunities
+// POST /api/recruitment/opportunities
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (!(await requirePermissionOrSuperAdmin(supabase, user.id, "crm.opportunities.create"))) {
+  if (!(await requirePermissionOrSuperAdmin(supabase, user.id, "recruitment.opportunities.create"))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (createAdminClient().schema("crm") as any)
+  const { data, error } = await (createAdminClient().schema("recruitment") as any)
     .from("opportunities")
     .insert({ ...parsed.data, created_by: user.id })
     .select("*")

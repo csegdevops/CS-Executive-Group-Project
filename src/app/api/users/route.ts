@@ -28,7 +28,7 @@ async function requireAnyModuleAdmin(supabase: Awaited<ReturnType<typeof createC
   if (profile?.role === "super_admin") return user
 
   const keys = await getUserPermissionKeys(user.id)
-  const isAnyModuleAdmin = (["regulatory", "recruitment", "crm"] as const).some((m) => isModuleAdmin(keys, m))
+  const isAnyModuleAdmin = (["regulatory", "recruitment"] as const).some((m) => isModuleAdmin(keys, m))
   if (!isAnyModuleAdmin) return null
   return user
 }

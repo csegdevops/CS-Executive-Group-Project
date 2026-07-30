@@ -1,5 +1,8 @@
-import { requireAuth, getUserPermissionKeys } from "@/lib/auth-helpers"
+import { requireAuth, getUserPermissionKeys, getUserModules, getEnabledModules } from "@/lib/auth-helpers"
 import { Sidebar } from "@/components/layout/Sidebar"
+import type { Module } from "@/types/database"
+
+const allModules: Module[] = ["regulatory", "recruitment"]
 
 export default async function PortalLayout({
   children,
@@ -7,9 +10,17 @@ export default async function PortalLayout({
   children: React.ReactNode
 }) {
   const user = await requireAuth()
+  const isSuperAdmin = user.role === "super_admin"
 
-  // null sentinel = super_admin, who implicitly holds every permission
-  const permissionKeys = user.role === "super_admin" ? null : await getUserPermissionKeys(user.id)
+  const [permissionKeys, grantedModules, enabledModules] = await Promise.all([
+    // null sentinel = super_admin, who implicitly holds every permission
+    isSuperAdmin ? Promise.resolve(null) : getUserPermissionKeys(user.id),
+    isSuperAdmin ? Promise.resolve(allModules) : getUserModules(user.id),
+    getEnabledModules(),
+  ])
+
+  const enabledSet = new Set(enabledModules)
+  const accessibleModules = allModules.filter((m) => enabledSet.has(m) && grantedModules.includes(m))
 
   return (
     <div className="flex min-h-screen">
@@ -19,6 +30,7 @@ export default async function PortalLayout({
           userName={user.full_name}
           email={user.email}
           permissionKeys={permissionKeys}
+          accessibleModules={accessibleModules}
         />
       </div>
       <main className="flex-1 overflow-auto print:overflow-visible">

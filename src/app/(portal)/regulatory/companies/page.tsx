@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { Plus } from "lucide-react"
+import { formatDistanceToNow } from "@/lib/date-helpers"
+import { CrmStatusBadge } from "@/components/crm/CrmStatusBadge"
 
 export default async function CompaniesPage() {
   await requireModuleAccess("regulatory")
@@ -14,11 +16,12 @@ export default async function CompaniesPage() {
   // Fetch all companies
   const { data: companies } = await admin
     .from("companies")
-    .select("id, name, country, industry, is_active")
+    .select("id, name, country, industry, is_active, crm_status, account_owner_id, last_activity_at")
     .order("name")
 
-  // Active consultations count per company
   const companyIds = (companies ?? []).map((c) => c.id)
+
+  // Active consultations count per company
   const { data: consultations } = companyIds.length
     ? await reg
         .from("consultations")
@@ -31,6 +34,28 @@ export default async function CompaniesPage() {
   for (const c of consultations ?? []) {
     activeByCompany.set(c.company_id, (activeByCompany.get(c.company_id) ?? 0) + 1)
   }
+
+  // Open opportunity counts per company
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: opps } = companyIds.length
+    ? await (admin.schema("recruitment") as any)
+        .from("opportunities")
+        .select("company_id, stage")
+        .in("company_id", companyIds)
+        .not("stage", "in", '("won","lost")')
+    : { data: [] }
+
+  const oppCountMap: Record<string, number> = {}
+  for (const o of opps ?? []) {
+    oppCountMap[o.company_id] = (oppCountMap[o.company_id] ?? 0) + 1
+  }
+
+  // Account owner names
+  const ownerIds = [...new Set((companies ?? []).map((c) => c.account_owner_id).filter(Boolean))] as string[]
+  const { data: profiles } = ownerIds.length
+    ? await admin.from("profiles").select("id, full_name").in("id", ownerIds)
+    : { data: [] }
+  const profileMap = Object.fromEntries((profiles ?? []).map((p: { id: string; full_name: string | null }) => [p.id, p.full_name]))
 
   return (
     <div>
@@ -52,6 +77,10 @@ export default async function CompaniesPage() {
                 <th className="text-left px-4 py-3 font-medium">Country</th>
                 <th className="text-left px-4 py-3 font-medium">Industry</th>
                 <th className="text-left px-4 py-3 font-medium">Active Consultations</th>
+                <th className="text-left px-4 py-3 font-medium">CRM Status</th>
+                <th className="text-left px-4 py-3 font-medium">Owner</th>
+                <th className="text-left px-4 py-3 font-medium">Last Activity</th>
+                <th className="text-left px-4 py-3 font-medium">Open Opps</th>
                 <th className="px-4 py-3" />
               </tr>
             </thead>
@@ -75,6 +104,24 @@ export default async function CompaniesPage() {
                       </Badge>
                     ) : (
                       <span className="text-muted-foreground text-xs">None</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    <CrmStatusBadge status={c.crm_status} />
+                  </td>
+                  <td className="px-4 py-3 text-muted-foreground">
+                    {c.account_owner_id ? (profileMap[c.account_owner_id] ?? "—") : "—"}
+                  </td>
+                  <td className="px-4 py-3 text-muted-foreground text-xs">
+                    {c.last_activity_at ? formatDistanceToNow(c.last_activity_at) : "Never"}
+                  </td>
+                  <td className="px-4 py-3">
+                    {(oppCountMap[c.id] ?? 0) > 0 ? (
+                      <Badge variant="outline" className="text-xs text-blue-700 border-blue-300 bg-blue-50">
+                        {oppCountMap[c.id]}
+                      </Badge>
+                    ) : (
+                      <span className="text-muted-foreground text-xs">—</span>
                     )}
                   </td>
                   <td className="px-4 py-3 text-right">

@@ -41,8 +41,9 @@ import {
   TrendingUp,
   CalendarClock,
   UserCog,
+  Contact,
 } from "lucide-react"
-import type { Role } from "@/types/database"
+import type { Role, Module } from "@/types/database"
 
 interface NavItem {
   label: string
@@ -62,30 +63,30 @@ const moduleNavItems: Record<string, NavItem[]> = {
   ],
   recruitment: [
     { label: "Dashboard",    href: "/recruitment/dashboard",           icon: LayoutDashboard },
-    { label: "Clients",      href: "/recruitment/companies",           icon: Building2 },
+    { label: "Companies",    href: "/recruitment/companies",           icon: Building2 },
+    { label: "Contacts",     href: "/recruitment/contacts",            icon: Contact },
+    { label: "Pipeline",     href: "/recruitment/pipeline",            icon: TrendingUp },
     { label: "Jobs",         href: "/recruitment/jobs",                icon: Briefcase },
     { label: "Candidates",   href: "/recruitment/candidates",          icon: UserSearch },
     { label: "Applications", href: "/recruitment/applications",        icon: ClipboardList },
     { label: "Tasks",        href: "/recruitment/tasks",               icon: ListChecks },
-  ],
-  crm: [
-    { label: "Dashboard",  href: "/crm/dashboard",   icon: LayoutDashboard },
-    { label: "Client Companies", href: "/crm/accounts",    icon: Building2 },
-    { label: "Pipeline",   href: "/crm/pipeline",    icon: TrendingUp },
-    { label: "Activities", href: "/crm/activities",  icon: CalendarClock },
+    { label: "Activities",   href: "/recruitment/activities",          icon: CalendarClock },
   ],
 }
 
 const moduleLabels: Record<string, string> = {
   regulatory: "Regulatory DB",
   recruitment: "Recruitment",
-  crm: "CRM",
 }
 
 const moduleIcons: Record<string, React.ElementType> = {
   regulatory: FlaskConical,
   recruitment: Users,
-  crm: Building2,
+}
+
+const moduleHrefs: Record<string, string> = {
+  regulatory: "/regulatory/dashboard",
+  recruitment: "/recruitment/dashboard",
 }
 
 interface SidebarProps {
@@ -94,6 +95,8 @@ interface SidebarProps {
   email: string
   /** null = super_admin, who implicitly holds every permission */
   permissionKeys: string[] | null
+  /** Modules this user can switch to (enabled system-wide AND granted to them) */
+  accessibleModules: Module[]
 }
 
 function NavLink({ item, collapsed, pathname }: { item: NavItem; collapsed: boolean; pathname: string }) {
@@ -122,7 +125,7 @@ function NavLink({ item, collapsed, pathname }: { item: NavItem; collapsed: bool
   )
 }
 
-export function Sidebar({ role, userName, email, permissionKeys }: SidebarProps) {
+export function Sidebar({ role, userName, email, permissionKeys, accessibleModules }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const { theme, setTheme } = useTheme()
@@ -148,8 +151,6 @@ export function Sidebar({ role, userName, email, permissionKeys }: SidebarProps)
     ? "regulatory"
     : pathname.startsWith("/recruitment")
     ? "recruitment"
-    : pathname.startsWith("/crm")
-    ? "crm"
     : null
 
   const isSuperAdmin = role === "super_admin"
@@ -183,29 +184,83 @@ export function Sidebar({ role, userName, email, permissionKeys }: SidebarProps)
     >
       {/* Logo / module header */}
       {activeModule ? (
-        <Link
-          href="/home"
-          title={collapsed ? moduleLabels[activeModule] : undefined}
-          className={cn(
-            "flex border-b border-sidebar-border shrink-0 hover:bg-sidebar-accent/40 transition-colors group",
-            collapsed ? "items-center justify-center py-5 px-2" : "flex-col gap-0.5 px-6 py-4"
-          )}
-        >
-          {collapsed ? (
-            <ModuleIcon className="h-5 w-5 text-sidebar-primary shrink-0" />
-          ) : (
-            <>
-              <span className="flex items-center gap-1 text-xs text-sidebar-foreground/50 group-hover:text-sidebar-foreground transition-colors">
-                <ChevronLeft className="h-3 w-3 shrink-0" />
-                Home
-              </span>
-              <span className="flex items-center gap-2 font-semibold text-sidebar-foreground truncate">
-                <ModuleIcon className="h-5 w-5 text-sidebar-primary shrink-0" />
-                {moduleLabels[activeModule]}
-              </span>
-            </>
-          )}
-        </Link>
+        accessibleModules.length > 1 ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                title={collapsed ? moduleLabels[activeModule] : undefined}
+                className={cn(
+                  "flex w-full border-b border-sidebar-border shrink-0 hover:bg-sidebar-accent/40 transition-colors group text-left",
+                  collapsed ? "items-center justify-center py-5 px-2" : "flex-col gap-0.5 px-6 py-4"
+                )}
+              >
+                {collapsed ? (
+                  <ModuleIcon className="h-5 w-5 text-sidebar-primary shrink-0" />
+                ) : (
+                  <>
+                    <span className="flex items-center gap-1 text-xs text-sidebar-foreground/50 group-hover:text-sidebar-foreground transition-colors">
+                      <ChevronLeft className="h-3 w-3 shrink-0" />
+                      Switch module
+                    </span>
+                    <span className="flex items-center gap-2 font-semibold text-sidebar-foreground truncate">
+                      <ModuleIcon className="h-5 w-5 text-sidebar-primary shrink-0" />
+                      {moduleLabels[activeModule]}
+                    </span>
+                  </>
+                )}
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent side={collapsed ? "right" : "bottom"} align="start" className="w-56">
+              <DropdownMenuLabel className="text-xs text-muted-foreground font-normal">Modules</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {accessibleModules.map((m) => {
+                const Icon = moduleIcons[m]
+                return (
+                  <DropdownMenuItem
+                    key={m}
+                    disabled={m === activeModule}
+                    onClick={() => router.push(moduleHrefs[m])}
+                    className="gap-2 cursor-pointer"
+                  >
+                    <Icon className="h-4 w-4" />
+                    {moduleLabels[m]}
+                    {m === activeModule && <span className="ml-auto text-xs text-muted-foreground">Current</span>}
+                  </DropdownMenuItem>
+                )
+              })}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => router.push("/home")} className="gap-2 cursor-pointer">
+                <LayoutGrid className="h-4 w-4" />
+                All modules
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : (
+          <Link
+            href="/home"
+            title={collapsed ? moduleLabels[activeModule] : undefined}
+            className={cn(
+              "flex border-b border-sidebar-border shrink-0 hover:bg-sidebar-accent/40 transition-colors group",
+              collapsed ? "items-center justify-center py-5 px-2" : "flex-col gap-0.5 px-6 py-4"
+            )}
+          >
+            {collapsed ? (
+              <ModuleIcon className="h-5 w-5 text-sidebar-primary shrink-0" />
+            ) : (
+              <>
+                <span className="flex items-center gap-1 text-xs text-sidebar-foreground/50 group-hover:text-sidebar-foreground transition-colors">
+                  <ChevronLeft className="h-3 w-3 shrink-0" />
+                  Home
+                </span>
+                <span className="flex items-center gap-2 font-semibold text-sidebar-foreground truncate">
+                  <ModuleIcon className="h-5 w-5 text-sidebar-primary shrink-0" />
+                  {moduleLabels[activeModule]}
+                </span>
+              </>
+            )}
+          </Link>
+        )
       ) : (
         <Link
           href="/home"

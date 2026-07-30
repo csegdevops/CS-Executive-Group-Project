@@ -45,7 +45,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ com
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (admin.schema("recruitment") as any).from("jobs").select("id, title, status, reference_number, location, employment_type, created_at").eq("company_id", companyId).order("created_at", { ascending: false }),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (admin.schema("crm") as any).from("opportunities").select("id, title, stage, value, currency, module, assigned_to, expected_close_date").eq("company_id", companyId).not("stage", "in", '("won","lost")'),
+    (admin.schema("recruitment") as any).from("opportunities").select("id, title, stage, value, currency, module, assigned_to, expected_close_date").eq("company_id", companyId).not("stage", "in", '("won","lost")'),
   ])
 
   if (!company) return NextResponse.json({ error: "Not found" }, { status: 404 })

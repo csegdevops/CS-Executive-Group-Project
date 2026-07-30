@@ -11,22 +11,7 @@ import { EditCompanyDialog } from "./EditCompanyDialog"
 import { NewOpportunityDialog } from "./NewOpportunityDialog"
 import { formatAddress } from "@/lib/address"
 import type { AuthUser } from "@/lib/auth-helpers"
-
-const CRM_STATUS_STYLES: Record<string, string> = {
-  lead:     "bg-slate-100 text-slate-700 border-slate-200",
-  prospect: "bg-blue-50  text-blue-700  border-blue-200",
-  client:   "bg-green-50 text-green-700 border-green-200",
-  inactive: "bg-red-50   text-red-700   border-red-200",
-}
-
-const STAGE_STYLES: Record<string, string> = {
-  lead:        "bg-slate-100 text-slate-700",
-  qualified:   "bg-blue-50   text-blue-700",
-  proposal:    "bg-purple-50 text-purple-700",
-  negotiation: "bg-amber-50  text-amber-700",
-  won:         "bg-green-50  text-green-700",
-  lost:        "bg-red-50    text-red-700",
-}
+import { CrmStatusBadge, OpportunityStageBadge } from "@/components/crm/CrmStatusBadge"
 
 type Tab = "overview" | "contacts" | "activity" | "regulatory" | "recruitment" | "pipeline"
 
@@ -63,7 +48,7 @@ export async function CompanyDetailContent({ companyId, tab, backHref, backLabel
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (admin.schema("recruitment") as any).from("jobs").select("id, title, status, reference_number, location, employment_type, created_at").eq("company_id", companyId).order("created_at", { ascending: false }),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (admin.schema("crm") as any).from("opportunities").select("*").eq("company_id", companyId).order("created_at", { ascending: false }),
+    (admin.schema("recruitment") as any).from("opportunities").select("*").eq("company_id", companyId).order("created_at", { ascending: false }),
   ])
 
   if (!company) notFound()
@@ -111,9 +96,7 @@ export async function CompanyDetailContent({ companyId, tab, backHref, backLabel
           <div className="flex items-center gap-2 mb-1">
             <Building2 className="h-5 w-5 text-muted-foreground" />
             <h1 className="text-2xl font-semibold">{company.name}</h1>
-            <Badge variant="outline" className={cn("text-xs capitalize", CRM_STATUS_STYLES[company.crm_status ?? "prospect"])}>
-              {company.crm_status ?? "prospect"}
-            </Badge>
+            <CrmStatusBadge status={company.crm_status} />
             {!company.is_active && (
               <Badge variant="outline" className="text-xs text-muted-foreground">Archived</Badge>
             )}
@@ -367,9 +350,7 @@ export async function CompanyDetailContent({ companyId, tab, backHref, backLabel
                     <tr key={o.id as string} className="hover:bg-muted/30">
                       <td className="px-4 py-3 font-medium">{o.title as string}</td>
                       <td className="px-4 py-3">
-                        <Badge variant="outline" className={cn("text-xs capitalize", STAGE_STYLES[o.stage as string] ?? "")}>
-                          {o.stage as string}
-                        </Badge>
+                        <OpportunityStageBadge stage={o.stage as string} />
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
                         {o.value ? `${String(o.currency ?? "AUD")} ${Number(o.value).toLocaleString()}` : "—"}

@@ -5,7 +5,7 @@ import { z } from "zod"
 import type { LookupScope } from "@/types/database"
 
 const createSchema = z.object({
-  scope: z.enum(["global", "regulatory", "recruitment", "crm"]),
+  scope: z.enum(["global", "regulatory", "recruitment"]),
   category: z.string().min(1).max(60),
   value: z.string().min(1).max(100),
   label: z.string().min(1).max(200),

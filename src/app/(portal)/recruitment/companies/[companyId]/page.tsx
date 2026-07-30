@@ -16,8 +16,8 @@ export default async function RecruitmentCompanyPage({
     <CompanyDetailContent
       companyId={companyId}
       tab={tab}
-      backHref="/recruitment/dashboard"
-      backLabel="Dashboard"
+      backHref="/recruitment/companies"
+      backLabel="Companies"
       basePath={`/recruitment/companies/${companyId}`}
       user={user}
     />

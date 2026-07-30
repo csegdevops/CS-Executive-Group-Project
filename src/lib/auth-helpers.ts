@@ -141,7 +141,7 @@ export async function hasModuleAccessForUser(
 
 export async function getUserModules(userId: string): Promise<Module[]> {
   const keys = await getUserPermissionKeys(userId)
-  const modules: Module[] = ["regulatory", "recruitment", "crm"]
+  const modules: Module[] = ["regulatory", "recruitment"]
   return modules.filter((m) => hasModuleAccess(keys, m))
 }
 

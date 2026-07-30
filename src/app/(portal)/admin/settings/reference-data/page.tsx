@@ -4,7 +4,7 @@ import { PageHeader } from "@/components/layout/PageHeader"
 import { LookupValuesManager } from "@/components/lookup-values/LookupValuesManager"
 import type { LookupValueRow } from "@/components/lookup-values/LookupValuesManager"
 
-const VISIBLE_SCOPES = ["global", "regulatory", "recruitment", "crm"] as const
+const VISIBLE_SCOPES = ["global", "regulatory", "recruitment"] as const
 
 export default async function ReferenceDataPage() {
   const supabase = await createClient()

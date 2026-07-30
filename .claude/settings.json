@@ -41,7 +41,24 @@
       "Bash(curl -sS \"https://www.csexecutivegroup.com/wp-content/uploads/gravity_forms/20-cdc741892e92ce124246a47c3d40b7ba/2026/07/\")",
       "Bash(curl -sS -o /tmp/dirlist.html -w \"size: %{size_download} bytes, content-type: %{content_type}\\\\n\" \"https://www.csexecutivegroup.com/wp-content/uploads/gravity_forms/20-cdc741892e92ce124246a47c3d40b7ba/2026/07/\")",
       "Bash(curl -sS -o /dev/null -w \"resume \\(latest-cv-11.docx\\): HTTP %{http_code}, size %{size_download}\\\\n\" \"https://www.csexecutivegroup.com/wp-content/uploads/gravity_forms/20-cdc741892e92ce124246a47c3d40b7ba/2026/07/latest-cv-11.docx\")",
-      "Bash(curl -sS -o /dev/null -w \"cover letter \\(latest-cv-1.docx\\): HTTP %{http_code}, size %{size_download}\\\\n\" \"https://www.csexecutivegroup.com/wp-content/uploads/gravity_forms/20-cdc741892e92ce124246a47c3d40b7ba/2026/07/latest-cv-1.docx\")"
+      "Bash(curl -sS -o /dev/null -w \"cover letter \\(latest-cv-1.docx\\): HTTP %{http_code}, size %{size_download}\\\\n\" \"https://www.csexecutivegroup.com/wp-content/uploads/gravity_forms/20-cdc741892e92ce124246a47c3d40b7ba/2026/07/latest-cv-1.docx\")",
+      "Bash(grep -Hm1 ^description: 'd:/Project/CS Executive Group Project/.claude/skills/*/SKILL.md')",
+      "Bash(find 'd:/Project/CS Executive Group Project' -iname *seed* -not -path */node_modules/*)",
+      "Bash(taskkill //F //PID 6200)",
+      "Bash(rm -rf .next)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code} \\(%{time_total}s\\)\\\\n\" http://localhost:3000/login)",
+      "Bash(powershell -NoProfile -Command \"\\(Get-CimInstance Win32_Process -Filter \\\\\"ProcessId=29564\\\\\"\\).CommandLine\")",
+      "Bash(curl -s -o /dev/null -w \"  /login -> %{http_code} in %{time_total}s\\\\n\" --max-time 15 http://localhost:3000/login)",
+      "Bash(curl -s -o /dev/null -w \"  / -> %{http_code} in %{time_total}s\\\\n\" --max-time 15 http://localhost:3000/)",
+      "Bash(curl -s -o /dev/null -w \"  /home -> %{http_code} in %{time_total}s\\\\n\" --max-time 15 http://localhost:3000/home)",
+      "Bash(curl -v --max-time 10 http://127.0.0.1:3000/login)",
+      "Bash(tasklist //FI \"PID eq 29564\")",
+      "Bash(curl -s -o /dev/null -w \"/login -> %{http_code} in %{time_total}s\\\\n\" --max-time 15 http://localhost:3000/login)",
+      "Bash(curl -s -o /dev/null -w \"STEP1 %{url_effective} -> %{http_code} redirect_url=%{redirect_url}\\\\n\" http://localhost:3000/)",
+      "Bash(curl -s -D - -o /dev/null http://localhost:3000/)",
+      "Bash(curl -s -D - -o /dev/null http://localhost:3000/home)",
+      "Bash(curl -s -D - -o /dev/null http://localhost:3000/login)",
+      "Bash(taskkill //PID 6268 //F)"
     ],
     "additionalDirectories": [
       "d:\\Project\\CS Executive Group Project\\src\\app\\(portal)\\recruitment\\candidates\\[candidateId]"

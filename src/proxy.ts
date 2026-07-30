@@ -58,19 +58,30 @@ export async function proxy(request: NextRequest) {
   // API routes handle their own auth — never redirect them
   if (pathname.startsWith("/api/")) return supabaseResponse
 
+  // getUser() may have refreshed the auth cookies onto supabaseResponse (via
+  // the setAll callback above). NextResponse.redirect() creates a brand new
+  // response, so any redirect must carry those cookies over — otherwise the
+  // browser keeps the stale/rotated-out refresh token and every subsequent
+  // request bounces back to /login (infinite redirect loop).
+  function redirectTo(path: string) {
+    const url = request.nextUrl.clone()
+    url.pathname = path
+    const response = NextResponse.redirect(url)
+    supabaseResponse.cookies.getAll().forEach((cookie) => {
+      response.cookies.set(cookie)
+    })
+    return response
+  }
+
   // Redirect unauthenticated users to login
   const publicPaths = ["/login", "/register", "/auth", "/forgot-password", "/reset-password"]
   if (!user && !publicPaths.some((p) => pathname.startsWith(p))) {
-    const url = request.nextUrl.clone()
-    url.pathname = "/login"
-    return NextResponse.redirect(url)
+    return redirectTo("/login")
   }
 
   // Redirect authenticated users away from login/register
   if (user && (pathname === "/login" || pathname === "/register")) {
-    const url = request.nextUrl.clone()
-    url.pathname = "/home"
-    return NextResponse.redirect(url)
+    return redirectTo("/home")
   }
 
   if (user) {
@@ -88,9 +99,7 @@ export async function proxy(request: NextRequest) {
       const accessLevel = await getModuleAccessLevel(user.id, "regulatory")
 
       if (accessLevel !== "admin") {
-        const url = request.nextUrl.clone()
-        url.pathname = "/regulatory/dashboard"
-        return NextResponse.redirect(url)
+        return redirectTo("/regulatory/dashboard")
       }
     }
 
@@ -99,7 +108,6 @@ export async function proxy(request: NextRequest) {
       const moduleMap: Record<string, string> = {
         "/regulatory": "regulatory",
         "/recruitment": "recruitment",
-        "/crm": "crm",
       }
 
       const activeModule = Object.keys(moduleMap).find((p) => pathname.startsWith(p))
@@ -108,9 +116,7 @@ export async function proxy(request: NextRequest) {
         const accessLevel = await getModuleAccessLevel(user.id, moduleMap[activeModule])
 
         if (!accessLevel) {
-          const url = request.nextUrl.clone()
-          url.pathname = "/home"
-          return NextResponse.redirect(url)
+          return redirectTo("/home")
         }
       }
     }
