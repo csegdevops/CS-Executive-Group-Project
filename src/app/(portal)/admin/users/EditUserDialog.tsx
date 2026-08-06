@@ -64,7 +64,12 @@ export function EditUserDialog({
         toast.error(err.error ?? "Failed to send reset email")
         return
       }
-      toast.success(`Password reset email sent to ${email}`)
+      const body = await res.json()
+      toast.success(
+        body.email_sent === false
+          ? `Emails are paused — no reset email sent to ${email}`
+          : `Password reset email sent to ${email}`
+      )
     } catch {
       toast.error("Network error")
     } finally {

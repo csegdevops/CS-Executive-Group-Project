@@ -5,7 +5,7 @@ import { PageHeader } from "@/components/layout/PageHeader"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
-import { FlaskConical, Users, Lock, ArrowRight } from "lucide-react"
+import { FlaskConical, Users, Lock, ArrowRight, Clock } from "lucide-react"
 import type { Module } from "@/types/database"
 
 interface ModuleConfig {
@@ -31,9 +31,16 @@ const moduleConfig: Record<Module, ModuleConfig> = {
     icon: Users,
     colorClass: "text-green-600",
   },
+  timesheets: {
+    label: "Timesheets",
+    description: "Contractor timesheets, approvals, and contracts",
+    href: "/timesheets/dashboard",
+    icon: Clock,
+    colorClass: "text-amber-600",
+  },
 }
 
-const allModules: Module[] = ["regulatory", "recruitment"]
+const allModules: Module[] = ["regulatory", "recruitment", "timesheets"]
 
 export default async function HomePage() {
   const user = await requireAuth()

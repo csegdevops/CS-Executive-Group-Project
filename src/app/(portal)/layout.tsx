@@ -1,8 +1,9 @@
 import { requireAuth, getUserPermissionKeys, getUserModules, getEnabledModules } from "@/lib/auth-helpers"
 import { Sidebar } from "@/components/layout/Sidebar"
+import { WrongPortalScreen } from "@/components/layout/WrongPortalScreen"
 import type { Module } from "@/types/database"
 
-const allModules: Module[] = ["regulatory", "recruitment"]
+const allModules: Module[] = ["regulatory", "recruitment", "timesheets"]
 
 export default async function PortalLayout({
   children,
@@ -10,6 +11,7 @@ export default async function PortalLayout({
   children: React.ReactNode
 }) {
   const user = await requireAuth()
+  if (user.user_type !== "internal") return <WrongPortalScreen />
   const isSuperAdmin = user.role === "super_admin"
 
   const [permissionKeys, grantedModules, enabledModules] = await Promise.all([

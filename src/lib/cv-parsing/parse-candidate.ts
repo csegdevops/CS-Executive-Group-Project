@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin"
+import { isAiPaused, AI_PAUSED_MESSAGE } from "@/lib/ai/pause"
 import { prepareDocumentInput } from "./extract"
 import { cvParser } from "./index"
 import type { CvParseVocabulary } from "./types"
@@ -22,6 +23,8 @@ export async function parseCandidateCv(candidateId: string, buffer: Buffer, mime
 
   console.log(`[parse-candidate] ${candidateId} started, buffer=${buffer.length} bytes, mimeType=${mimeType}`)
   try {
+    if (await isAiPaused()) throw new Error(AI_PAUSED_MESSAGE)
+
     await recruitment.from("candidates").update({ cv_parse_status: "pending" }).eq("id", candidateId)
 
     const { data: lookups } = await admin

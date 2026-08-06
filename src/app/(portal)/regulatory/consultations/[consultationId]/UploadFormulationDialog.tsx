@@ -100,6 +100,7 @@ export function UploadFormulationDialog({ consultationId, frameworks, onCommitDo
   const [step, setStep]             = useState<Step>("upload")
   const [file, setFile]             = useState<File | null>(null)
   const [entries, setEntries]       = useState<FormulationEntry[]>([])
+  const [entrySource, setEntrySource] = useState<"deterministic" | "ai" | null>(null)
   const [preview, setPreview]       = useState<FormulationPreview | null>(null)
   const [selectedRows, setSelected] = useState<Set<number>>(new Set())
   const [loading, setLoading]       = useState(false)
@@ -118,6 +119,7 @@ export function UploadFormulationDialog({ consultationId, frameworks, onCommitDo
     setStep("upload")
     setFile(null)
     setEntries([])
+    setEntrySource(null)
     setPreview(null)
     setSelected(new Set())
     setResult(null)
@@ -128,10 +130,10 @@ export function UploadFormulationDialog({ consultationId, frameworks, onCommitDo
     if (!file) return
     setLoading(true)
 
-    // Phase 1: XHR upload to parse Excel (byte-level progress)
+    // Phase 1: XHR upload to parse the file (byte-level progress)
     let parsedEntries: FormulationEntry[]
     try {
-      parsedEntries = await new Promise<FormulationEntry[]>((resolve, reject) => {
+      const parsed = await new Promise<{ entries: FormulationEntry[]; source: "deterministic" | "ai" }>((resolve, reject) => {
         uploadStartRef.current = Date.now()
         setProgress({ label: "Uploading file…", pct: 0, detail: `0 B / ${fmtBytes(file.size)}`, eta: null })
 
@@ -158,13 +160,18 @@ export function UploadFormulationDialog({ consultationId, frameworks, onCommitDo
             catch { reject(new Error("Upload failed")) }
             return
           }
-          try { resolve(JSON.parse(xhr.responseText).entries) }
+          try {
+            const body = JSON.parse(xhr.responseText)
+            resolve({ entries: body.entries, source: body.source ?? "deterministic" })
+          }
           catch { reject(new Error("Failed to parse server response")) }
         })
         xhr.addEventListener("error", () => reject(new Error("Network error")))
         xhr.open("POST", `/api/consultations/${consultationId}/upload`)
         xhr.send(fd)
       })
+      parsedEntries = parsed.entries
+      setEntrySource(parsed.source)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Upload failed")
       setLoading(false)
@@ -364,7 +371,7 @@ export function UploadFormulationDialog({ consultationId, frameworks, onCommitDo
               <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
               <input
                 type="file"
-                accept=".xlsx,.xls,.csv"
+                accept=".xlsx,.xls,.csv,.pdf,.docx,image/*"
                 onChange={handleFileChange}
                 className="hidden"
                 id="formulation-file-upload"
@@ -373,12 +380,12 @@ export function UploadFormulationDialog({ consultationId, frameworks, onCommitDo
                 {file ? (
                   <span className="font-medium">{file.name}</span>
                 ) : (
-                  <span className="text-muted-foreground">Click to select .xlsx, .xls, or .csv</span>
+                  <span className="text-muted-foreground">Click to select a file — Excel, PDF, Word, or a photo</span>
                 )}
               </label>
               {!file && (
                 <p className="text-xs text-muted-foreground mt-1">
-                  Expected columns: INCI Name, CAS Number, Alt CAS (optional), Concentration %, Function, Product Name
+                  Excel expects columns: INCI Name, CAS Number, Alt CAS (optional), Concentration %, Function, Product Name — other formats are read by AI
                   {" — "}
                   <a href="/api/formulation/template" className="underline hover:text-foreground">
                     Download template
@@ -400,6 +407,11 @@ export function UploadFormulationDialog({ consultationId, frameworks, onCommitDo
         {step === "preview" && preview && (
           <div className="space-y-4">
             <div className="flex gap-2 flex-wrap">
+              {entrySource === "ai" && (
+                <Badge variant="outline" className="text-xs text-violet-700 border-violet-300 bg-violet-50">
+                  AI-extracted — please double-check
+                </Badge>
+              )}
               <Badge className="bg-blue-100 text-blue-800 border-blue-200">
                 {preview.rows.length} ingredients
               </Badge>

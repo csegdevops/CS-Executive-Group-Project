@@ -96,7 +96,13 @@ export const geminiCvParser: CvParser = {
         // retry (up to ~60s between attempts) — a transient failure should
         // surface quickly and let the user-facing Retry button recover it,
         // not silently retry for minutes.
-        httpOptions: { timeout: 45_000, retryOptions: { attempts: 1 } },
+        // timeout: a real multi-page CV asking for a full raw_text transcript
+        // plus a 100+ value skill-tag match routinely takes well over a
+        // minute of Gemini "thinking" time (measured up to ~117s on a dense
+        // resume) — 45s was killing the large majority of real applications.
+        // Route handlers that trigger this (applications, parse-cv,
+        // webhooks/seek) set `maxDuration` to give this room to finish.
+        httpOptions: { timeout: 170_000, retryOptions: { attempts: 1 } },
       },
     })
     console.log(`[gemini] generateContent returned`)

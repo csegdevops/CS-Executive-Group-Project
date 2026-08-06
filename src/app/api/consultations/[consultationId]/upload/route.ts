@@ -2,14 +2,17 @@ import { createClient } from "@/lib/supabase/server"
 import { requirePermissionOrSuperAdmin } from "@/lib/auth-helpers"
 import { logConsultationEvent } from "@/lib/consultation-log"
 import { NextResponse } from "next/server"
-import { parseExcelBuffer } from "@/lib/import/excel-parser"
-import { parseFormulationRows } from "@/lib/import/formulation-parser"
+import { parseFormulationFile } from "@/lib/import/parse-formulation-file"
 import {
   generateFormulationPreview,
   commitFormulationUpload,
 } from "@/lib/import/formulation-pipeline"
 import type { FormulationPreview } from "@/lib/import/formulation-pipeline"
 import type { FormulationEntry } from "@/lib/import/formulation-parser"
+
+// AI-fallback parsing (parseFormulationFile) can take well over 45s for a
+// complex PDF/scan — see src/lib/formulation-parsing/gemini.ts.
+export const maxDuration = 120
 
 const enc     = new TextEncoder()
 const ndjson  = (obj: object) => enc.encode(JSON.stringify(obj) + "\n")
@@ -119,10 +122,8 @@ export async function POST(
   if (!file) return NextResponse.json({ error: "file required" }, { status: 400 })
 
   try {
-    const buffer  = Buffer.from(await file.arrayBuffer())
-    const { headers, rows } = parseExcelBuffer(buffer)
-    const entries = parseFormulationRows(headers, rows)
-    return NextResponse.json({ entries })
+    const { entries, source } = await parseFormulationFile(file)
+    return NextResponse.json({ entries, source })
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Failed to parse file" },

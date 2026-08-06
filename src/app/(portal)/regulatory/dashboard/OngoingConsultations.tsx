@@ -29,17 +29,16 @@ const STATUS_LABELS: Record<string, string> = {
 
 const FRAMEWORK_LABELS: Record<string, string> = { aicis: "AICIS", reach: "REACH", tsca: "TSCA" }
 
-const POLL_INTERVAL = 30_000
-
 export function OngoingConsultations({ initialConsultations }: { initialConsultations: Consultation[] }) {
   const [consultations, setConsultations] = useState<Consultation[]>(initialConsultations)
-  const [loading, setLoading]             = useState(false)
+  const [refreshing, setRefreshing]       = useState(false)
   // Starts null to match the server render — set on the client after mount so the
   // locale-formatted time (which can differ between server and browser) never SSRs.
   const [lastUpdated, setLastUpdated]     = useState<Date | null>(null)
   const [error, setError]                 = useState(false)
 
   const fetchConsultations = useCallback(async () => {
+    setRefreshing(true)
     try {
       const res = await fetch("/api/consultations?status=in_progress,under_review", {
         cache: "no-store",
@@ -51,33 +50,31 @@ export function OngoingConsultations({ initialConsultations }: { initialConsulta
     } catch {
       setError(true)
     } finally {
-      setLoading(false)
+      setRefreshing(false)
     }
   }, [])
 
   useEffect(() => {
-    // Initial data comes from the server-rendered page — skip the redundant
-    // fetch-on-mount and only poll for updates from here on.
+    // Initial data comes from the server-rendered page — only refetch when the
+    // user actually comes back to this tab, not on a blind interval.
     setLastUpdated(new Date())
-    const id = setInterval(fetchConsultations, POLL_INTERVAL)
-    return () => clearInterval(id)
+    function onVisibilityChange() {
+      if (document.visibilityState === "visible") fetchConsultations()
+    }
+    document.addEventListener("visibilitychange", onVisibilityChange)
+    return () => document.removeEventListener("visibilitychange", onVisibilityChange)
   }, [fetchConsultations])
 
   const now = new Date()
-
-  if (loading) {
-    return (
-      <div className="h-20 flex items-center justify-center text-xs text-muted-foreground">
-        Loading…
-      </div>
-    )
-  }
 
   if (error) {
     return (
       <div className="flex items-center gap-2 text-xs text-destructive">
         <AlertCircle className="h-3.5 w-3.5" />
-        Failed to load — retrying automatically
+        Failed to load.
+        <button onClick={fetchConsultations} className="underline underline-offset-2 hover:text-destructive/80">
+          Retry
+        </button>
       </div>
     )
   }
@@ -154,10 +151,14 @@ export function OngoingConsultations({ initialConsultations }: { initialConsulta
       </div>
 
       {lastUpdated && (
-        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <RefreshCw className="h-3 w-3" />
-          Updated {lastUpdated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} · refreshes every 30s
-        </div>
+        <button
+          onClick={fetchConsultations}
+          disabled={refreshing}
+          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground disabled:opacity-50"
+        >
+          <RefreshCw className={`h-3 w-3 ${refreshing ? "animate-spin" : ""}`} />
+          Updated {lastUpdated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+        </button>
       )}
     </div>
   )

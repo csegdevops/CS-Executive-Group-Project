@@ -46,14 +46,23 @@ export async function POST(req: NextRequest) {
       confirmed_by: user.id,
       confirmed_at: new Date().toISOString(),
     })
-    .select("id, job_id, candidate_id, start_date")
+    .select("id, job_id, candidate_id, placement_type, start_date, finish_date, pay_rate, charge_rate, currency")
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
+  // A placement means the candidate is placed — keep the application in sync
+  // (application_stage_history logs this automatically via
+  // trg_log_application_stage_change, same as any other stage PATCH).
+  await recruitment
+    .from("applications")
+    .update({ stage: "placed" })
+    .eq("id", parsed.data.application_id)
+    .neq("stage", "placed")
+
   const [{ data: job }, { data: candidate }] = await Promise.all([
-    recruitment.from("jobs").select("title, status, vacancies_count, assigned_recruiter_id").eq("id", placement.job_id).single(),
-    recruitment.from("candidates").select("first_name, last_name").eq("id", placement.candidate_id).single(),
+    recruitment.from("jobs").select("title, status, vacancies_count, assigned_recruiter_id, company_id").eq("id", placement.job_id).single(),
+    recruitment.from("candidates").select("first_name, last_name, email").eq("id", placement.candidate_id).single(),
   ])
 
   if (job?.assigned_recruiter_id) {
@@ -94,5 +103,10 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  return NextResponse.json(placement, { status: 201 })
+  return NextResponse.json({
+    ...placement,
+    company_id: job?.company_id ?? null,
+    candidate_name: candidate ? `${candidate.first_name} ${candidate.last_name}` : null,
+    candidate_email: candidate?.email ?? null,
+  }, { status: 201 })
 }

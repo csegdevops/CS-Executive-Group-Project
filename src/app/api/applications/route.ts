@@ -3,6 +3,11 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { ingestCv } from "@/lib/cv-parsing/ingest"
 import { z } from "zod"
 
+// CV parsing (in the after() callback below) can take well over a minute for
+// a dense resume — see src/lib/cv-parsing/gemini.ts. after() runs within the
+// route's own duration budget, so the default was killing it mid-parse.
+export const maxDuration = 180
+
 /**
  * PUBLIC endpoint — no session auth. Receives job applications pushed by a
  * `gform_after_submission_<form_id>` action hook on the WordPress site

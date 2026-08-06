@@ -2,17 +2,18 @@ import Link from "next/link"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Card, CardContent } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { ModuleToggleList } from "./ModuleToggleList"
-import { Users2, ListChecks, Globe, Clock, ChevronRight } from "lucide-react"
+import { EmailPauseToggle } from "./EmailPauseToggle"
+import { AiPauseToggle } from "./AiPauseToggle"
+import { Users2, ListChecks, Globe, ChevronRight } from "lucide-react"
 import type { ModuleConfig } from "@/types/database"
 
 export default async function PlatformSettingsPage() {
   const admin = createAdminClient()
-  const { data } = await admin
-    .from("module_config")
-    .select("module, is_enabled, updated_at")
-    .order("module")
+  const [{ data }, { data: settings }] = await Promise.all([
+    admin.from("module_config").select("module, is_enabled, updated_at").order("module"),
+    admin.from("system_settings").select("emails_paused, ai_paused").eq("id", true).single(),
+  ])
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -20,6 +21,10 @@ export default async function PlatformSettingsPage() {
         title="Platform Settings"
         description="Control which modules are available across the platform."
       />
+
+      <EmailPauseToggle initialPaused={settings?.emails_paused ?? false} />
+
+      <AiPauseToggle initialPaused={settings?.ai_paused ?? false} />
 
       <Link href="/admin/settings/groups">
         <Card className="hover:bg-muted/40 transition-colors cursor-pointer">
@@ -71,21 +76,6 @@ export default async function PlatformSettingsPage() {
           </CardContent>
         </Card>
       </Link>
-
-      <Card className="opacity-60">
-        <CardContent className="flex items-center justify-between py-4">
-          <div className="flex items-center gap-3">
-            <Clock className="h-5 w-5 text-muted-foreground" />
-            <div>
-              <p className="text-sm font-medium">Timesheets</p>
-              <p className="text-xs text-muted-foreground">
-                Contractor timesheets, approvals, and contracts — coming soon.
-              </p>
-            </div>
-          </div>
-          <Badge variant="outline" className="text-xs text-muted-foreground">Coming soon</Badge>
-        </CardContent>
-      </Card>
 
       <ModuleToggleList configs={(data ?? []) as ModuleConfig[]} />
     </div>

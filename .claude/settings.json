@@ -77,7 +77,25 @@
       "Bash(node -e ' *)",
       "Bash(curl -s -o /dev/null -w 'profiles REST query: HTTP %{http_code} in %{time_total}s\\\\n' -H 'apikey: __TRACKED_VAR__' -H 'Authorization: Bearer __TRACKED_VAR__' 'https://ozzqjpootznjbcpctynj.supabase.co/rest/v1/profiles?id=eq.__TRACKED_VAR__&select=role')",
       "Bash(curl -s -H 'apikey: __TRACKED_VAR__' -H 'Authorization: Bearer __TRACKED_VAR__' 'https://ozzqjpootznjbcpctynj.supabase.co/rest/v1/profiles?id=eq.__TRACKED_VAR__&select=role')",
-      "mcp__supabase__get_logs"
+      "mcp__supabase__get_logs",
+      "PowerShell(npx next lint 2>&1)",
+      "Bash(npm run *)",
+      "Bash(echo \"started with PID $!\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000)",
+      "Bash(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/regulatory/consultations/new)",
+      "Bash(echo \"consultations/new: $\\(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/regulatory/consultations/new\\)\")",
+      "Bash(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/regulatory/companies)",
+      "Bash(echo \"companies list: $\\(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/regulatory/companies\\)\")",
+      "Bash(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:3000/api/formulation)",
+      "Bash(kill 1813)",
+      "Bash(nohup npm run dev)",
+      "Bash(disown)",
+      "mcp__supabase__generate_typescript_types",
+      "Bash(mkdir -p /tmp/docx_extract)",
+      "Bash(python3 -c ' *)",
+      "Bash(mkdir -p \"/c/Users/kcmut/AppData/Local/Temp/claude/d--Project-CS-Executive-Group-Project/1e64dd75-cb07-4e47-b54c-226727580d13/scratchpad/jobadder_images\")",
+      "PowerShell(npx tsc --noEmit -p tsconfig.json 2>&1)",
+      "Bash(python3 \"C:\\\\Users\\\\kcmut\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--Project-CS-Executive-Group-Project\\\\1e64dd75-cb07-4e47-b54c-226727580d13\\\\scratchpad\\\\build_payload.py\")"
     ],
     "additionalDirectories": [
       "d:\\Project\\CS Executive Group Project\\src\\app\\(portal)\\recruitment\\candidates\\[candidateId]"

@@ -1,6 +1,7 @@
 export type Role = "super_admin" | "user"
+export type UserType = "internal" | "contractor" | "supervisor"
 export type ModuleAccessLevel = "admin" | "member"
-export type Module = "regulatory" | "recruitment"
+export type Module = "regulatory" | "recruitment" | "timesheets"
 export type AssignmentType = "primary" | "temporary"
 export type ConsultationStatus = "draft" | "in_progress" | "under_review" | "completed" | "archived"
 export type RegulatoryFramework = "aicis" | "reach" | "tsca"
@@ -36,6 +37,12 @@ export type TaskStatus = "open" | "in_progress" | "completed" | "cancelled"
 export type CvParseStatus = "unparsed" | "pending" | "parsed" | "failed"
 export type CvParsedBy = "gemini" | "claude" | "azure" | "daxtra" | "manual"
 
+// Timesheets
+export type ContractStatus = "active" | "expired" | "terminated"
+export type ContractEventType = "created" | "extended" | "terminated" | "supervisor_changed"
+export type TimesheetStatus = "draft" | "submitted" | "approved" | "declined"
+export type TimesheetEventType = "submitted" | "approved" | "declined" | "amended" | "resubmitted"
+
 export interface Database {
   public: {
     Tables: {
@@ -43,6 +50,7 @@ export interface Database {
         Row: {
           id: string
           role: Role
+          user_type: UserType
           full_name: string | null
           is_active: boolean
           created_at: string
@@ -50,12 +58,14 @@ export interface Database {
         Insert: {
           id: string
           role?: Role
+          user_type?: UserType
           full_name?: string | null
           is_active?: boolean
           created_at?: string
         }
         Update: {
           role?: Role
+          user_type?: UserType
           full_name?: string | null
           is_active?: boolean
         }
@@ -175,6 +185,7 @@ export interface Database {
           is_crm_contact: boolean
           is_regulatory_contact: boolean
           is_recruitment_contact: boolean
+          is_timesheets_supervisor: boolean
           created_at: string
           updated_at: string
         }
@@ -195,6 +206,7 @@ export interface Database {
           is_crm_contact?: boolean
           is_regulatory_contact?: boolean
           is_recruitment_contact?: boolean
+          is_timesheets_supervisor?: boolean
         }
         Update: {
           branch_id?: string | null
@@ -210,6 +222,7 @@ export interface Database {
           is_crm_contact?: boolean
           is_regulatory_contact?: boolean
           is_recruitment_contact?: boolean
+          is_timesheets_supervisor?: boolean
         }
         Relationships: []
       }
@@ -306,6 +319,36 @@ export interface Database {
           is_enabled?: boolean
           updated_by?: string | null
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      system_settings: {
+        Row: {
+          id: boolean
+          emails_paused: boolean
+          emails_paused_by: string | null
+          emails_paused_at: string | null
+          ai_paused: boolean
+          ai_paused_by: string | null
+          ai_paused_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          id?: boolean
+          emails_paused?: boolean
+          emails_paused_by?: string | null
+          emails_paused_at?: string | null
+          ai_paused?: boolean
+          ai_paused_by?: string | null
+          ai_paused_at?: string | null
+        }
+        Update: {
+          emails_paused?: boolean
+          emails_paused_by?: string | null
+          emails_paused_at?: string | null
+          ai_paused?: boolean
+          ai_paused_by?: string | null
+          ai_paused_at?: string | null
         }
         Relationships: []
       }
@@ -426,6 +469,16 @@ export interface Database {
           chemical_id: string
           common_name: string
           cas_number: string | null
+        }>
+      }
+      get_own_auth_context: {
+        Args: Record<string, never>
+        Returns: Array<{
+          role: string
+          full_name: string | null
+          user_type: string
+          permission_keys: string[]
+          enabled_modules: string[]
         }>
       }
     }
@@ -1269,6 +1322,243 @@ export interface Database {
         }>
       }
     }
+    Enums: Record<string, never>
+    CompositeTypes: Record<string, never>
+  }
+  timesheets: {
+    Tables: {
+      contractors: {
+        Row: {
+          id: string
+          user_id: string
+          candidate_id: string | null
+          placement_id: string | null
+          company_id: string
+          branch_id: string | null
+          full_name: string
+          email: string
+          is_active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          candidate_id?: string | null
+          placement_id?: string | null
+          company_id: string
+          branch_id?: string | null
+          full_name: string
+          email: string
+          is_active?: boolean
+        }
+        Update: {
+          candidate_id?: string | null
+          placement_id?: string | null
+          company_id?: string
+          branch_id?: string | null
+          full_name?: string
+          email?: string
+          is_active?: boolean
+        }
+        Relationships: []
+      }
+      supervisors: {
+        Row: {
+          id: string
+          user_id: string
+          contact_id: string | null
+          company_id: string
+          branch_id: string | null
+          full_name: string
+          email: string
+          is_active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          contact_id?: string | null
+          company_id: string
+          branch_id?: string | null
+          full_name: string
+          email: string
+          is_active?: boolean
+        }
+        Update: {
+          contact_id?: string | null
+          company_id?: string
+          branch_id?: string | null
+          full_name?: string
+          email?: string
+          is_active?: boolean
+        }
+        Relationships: []
+      }
+      supervisor_assignments: {
+        Row: {
+          id: string
+          contractor_id: string
+          supervisor_id: string
+          start_date: string
+          end_date: string | null
+          assigned_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          contractor_id: string
+          supervisor_id: string
+          start_date?: string
+          end_date?: string | null
+          assigned_by?: string | null
+        }
+        Update: {
+          end_date?: string | null
+        }
+        Relationships: []
+      }
+      contracts: {
+        Row: {
+          id: string
+          contractor_id: string
+          start_date: string
+          finish_date: string | null
+          pay_rate: number | null
+          charge_rate: number | null
+          currency: string
+          status: ContractStatus
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          contractor_id: string
+          start_date: string
+          finish_date?: string | null
+          pay_rate?: number | null
+          charge_rate?: number | null
+          currency?: string
+          status?: ContractStatus
+        }
+        Update: {
+          start_date?: string
+          finish_date?: string | null
+          pay_rate?: number | null
+          charge_rate?: number | null
+          currency?: string
+          status?: ContractStatus
+        }
+        Relationships: []
+      }
+      contract_events: {
+        Row: {
+          id: string
+          contract_id: string
+          event_type: ContractEventType
+          actor_user_id: string | null
+          details: Record<string, unknown> | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          contract_id: string
+          event_type: ContractEventType
+          actor_user_id?: string | null
+          details?: Record<string, unknown> | null
+        }
+        Update: Record<string, never>
+        Relationships: []
+      }
+      timesheets: {
+        Row: {
+          id: string
+          contractor_id: string
+          week_starting: string
+          status: TimesheetStatus
+          decline_reason: string | null
+          is_template: boolean
+          supervisor_id: string | null
+          submitted_at: string | null
+          approved_at: string | null
+          approved_by: string | null
+          declined_at: string | null
+          declined_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          contractor_id: string
+          week_starting: string
+          status?: TimesheetStatus
+          decline_reason?: string | null
+          is_template?: boolean
+          supervisor_id?: string | null
+          submitted_at?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          declined_at?: string | null
+          declined_by?: string | null
+        }
+        Update: {
+          status?: TimesheetStatus
+          decline_reason?: string | null
+          supervisor_id?: string | null
+          submitted_at?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          declined_at?: string | null
+          declined_by?: string | null
+        }
+        Relationships: []
+      }
+      timesheet_entries: {
+        Row: {
+          id: string
+          timesheet_id: string
+          work_date: string
+          hours: number
+          description: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          timesheet_id: string
+          work_date: string
+          hours: number
+          description?: string | null
+        }
+        Update: {
+          work_date?: string
+          hours?: number
+          description?: string | null
+        }
+        Relationships: []
+      }
+      timesheet_events: {
+        Row: {
+          id: string
+          timesheet_id: string
+          event_type: TimesheetEventType
+          actor_user_id: string | null
+          notes: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          timesheet_id: string
+          event_type: TimesheetEventType
+          actor_user_id?: string | null
+          notes?: string | null
+        }
+        Update: Record<string, never>
+        Relationships: []
+      }
+    }
+    Views: Record<string, never>
+    Functions: Record<string, never>
     Enums: Record<string, never>
     CompositeTypes: Record<string, never>
   }

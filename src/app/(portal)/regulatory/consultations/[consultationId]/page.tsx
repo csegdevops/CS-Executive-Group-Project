@@ -18,6 +18,7 @@ import { ConsultationStatusControl } from "./ConsultationStatusControl"
 import { ManageConsultantsDialog } from "./ManageConsultantsDialog"
 import { BackButton } from "./BackButton"
 import { EditDetailsDialog } from "./EditDetailsDialog"
+import { ConsultationSummaryDialog } from "./ConsultationSummaryDialog"
 import type { RegulatoryFramework, RegulatoryStatus } from "@/types/database"
 
 const statusLabels: Record<string, string> = {
@@ -142,6 +143,7 @@ export default async function ConsultationDetailPage({
         <BackButton />
       </div>
       <PageHeader title={consultation.title}>
+        <ConsultationSummaryDialog consultationId={consultationId} />
         <Link
           href={`/regulatory/consultations/${consultationId}/export`}
           target="_blank"

@@ -2,13 +2,15 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { notFound } from "next/navigation"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
-import { ChevronLeft, Building2, Star, Phone, Mail, ExternalLink } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { ChevronLeft, Building2, Star, Phone, Mail, ExternalLink, Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { formatDate, formatDistanceToNow } from "@/lib/date-helpers"
 import { BranchesContactsTab } from "./BranchesContactsTab"
 import { ActivityTab } from "./ActivityTab"
 import { EditCompanyDialog } from "./EditCompanyDialog"
 import { NewOpportunityDialog } from "./NewOpportunityDialog"
+import { CompanySummaryDialog } from "./CompanySummaryDialog"
 import { formatAddress } from "@/lib/address"
 import type { AuthUser } from "@/lib/auth-helpers"
 import { CrmStatusBadge, OpportunityStageBadge } from "@/components/crm/CrmStatusBadge"
@@ -111,7 +113,8 @@ export async function CompanyDetailContent({ companyId, tab, backHref, backLabel
             )}
           </div>
         </div>
-        <div className="shrink-0">
+        <div className="shrink-0 flex items-center gap-2">
+          <CompanySummaryDialog companyId={companyId} />
           <EditCompanyDialog company={company} profiles={typedProfiles} />
         </div>
       </div>
@@ -250,6 +253,17 @@ export async function CompanyDetailContent({ companyId, tab, backHref, backLabel
       {/* Regulatory tab */}
       {tab === "regulatory" && (
         <div>
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-sm text-muted-foreground">
+              {(consultations ?? []).length} consultation{(consultations ?? []).length !== 1 ? "s" : ""}
+            </p>
+            <Button size="sm" asChild>
+              <Link href={`/regulatory/consultations/new?company_id=${companyId}`}>
+                <Plus className="h-4 w-4 mr-1.5" />
+                New Consultation
+              </Link>
+            </Button>
+          </div>
           {!(consultations?.length) ? (
             <div className="border rounded-lg text-center py-12 text-muted-foreground text-sm">No consultations for this company.</div>
           ) : (

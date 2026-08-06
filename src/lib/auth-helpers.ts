@@ -1,39 +1,67 @@
 import { cache } from "react"
 import { createClient } from "@/lib/supabase/server"
-import { createAdminClient } from "@/lib/supabase/admin"
 import { redirect } from "next/navigation"
-import type { Role, Module } from "@/types/database"
+import type { Role, Module, UserType } from "@/types/database"
 
 export interface AuthUser {
   id: string
   email: string
   role: Role
+  user_type: UserType
   full_name: string | null
 }
 
+interface AuthContext {
+  role: Role
+  userType: UserType
+  fullName: string | null
+  permissionKeys: string[]
+  enabledModules: Module[]
+}
+
+type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>
+
 /**
- * Layout and page both call this (directly or via requireAuth/requireModuleAccess/etc.)
- * on every protected route. cache() collapses those into a single getUser() + profile
- * round trip per request instead of one per caller.
+ * Role, full_name, permission keys, and enabled modules in one round trip
+ * via get_own_auth_context() (self-scoped to auth.uid() in the function
+ * body — see 20260731000003_speed_up_auth_context.sql), replacing what used
+ * to be a profile query + two group/permission queries + a module_config
+ * query. Cached per userId so every caller sharing a request (layout, page,
+ * and — for the *ForUser helpers — an API route handler that already ran
+ * its own auth.getUser()) collapses onto a single fetch. The passed userId
+ * is only a cache key; the RPC itself always resolves the caller's own
+ * session, so a caller can never read another user's grants through it.
  */
+const fetchAuthContext = cache(async (_userId: string): Promise<AuthContext | null> => {
+  const supabase = await createClient()
+  const { data } = await supabase.rpc("get_own_auth_context").single()
+  if (!data) return null
+  return {
+    role: data.role as Role,
+    userType: (data.user_type ?? "internal") as UserType,
+    fullName: data.full_name,
+    permissionKeys: data.permission_keys ?? [],
+    enabledModules: (data.enabled_modules ?? []) as Module[],
+  }
+})
+
+/** Layout and page both call this (directly or via requireAuth/requireModuleAccess/etc.)
+ * on every protected route. cache() collapses those into a single getUser() +
+ * auth-context round trip per request instead of one per caller. */
 export const getAuthUser = cache(async (): Promise<AuthUser | null> => {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role, full_name")
-    .eq("id", user.id)
-    .single()
-
-  if (!profile) return null
+  const ctx = await fetchAuthContext(user.id)
+  if (!ctx) return null
 
   return {
     id: user.id,
     email: user.email ?? "",
-    role: profile.role as Role,
-    full_name: profile.full_name,
+    role: ctx.role,
+    user_type: ctx.userType,
+    full_name: ctx.fullName,
   }
 })
 
@@ -49,59 +77,6 @@ export async function requireSuperAdmin(): Promise<AuthUser> {
   return user
 }
 
-type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>
-
-/**
- * All permission keys a user holds, resolved through their user_groups
- * membership. user_group_members/user_group_permissions are deliberately
- * granted to service_role only (see 20260721000001_user_groups.sql) — a
- * user's own session client has zero privileges on them, so this must
- * always read through the admin (service-role) client regardless of what
- * client the caller passed in. This function runs entirely server-side and
- * is never reachable from the browser, so that's safe.
- *
- * Cached by userId (the passed-in client is unused — every call already
- * goes through its own admin client — so caching on the client reference
- * would never dedupe anything). requireModuleAccess, getUserModules, and
- * a layout+page pair can all resolve the same user's keys within one
- * request for a single round trip instead of one each.
- */
-const fetchUserPermissionKeysCached = cache(async (userId: string): Promise<string[]> => {
-  const admin = createAdminClient()
-  const { data: memberships } = await admin
-    .from("user_group_members")
-    .select("group_id")
-    .eq("user_id", userId)
-  const groupIds = (memberships ?? []).map((m) => m.group_id)
-  if (groupIds.length === 0) return []
-
-  const { data: grants } = await admin
-    .from("user_group_permissions")
-    .select("permission_key")
-    .in("group_id", groupIds)
-  return (grants ?? []).map((g) => g.permission_key)
-})
-
-async function fetchUserPermissionKeys(
-  _supabase: SupabaseServerClient,
-  userId: string
-): Promise<string[]> {
-  return fetchUserPermissionKeysCached(userId)
-}
-
-export async function getUserPermissionKeys(userId: string): Promise<string[]> {
-  const supabase = await createClient()
-  return fetchUserPermissionKeys(supabase, userId)
-}
-
-/** Same as getUserPermissionKeys, but reuses an already-created client. */
-export async function getUserPermissionKeysWithClient(
-  supabase: SupabaseServerClient,
-  userId: string
-): Promise<string[]> {
-  return fetchUserPermissionKeys(supabase, userId)
-}
-
 export function hasPermission(keys: string[], key: string): boolean {
   return keys.includes(key)
 }
@@ -115,49 +90,63 @@ export function isModuleAdmin(keys: string[], module: Module): boolean {
   return keys.some((k) => k.startsWith(`${module}.`) && k !== `${module}.access`)
 }
 
+export async function getUserPermissionKeys(userId: string): Promise<string[]> {
+  const ctx = await fetchAuthContext(userId)
+  return ctx?.permissionKeys ?? []
+}
+
+/** Same as getUserPermissionKeys — kept for call-site compatibility; the client param is unused. */
+export async function getUserPermissionKeysWithClient(
+  _supabase: SupabaseServerClient,
+  userId: string
+): Promise<string[]> {
+  return getUserPermissionKeys(userId)
+}
+
 export async function hasPermissionForUser(
-  supabase: SupabaseServerClient,
+  _supabase: SupabaseServerClient,
   userId: string,
   key: string
 ): Promise<boolean> {
-  const keys = await fetchUserPermissionKeys(supabase, userId)
+  const keys = await getUserPermissionKeys(userId)
   return hasPermission(keys, key)
 }
 
 /** For API routes: true if the user is super_admin or holds the given permission key. */
 export async function requirePermissionOrSuperAdmin(
-  supabase: SupabaseServerClient,
+  _supabase: SupabaseServerClient,
   userId: string,
   key: string
 ): Promise<boolean> {
-  const { data: profile } = await supabase.from("profiles").select("role").eq("id", userId).single()
-  if (profile?.role === "super_admin") return true
-  return hasPermissionForUser(supabase, userId, key)
+  const ctx = await fetchAuthContext(userId)
+  if (!ctx) return false
+  if (ctx.role === "super_admin") return true
+  return hasPermission(ctx.permissionKeys, key)
 }
 
 export async function isModuleAdminForUser(
-  supabase: SupabaseServerClient,
+  _supabase: SupabaseServerClient,
   userId: string,
   module: Module
 ): Promise<boolean> {
-  const keys = await fetchUserPermissionKeys(supabase, userId)
+  const keys = await getUserPermissionKeys(userId)
   return isModuleAdmin(keys, module)
 }
 
 export async function hasModuleAccessForUser(
-  supabase: SupabaseServerClient,
+  _supabase: SupabaseServerClient,
   userId: string,
   module: Module
 ): Promise<boolean> {
-  const { data: profile } = await supabase.from("profiles").select("role").eq("id", userId).single()
-  if (profile?.role === "super_admin") return true
-  const keys = await fetchUserPermissionKeys(supabase, userId)
-  return hasModuleAccess(keys, module)
+  const ctx = await fetchAuthContext(userId)
+  if (!ctx) return false
+  if (ctx.role === "super_admin") return true
+  return hasModuleAccess(ctx.permissionKeys, module)
 }
 
 export async function getUserModules(userId: string): Promise<Module[]> {
   const keys = await getUserPermissionKeys(userId)
-  const modules: Module[] = ["regulatory", "recruitment"]
+  const modules: Module[] = ["regulatory", "recruitment", "timesheets"]
   return modules.filter((m) => hasModuleAccess(keys, m))
 }
 
@@ -193,21 +182,37 @@ export async function requireAdmin(): Promise<AuthUser> {
 
 /** Layout and page both call this on every protected route — cached per request. */
 export const getEnabledModules = cache(async (): Promise<Module[]> => {
-  const supabase = await createClient()
-  const { data } = await supabase
-    .from("module_config")
-    .select("module")
-    .eq("is_enabled", true)
-  return (data ?? []).map((r) => r.module as Module)
+  const user = await getAuthUser()
+  if (!user) return []
+  const ctx = await fetchAuthContext(user.id)
+  return ctx?.enabledModules ?? []
 })
 
-/** Redirects to /home if the module is disabled system-wide. No super_admin bypass. */
+/** Redirects to /home if the module is disabled system-wide. No super_admin bypass.
+ * Only ever called from routes nested under (portal)/layout.tsx, which has already
+ * run requireAuth() — so getAuthUser() here is always resolved from cache, never null. */
 export async function requireModuleEnabled(module: Module): Promise<void> {
-  const supabase = await createClient()
-  const { data } = await supabase
-    .from("module_config")
-    .select("is_enabled")
-    .eq("module", module)
-    .single()
-  if (!data?.is_enabled) redirect("/home")
+  const enabled = await getEnabledModules()
+  if (!enabled.includes(module)) redirect("/home")
+}
+
+/**
+ * External-user guards for the timesheets-portal shell (src/app/timesheets-portal/*,
+ * served on its own subdomain via src/proxy.ts). Deliberately outside the
+ * Module/PERMISSION_CATALOG/hasModuleAccess system — contractors and supervisors
+ * hold zero permission-catalog grants (see grant_default_module_access() in
+ * 20260806000001_timesheets_schema.sql) and never appear in Sidebar/PermissionsPicker.
+ * redirect("/login") resolves relative to whichever host issued the request, so this
+ * lands on the timesheets-portal's own login page, not the internal one.
+ */
+export async function requireContractorAuth(): Promise<AuthUser> {
+  const user = await getAuthUser()
+  if (!user || user.user_type !== "contractor") redirect("/login")
+  return user
+}
+
+export async function requireSupervisorAuth(): Promise<AuthUser> {
+  const user = await getAuthUser()
+  if (!user || user.user_type !== "supervisor") redirect("/login")
+  return user
 }

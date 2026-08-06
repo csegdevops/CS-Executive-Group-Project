@@ -1,5 +1,6 @@
 import { createResendClient, EMAIL_FROM } from "./client"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { isEmailPaused } from "./pause"
 import { render } from "@react-email/components"
 import { ConsultationStatusChangedEmail } from "./templates/ConsultationStatusChanged"
 import { ConsultantAssignedEmail } from "./templates/ConsultantAssigned"
@@ -17,6 +18,10 @@ async function getEmailForUser(userId: string): Promise<string | null> {
 }
 
 async function send(to: string, subject: string, html: string) {
+  if (await isEmailPaused()) {
+    console.log("[email] paused — skipped", { to, subject })
+    return
+  }
   try {
     const resend = createResendClient()
     await resend.emails.send({ from: EMAIL_FROM, to, subject, html })

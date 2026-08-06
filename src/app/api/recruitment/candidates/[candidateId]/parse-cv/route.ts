@@ -5,6 +5,11 @@ import { requirePermissionOrSuperAdmin } from "@/lib/auth-helpers"
 import { downloadCvBuffer } from "@/lib/storage/cv-storage"
 import { parseCandidateCv } from "@/lib/cv-parsing/parse-candidate"
 
+// CV parsing (in the after() callback below) can take well over a minute for
+// a dense resume — see src/lib/cv-parsing/gemini.ts. after() runs within the
+// route's own duration budget, so the default was killing it mid-parse.
+export const maxDuration = 180
+
 // POST /api/recruitment/candidates/[candidateId]/parse-cv — re-run parsing
 // on the CV already on file (no new upload). Used for retrying after a
 // failure or forcing a re-parse.

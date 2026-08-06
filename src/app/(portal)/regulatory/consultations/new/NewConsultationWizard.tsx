@@ -12,6 +12,7 @@ import {
 import { toast } from "sonner"
 import type { FormulationEntry } from "@/lib/import/formulation-parser"
 import type { FormulationPreview, FormulationPreviewRow } from "@/lib/import/formulation-pipeline"
+import { CompanySearchCombobox } from "./CompanySearchCombobox"
 
 const FRAMEWORKS = [
   { value: "aicis", label: "AICIS" },
@@ -44,6 +45,7 @@ export function NewConsultationWizard({ companies, initialCompanyId }: Props) {
   const [uploadProgress, setUploadProgress]           = useState<number | null>(null)
   const [previewProgress, setPreviewProgress]         = useState<{ done: number; total: number } | null>(null)
   const [entries, setEntries]                         = useState<FormulationEntry[] | null>(null)
+  const [entrySource, setEntrySource]                 = useState<"deterministic" | "ai" | null>(null)
   const [preview, setPreview]                         = useState<FormulationPreview | null>(null)
   const [selectedRows, setSelectedRows]               = useState<Set<number>>(new Set())
   const [previewError, setPreviewError]               = useState<string | null>(null)
@@ -64,6 +66,7 @@ export function NewConsultationWizard({ companies, initialCompanyId }: Props) {
   // ── File upload + preview streaming ──────────────────────────────────────
   async function handleFile(file: File) {
     setEntries(null)
+    setEntrySource(null)
     setPreview(null)
     setSelectedRows(new Set())
     setPreviewError(null)
@@ -73,7 +76,7 @@ export function NewConsultationWizard({ companies, initialCompanyId }: Props) {
     const formData = new FormData()
     formData.append("file", file)
 
-    const entries = await new Promise<FormulationEntry[]>((resolve, reject) => {
+    const parsed = await new Promise<{ entries: FormulationEntry[]; source: "deterministic" | "ai" }>((resolve, reject) => {
       const xhr = new XMLHttpRequest()
       xhr.open("POST", "/api/formulation")
       xhr.upload.onprogress = (ev) => {
@@ -81,7 +84,8 @@ export function NewConsultationWizard({ companies, initialCompanyId }: Props) {
       }
       xhr.onload = () => {
         if (xhr.status >= 200 && xhr.status < 300) {
-          resolve(JSON.parse(xhr.responseText).entries as FormulationEntry[])
+          const body = JSON.parse(xhr.responseText)
+          resolve({ entries: body.entries as FormulationEntry[], source: body.source ?? "deterministic" })
         } else {
           reject(new Error(JSON.parse(xhr.responseText).error ?? "Parse failed"))
         }
@@ -94,8 +98,10 @@ export function NewConsultationWizard({ companies, initialCompanyId }: Props) {
       return null
     })
 
-    if (!entries) return
+    if (!parsed) return
+    const { entries, source } = parsed
     setEntries(entries)
+    setEntrySource(source)
     setUploadProgress(null)
 
     if (entries.length === 0) {
@@ -260,18 +266,7 @@ export function NewConsultationWizard({ companies, initialCompanyId }: Props) {
               <label className="text-sm font-medium">
                 Company <span className="text-destructive">*</span>
               </label>
-              <select
-                value={companyId}
-                onChange={(e) => setCompanyId(e.target.value)}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              >
-                <option value="">— Select a company —</option>
-                {companies.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}{c.country ? ` (${c.country})` : ""}
-                  </option>
-                ))}
-              </select>
+              <CompanySearchCombobox companies={companies} value={companyId} onChange={setCompanyId} />
             </div>
 
             {/* Title */}
@@ -374,7 +369,7 @@ export function NewConsultationWizard({ companies, initialCompanyId }: Props) {
               <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-3" />
               <p className="text-sm font-medium">Drop client formulation file here</p>
               <p className="text-xs text-muted-foreground mt-1">
-                Excel (.xlsx, .xls) — ingredient names, CAS numbers, concentrations
+                Excel, PDF, Word, or a photo of the formulation sheet — AI reads non-standard layouts
                 {" — "}
                 <a
                   href="/api/formulation/template"
@@ -390,7 +385,7 @@ export function NewConsultationWizard({ companies, initialCompanyId }: Props) {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".xlsx,.xls"
+                accept=".xlsx,.xls,.pdf,.docx,image/*"
                 className="hidden"
                 onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f) }}
               />
@@ -437,7 +432,12 @@ export function NewConsultationWizard({ companies, initialCompanyId }: Props) {
           {/* Preview summary + re-upload */}
           {entries && !previewProgress && (
             <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-muted-foreground flex items-center gap-2">
+                {entrySource === "ai" && (
+                  <Badge variant="outline" className="text-xs text-violet-700 border-violet-300 bg-violet-50">
+                    AI-extracted — please double-check
+                  </Badge>
+                )}
                 {entries.length.toLocaleString()} rows parsed
                 {preview && (
                   <> — {preview.matchedCount} matched, {preview.newCount} new, {preview.needsActionCount} need review</>
@@ -447,7 +447,7 @@ export function NewConsultationWizard({ companies, initialCompanyId }: Props) {
                 variant="ghost"
                 size="sm"
                 onClick={() => {
-                  setEntries(null); setPreview(null); setSelectedRows(new Set()); setPreviewError(null)
+                  setEntries(null); setEntrySource(null); setPreview(null); setSelectedRows(new Set()); setPreviewError(null)
                   setTimeout(() => fileInputRef.current?.click(), 50)
                 }}
               >

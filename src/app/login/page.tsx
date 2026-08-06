@@ -59,7 +59,6 @@ function LoginForm() {
     }
 
     router.push("/home")
-    router.refresh()
   }
 
   return (

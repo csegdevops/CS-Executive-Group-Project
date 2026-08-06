@@ -42,6 +42,9 @@ import {
   CalendarClock,
   UserCog,
   Contact,
+  Clock,
+  FileSignature,
+  UserCheck,
 } from "lucide-react"
 import type { Role, Module } from "@/types/database"
 
@@ -72,21 +75,31 @@ const moduleNavItems: Record<string, NavItem[]> = {
     { label: "Tasks",        href: "/recruitment/tasks",               icon: ListChecks },
     { label: "Activities",   href: "/recruitment/activities",          icon: CalendarClock },
   ],
+  timesheets: [
+    { label: "Dashboard",    href: "/timesheets/dashboard",            icon: LayoutDashboard },
+    { label: "Contractors",  href: "/timesheets/contractors",          icon: UserCheck },
+    { label: "Contracts",    href: "/timesheets/contracts",            icon: FileSignature },
+    { label: "Supervisors",  href: "/timesheets/supervisors",          icon: Contact },
+    { label: "Timesheets",   href: "/timesheets/timesheets",           icon: ClipboardList },
+  ],
 }
 
 const moduleLabels: Record<string, string> = {
   regulatory: "Regulatory DB",
   recruitment: "Recruitment",
+  timesheets: "Timesheets",
 }
 
 const moduleIcons: Record<string, React.ElementType> = {
   regulatory: FlaskConical,
   recruitment: Users,
+  timesheets: Clock,
 }
 
 const moduleHrefs: Record<string, string> = {
   regulatory: "/regulatory/dashboard",
   recruitment: "/recruitment/dashboard",
+  timesheets: "/timesheets/dashboard",
 }
 
 interface SidebarProps {
@@ -151,6 +164,8 @@ export function Sidebar({ role, userName, email, permissionKeys, accessibleModul
     ? "regulatory"
     : pathname.startsWith("/recruitment")
     ? "recruitment"
+    : pathname.startsWith("/timesheets")
+    ? "timesheets"
     : null
 
   const isSuperAdmin = role === "super_admin"

@@ -94,11 +94,33 @@ export const PERMISSION_CATALOG: Record<Module, PermissionCategory[]> = {
     },
     { category: "Reference Data", permissions: [{ key: "recruitment.reference_data.manage", label: "Manage Recruitment reference data" }] },
   ],
+  timesheets: [
+    { category: "Module", permissions: [{ key: "timesheets.access", label: "Access the Timesheets module" }] },
+    {
+      category: "Contractors",
+      permissions: [
+        { key: "timesheets.contractors.manage", label: "Provision contractors & manage supervisor assignments" },
+      ],
+    },
+    { category: "Contracts", permissions: [{ key: "timesheets.contracts.manage", label: "Create, extend & terminate contracts" }] },
+    { category: "Supervisors", permissions: [{ key: "timesheets.supervisors.manage", label: "Provision supervisors" }] },
+    { category: "Timesheets", permissions: [{ key: "timesheets.timesheets.oversee", label: "View & oversee all submitted timesheets" }] },
+    {
+      category: "Companies",
+      permissions: [
+        { key: "companies.create", label: "Manually register a company" },
+        { key: "companies.edit", label: "Edit company details & activity log" },
+        { key: "companies.contacts.manage", label: "Add, edit & delete company contacts" },
+        { key: "companies.branches.manage", label: "Add, edit & delete branches" },
+      ],
+    },
+  ],
 }
 
 export const MODULE_LABELS: Record<Module, string> = {
   regulatory: "Regulatory",
   recruitment: "Recruitment",
+  timesheets: "Timesheets",
 }
 
 export function allPermissionKeys(): string[] {

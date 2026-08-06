@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { isEmailPaused } from "@/lib/email/pause"
 import { NextResponse } from "next/server"
 
 export async function POST(
@@ -23,10 +24,14 @@ export async function POST(
     return NextResponse.json({ error: "User not found" }, { status: 404 })
   }
 
+  if (await isEmailPaused()) {
+    return NextResponse.json({ ok: true, email: authUser.user.email, email_sent: false })
+  }
+
   const { error } = await admin.auth.resetPasswordForEmail(authUser.user.email, {
     redirectTo: `${new URL(request.url).origin}/reset-password`,
   })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ ok: true, email: authUser.user.email })
+  return NextResponse.json({ ok: true, email: authUser.user.email, email_sent: true })
 }

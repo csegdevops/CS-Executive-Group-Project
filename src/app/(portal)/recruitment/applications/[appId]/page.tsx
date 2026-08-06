@@ -10,6 +10,7 @@ import { StageHistoryTimeline } from "./StageHistoryTimeline"
 import { JobSummaryCard } from "./JobSummaryCard"
 import { StageControl } from "./StageControl"
 import { DeleteApplicationButton } from "../DeleteApplicationButton"
+import { PlacementCard } from "./PlacementCard"
 
 export default async function ApplicationDetailPage({ params }: { params: Promise<{ appId: string }> }) {
   await requireModuleAccess("recruitment")
@@ -57,6 +58,17 @@ export default async function ApplicationDetailPage({ params }: { params: Promis
   ])
   const changerMap = Object.fromEntries((changers ?? []).map((p: { id: string; full_name: string | null }) => [p.id, p.full_name]))
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: placement } = await (admin.schema("recruitment") as any)
+    .from("placements")
+    .select("id, placement_type, start_date, finish_date, pay_rate, charge_rate, currency")
+    .eq("application_id", appId)
+    .maybeSingle()
+
+  const { data: contractor } = placement
+    ? await admin.schema("timesheets").from("contractors").select("id").eq("placement_id", placement.id).maybeSingle()
+    : { data: null }
+
   const stageHistory = (history ?? []).map((h: { id: string; from_stage: string | null; to_stage: string; notes: string | null; changed_by: string | null; changed_at: string }) => ({
     ...h,
     changer_name: h.changed_by ? changerMap[h.changed_by] ?? null : "System",
@@ -88,6 +100,18 @@ export default async function ApplicationDetailPage({ params }: { params: Promis
             <h3 className="font-medium text-sm mb-3">Move stage</h3>
             <StageControl appId={app.id} currentStage={app.stage} />
           </div>
+          <PlacementCard
+            applicationId={app.id}
+            jobId={app.job_id}
+            candidateId={app.candidate_id}
+            candidateName={candidate ? `${candidate.first_name} ${candidate.last_name}` : "Candidate"}
+            candidateEmail={candidate?.email ?? ""}
+            companyId={job?.company_id ?? null}
+            companyName={company?.name ?? null}
+            employmentType={job?.employment_type ?? null}
+            placement={placement ?? null}
+            contractorId={contractor?.id ?? null}
+          />
         </div>
       </div>
     </div>
