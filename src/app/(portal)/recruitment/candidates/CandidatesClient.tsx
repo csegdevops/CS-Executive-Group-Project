@@ -28,11 +28,6 @@ interface Candidate {
   created_at: string
 }
 
-const SOURCE_LABELS: Record<string, string> = {
-  seek_inbound: "[S]", company_website: "[CS]",
-  database_internal: "[DB]", seek_talent: "[ST]", linkedin: "[LI]",
-}
-
 function CompletenessDot({ pct }: { pct: number }) {
   return (
     <div className="flex items-center gap-1.5">

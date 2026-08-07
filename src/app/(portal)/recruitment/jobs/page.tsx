@@ -7,7 +7,7 @@ import { Plus } from "lucide-react"
 import { JobsListClient } from "./JobsListClient"
 
 export default async function JobsPage() {
-  const user = await requireModuleAccess("recruitment")
+  await requireModuleAccess("recruitment")
   const admin = createAdminClient()
 
   const [{ data: jobs }, { data: companies }, { data: profiles }] = await Promise.all([
@@ -62,7 +62,6 @@ export default async function JobsPage() {
       <JobsListClient
         jobs={enrichedJobs}
         companies={(companies ?? []).map((c: { id: string; name: string }) => ({ id: c.id, name: c.name }))}
-        recruiters={(profiles ?? []).map((p: { id: string; full_name: string | null }) => ({ id: p.id, name: p.full_name ?? "Unknown" }))}
       />
     </div>
   )

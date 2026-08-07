@@ -36,9 +36,9 @@ export default async function CompaniesPage() {
   }
 
   // Open opportunity counts per company
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: opps } = companyIds.length
-    ? await (admin.schema("recruitment") as any)
+    ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (admin.schema("recruitment") as any)
         .from("opportunities")
         .select("company_id, stage")
         .in("company_id", companyIds)

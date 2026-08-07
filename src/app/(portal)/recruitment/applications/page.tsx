@@ -45,15 +45,26 @@ export default async function ApplicationsPage({
       ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (admin.schema("recruitment") as any)
           .from("jobs")
-          .select("id, title, reference_number, company_id, status")
+          .select("id, title, reference_number, company_id, status, employment_type, vacancies_count")
           .in("id", jobIds)
       : Promise.resolve({ data: [] }),
   ])
 
   const companyIds = [...new Set((jobs ?? []).map((j: { company_id: string }) => j.company_id))] as string[]
-  const { data: companies } = companyIds.length
-    ? await admin.from("companies").select("id, name").in("id", companyIds)
-    : { data: [] }
+  const [{ data: companies }, { data: placements }] = await Promise.all([
+    companyIds.length
+      ? admin.from("companies").select("id, name").in("id", companyIds)
+      : Promise.resolve({ data: [] }),
+    jobIds.length
+      ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (admin.schema("recruitment") as any).from("placements").select("job_id").in("job_id", jobIds)
+      : Promise.resolve({ data: [] }),
+  ])
+
+  const placedCountByJob: Record<string, number> = {}
+  for (const p of (placements ?? []) as { job_id: string }[]) {
+    placedCountByJob[p.job_id] = (placedCountByJob[p.job_id] ?? 0) + 1
+  }
 
   const candMap    = Object.fromEntries((candidates ?? []).map((c: Record<string, unknown>) => [c.id, c]))
   const jobMap     = Object.fromEntries((jobs ?? []).map((j: Record<string, unknown>) => [j.id, j]))
@@ -78,10 +89,21 @@ export default async function ApplicationsPage({
     title: `${j.reference_number ?? ""} ${j.title}`.trim(),
   }))
 
+  const jobVacancy = Object.fromEntries(
+    (jobs ?? []).map((j: Record<string, unknown>) => [
+      j.id as string,
+      {
+        vacanciesCount: (j.vacancies_count as number | null) ?? 1,
+        placedCount: placedCountByJob[j.id as string] ?? 0,
+        employmentType: (j.employment_type as string | null) ?? null,
+      },
+    ])
+  )
+
   return (
     <div>
       <PageHeader title="Applications" description="All candidate applications across jobs" />
-      <ApplicationsListClient applications={enriched} jobOptions={jobOptions} />
+      <ApplicationsListClient applications={enriched} jobOptions={jobOptions} jobVacancy={jobVacancy} />
     </div>
   )
 }

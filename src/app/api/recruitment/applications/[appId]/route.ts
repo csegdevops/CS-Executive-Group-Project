@@ -47,7 +47,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ appI
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (admin.schema("recruitment") as any)
       .from("jobs")
-      .select("id, title, reference_number, company_id, status, employment_type, location")
+      .select("id, title, reference_number, company_id, status, employment_type, location, vacancies_count")
       .eq("id", app.job_id)
       .single(),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -70,6 +70,26 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ appI
   ])
   const changerMap = Object.fromEntries((changers ?? []).map((p: { id: string; full_name: string | null }) => [p.id, p.full_name]))
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: placement } = await (admin.schema("recruitment") as any)
+    .from("placements")
+    .select("id, placement_type, start_date, finish_date, pay_rate, charge_rate, currency")
+    .eq("application_id", appId)
+    .maybeSingle()
+
+  const { data: contractor } = placement
+    ? await admin.schema("timesheets").from("contractors").select("id").eq("placement_id", placement.id).maybeSingle()
+    : { data: null }
+
+  const { count: jobPlacedCount } = job
+    ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (admin.schema("recruitment") as any)
+        .from("placements")
+        .select("id", { count: "exact", head: true })
+        .eq("job_id", job.id)
+    : { count: 0 }
+  const remainingVacancies = job ? (job.vacancies_count ?? 1) - (jobPlacedCount ?? 0) : 0
+
   return NextResponse.json({
     ...app,
     candidate,
@@ -78,6 +98,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ appI
       ...h,
       changer_name: h.changed_by ? changerMap[h.changed_by as string] ?? null : "System",
     })),
+    placement: placement ?? null,
+    contractor_id: contractor?.id ?? null,
+    remaining_vacancies: remainingVacancies,
   })
 }
 

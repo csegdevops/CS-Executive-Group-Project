@@ -95,10 +95,21 @@
       "Bash(python3 -c ' *)",
       "Bash(mkdir -p \"/c/Users/kcmut/AppData/Local/Temp/claude/d--Project-CS-Executive-Group-Project/1e64dd75-cb07-4e47-b54c-226727580d13/scratchpad/jobadder_images\")",
       "PowerShell(npx tsc --noEmit -p tsconfig.json 2>&1)",
-      "Bash(python3 \"C:\\\\Users\\\\kcmut\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--Project-CS-Executive-Group-Project\\\\1e64dd75-cb07-4e47-b54c-226727580d13\\\\scratchpad\\\\build_payload.py\")"
+      "Bash(python3 \"C:\\\\Users\\\\kcmut\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--Project-CS-Executive-Group-Project\\\\1e64dd75-cb07-4e47-b54c-226727580d13\\\\scratchpad\\\\build_payload.py\")",
+      "Bash(mkdir -p \"d:\\\\Project\\\\CS Executive Group Project\\\\src\\\\app\\\\api\\\\recruitment\\\\jobs\\\\[jobId]\\\\unsuccessful-candidates\" \"d:\\\\Project\\\\CS Executive Group Project\\\\src\\\\app\\\\api\\\\recruitment\\\\jobs\\\\[jobId]\\\\schedule-unsuccessful-emails\" \"d:\\\\Project\\\\CS Executive Group Project\\\\src\\\\app\\\\api\\\\recruitment\\\\scheduled-emails\\\\[id]\" \"d:\\\\Project\\\\CS Executive Group Project\\\\src\\\\app\\\\api\\\\cron\\\\send-scheduled-application-emails\")",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/recruitment/applications/2ea3cc8e-49a7-40a7-8956-2980c802024b)",
+      "Bash(tasklist //FI \"IMAGENAME eq node.exe\" //V)",
+      "Bash(taskkill //F //PID 172316)",
+      "Bash(taskkill //F //PID 169156)",
+      "Bash(taskkill //F //PID 174376)",
+      "Bash(node -e \"const p=require\\('./package.json'\\); console.log\\(JSON.stringify\\({dependencies:p.dependencies, devDependencies:p.devDependencies}, null, 2\\)\\)\")",
+      "Bash(rm \"d:\\\\Project\\\\CS Executive Group Project\\\\src\\\\app\\\\\\(portal\\)\\\\recruitment\\\\applications\\\\[appId]\\\\CvPreviewSheet.tsx\")"
     ],
     "additionalDirectories": [
-      "d:\\Project\\CS Executive Group Project\\src\\app\\(portal)\\recruitment\\candidates\\[candidateId]"
+      "d:\\Project\\CS Executive Group Project\\src\\app\\(portal)\\recruitment\\candidates\\[candidateId]",
+      "d:\\Project\\CS Executive Group Project\\src\\app\\api\\recruitment\\jobs\\[jobId]",
+      "d:\\Project\\CS Executive Group Project\\src\\app\\(portal)\\recruitment\\applications\\[appId]"
     ]
   }
 }

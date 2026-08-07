@@ -86,9 +86,9 @@ export default async function ConsultationsPage({
 
   // Fetch consultant assignments for the fetched consultations (for filtering)
   const consultationIdsList = (consultations ?? []).map((c) => c.id)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: ccData } = consultationIdsList.length
-    ? await (admin.schema("regulatory") as any)
+    ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (admin.schema("regulatory") as any)
         .from("consultation_consultants")
         .select("consultation_id, consultant_id")
         .in("consultation_id", consultationIdsList)

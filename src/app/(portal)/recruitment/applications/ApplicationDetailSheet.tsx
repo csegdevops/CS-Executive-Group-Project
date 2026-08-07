@@ -1,21 +1,38 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
+import Link from "next/link"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
-import { ChevronUp, ChevronDown, Loader2 } from "lucide-react"
+import { ChevronUp, ChevronDown, Loader2, Maximize2 } from "lucide-react"
 import { StagePipelineStrip } from "./[appId]/StagePipelineStrip"
 import { CandidateSummaryCard, type CandidateSummary } from "./[appId]/CandidateSummaryCard"
 import { ApplicationInfoCard, type ApplicationInfo } from "./[appId]/ApplicationInfoCard"
 import { StageHistoryTimeline, type StageHistoryEntry } from "./[appId]/StageHistoryTimeline"
 import { JobSummaryCard, type JobSummary } from "./[appId]/JobSummaryCard"
 import { StageControl } from "./[appId]/StageControl"
+import { PlacementCard } from "./[appId]/PlacementCard"
 import { DeleteApplicationButton } from "./DeleteApplicationButton"
 
+interface Placement {
+  id: string
+  placement_type: "permanent" | "contract"
+  start_date: string
+  finish_date: string | null
+  pay_rate: number | null
+  charge_rate: number | null
+  currency: string
+}
+
 interface ApplicationDetail extends ApplicationInfo {
+  candidate_id: string
+  job_id: string
   candidate: CandidateSummary | null
-  job: JobSummary | null
+  job: (JobSummary & { company_id: string | null; employment_type: string | null }) | null
   stage_history: StageHistoryEntry[]
+  placement: Placement | null
+  contractor_id: string | null
+  remaining_vacancies: number
 }
 
 interface Props {
@@ -83,7 +100,14 @@ export function ApplicationDetailSheet({
           </div>
           <div className="flex items-center gap-1 shrink-0">
             {data && (
-              <DeleteApplicationButton applicationId={data.id} onDeleted={() => onOpenChange(false)} />
+              <>
+                <Button variant="outline" size="icon" className="h-7 w-7" asChild title="Open full page">
+                  <Link href={`/recruitment/applications/${data.id}`}>
+                    <Maximize2 className="h-3.5 w-3.5" />
+                  </Link>
+                </Button>
+                <DeleteApplicationButton applicationId={data.id} onDeleted={() => onOpenChange(false)} />
+              </>
             )}
             <Button variant="outline" size="icon" className="h-7 w-7" disabled={!hasPrev} onClick={() => onNavigate("prev")} title="Previous (↑)">
               <ChevronUp className="h-4 w-4" />
@@ -105,10 +129,28 @@ export function ApplicationDetailSheet({
               <div className="space-y-4">
                 <CandidateSummaryCard candidate={data.candidate} />
                 <ApplicationInfoCard app={data} />
-                <div className="rounded-lg border bg-card p-4">
-                  <h3 className="font-medium text-sm mb-3">Move stage</h3>
-                  <StageControl appId={data.id} currentStage={data.stage} />
-                </div>
+                {data.stage !== "placed" && (
+                  <div className="rounded-lg border bg-card p-4">
+                    <h3 className="font-medium text-sm mb-3">Move stage</h3>
+                    <StageControl appId={data.id} currentStage={data.stage} />
+                  </div>
+                )}
+                {(data.stage === "offer" || data.stage === "placed") && (
+                  <PlacementCard
+                    applicationId={data.id}
+                    jobId={data.job_id}
+                    jobTitle={data.job?.title ?? null}
+                    candidateId={data.candidate_id}
+                    candidateName={data.candidate ? `${data.candidate.first_name} ${data.candidate.last_name}` : "Candidate"}
+                    candidateEmail={data.candidate?.email ?? ""}
+                    companyId={data.job?.company_id ?? null}
+                    companyName={data.job?.company_name ?? null}
+                    employmentType={data.job?.employment_type ?? null}
+                    placement={data.placement}
+                    contractorId={data.contractor_id}
+                    remainingVacancies={data.remaining_vacancies}
+                  />
+                )}
                 <JobSummaryCard job={data.job} />
                 <StageHistoryTimeline history={data.stage_history} />
               </div>

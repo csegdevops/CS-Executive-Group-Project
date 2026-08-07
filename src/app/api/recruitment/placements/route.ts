@@ -38,6 +38,16 @@ export async function POST(req: NextRequest) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recruitment = admin.schema("recruitment") as any
 
+  // Placements exist to fill a job's vacancies — never let the count exceed
+  // vacancies_count, no matter how the request got here (bulk or single).
+  const [{ data: vacancyJob }, { count: existingPlacements }] = await Promise.all([
+    recruitment.from("jobs").select("vacancies_count").eq("id", parsed.data.job_id).single(),
+    recruitment.from("placements").select("id", { count: "exact", head: true }).eq("job_id", parsed.data.job_id),
+  ])
+  if (vacancyJob && (existingPlacements ?? 0) >= (vacancyJob.vacancies_count ?? 1)) {
+    return NextResponse.json({ error: "This job has no vacancies remaining" }, { status: 409 })
+  }
+
   const { data: placement, error } = await recruitment
     .from("placements")
     .insert({
@@ -99,6 +109,21 @@ export async function POST(req: NextRequest) {
           new_status: "filled",
           notes: `Auto-filled — ${placedCount} of ${job.vacancies_count} vacancies placed`,
           performed_by: user.id,
+        })
+
+      // Sending "unsuccessful" notices is never automatic — this task is
+      // the recruiter's prompt to review the remaining applicants and
+      // schedule the notification themselves (see ScheduleUnsuccessfulEmailsDialog).
+      await recruitment
+        .from("tasks")
+        .insert({
+          task_type: "general",
+          title: `Send unsuccessful-candidate emails — ${job.title}`,
+          description: "This job is now filled. Review remaining applicants and schedule the standard 'unsuccessful' notification.",
+          job_id: placement.job_id,
+          assigned_to: job.assigned_recruiter_id ?? null,
+          assigned_by: user.id,
+          due_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
         })
     }
   }

@@ -47,7 +47,6 @@ const SCOPE_LABELS: Record<string, string> = {
 interface Props {
   initialValues: LookupValueRow[]
   visibleScopes: LookupScope[]       // which scopes this module page shows
-  moduleScope: LookupScope | null    // the module this page belongs to (null = super-admin only page)
 }
 
 interface FormState {
@@ -55,10 +54,10 @@ interface FormState {
   value: string
 }
 
-export function LookupValuesManager({ initialValues, visibleScopes, moduleScope }: Props) {
+export function LookupValuesManager({ initialValues, visibleScopes }: Props) {
   const router = useRouter()
   const [values, setValues] = useState<LookupValueRow[]>(initialValues)
-  const [isPending, startTransition] = useTransition()
+  const [, startTransition] = useTransition()
   const [activeScope, setActiveScope] = useState<LookupScope>(visibleScopes[0])
 
   // Dialog state

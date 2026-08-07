@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { isAiPaused, AI_PAUSED_MESSAGE } from "@/lib/ai/pause"
 import { prepareDocumentInput } from "./extract"
 import { cvParser } from "./index"
+import { inferCountryFromPhone } from "./infer-country-from-phone"
 import type { CvParseVocabulary } from "./types"
 
 function union(existing: string[] | null | undefined, additions: string[]): string[] {
@@ -47,9 +48,26 @@ export async function parseCandidateCv(candidateId: string, buffer: Buffer, mime
 
     const { data: current } = await recruitment
       .from("candidates")
-      .select("location_city, location_state, phone, field_of_study, skills_tags, education_tags")
+      .select("location_city, location_state, location_country, phone, field_of_study, skills_tags, education_tags")
       .eq("id", candidateId)
       .single()
+
+    const mergedCity  = current?.location_city  ?? parsed.location_city  ?? null
+    const mergedState = current?.location_state ?? parsed.location_state ?? null
+    const mergedPhone = current?.phone           ?? parsed.phone          ?? null
+
+    // Infer country from the phone's dialing prefix only when location is
+    // genuinely unknown (both city AND state absent — either one alone means
+    // it's at least partially known and a phone-prefix guess shouldn't
+    // override it) and location_country is still the untouched 'AU' default
+    // — never clobber a value a recruiter set manually or a prior parse
+    // already inferred, matching this function's COALESCE-style "never
+    // overwrite known data" posture.
+    let locationCountry: string | undefined
+    if (mergedCity === null && mergedState === null && current?.location_country === "AU") {
+      const inferred = inferCountryFromPhone(mergedPhone)
+      if (inferred && inferred !== "AU") locationCountry = inferred
+    }
 
     // current_title/current_employer are deliberately NOT touched here —
     // they only ever auto-update when a candidate is actually placed (see
@@ -64,9 +82,10 @@ export async function parseCandidateCv(candidateId: string, buffer: Buffer, mime
         cv_parse_status: "parsed",
         cv_parsed_by: "gemini",
         cv_parsed_at: new Date().toISOString(),
-        phone: current?.phone ?? parsed.phone ?? null,
-        location_city: current?.location_city ?? parsed.location_city ?? null,
-        location_state: current?.location_state ?? parsed.location_state ?? null,
+        phone: mergedPhone,
+        location_city: mergedCity,
+        location_state: mergedState,
+        location_country: locationCountry,
         field_of_study: current?.field_of_study ?? parsed.education[0]?.field_of_study ?? null,
         skills_tags: union(current?.skills_tags, parsed.matched_skill_tags),
         education_tags: union(current?.education_tags, parsed.matched_education_tags),

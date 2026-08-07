@@ -26,7 +26,6 @@ export default async function ReferenceDataPage() {
       <LookupValuesManager
         initialValues={(data ?? []) as LookupValueRow[]}
         visibleScopes={[...VISIBLE_SCOPES]}
-        moduleScope={null}
       />
     </div>
   )

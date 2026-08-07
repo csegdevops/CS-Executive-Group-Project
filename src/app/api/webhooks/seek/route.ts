@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse, after } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { ingestCv } from "@/lib/cv-parsing/ingest"
-import { createHmac } from "crypto"
+import { createHmac, timingSafeEqual } from "crypto"
 
 // CV parsing (in the after() callback below) can take well over a minute for
 // a dense resume — see src/lib/cv-parsing/gemini.ts. after() runs within the
@@ -30,12 +30,12 @@ export const maxDuration = 180
 function verifySeekSignature(body: string, signature: string | null, secret: string): boolean {
   if (!signature) return false
   const expected = createHmac("sha256", secret).update(body, "utf8").digest("hex")
-  // Constant-time comparison
+  // Constant-time comparison — timingSafeEqual throws on a length mismatch
+  // (e.g. a malformed signature header), which just means "not equal".
   try {
-    const { timingSafeEqual } = require("crypto")
     return timingSafeEqual(Buffer.from(signature, "hex"), Buffer.from(expected, "hex"))
   } catch {
-    return signature === expected
+    return false
   }
 }
 

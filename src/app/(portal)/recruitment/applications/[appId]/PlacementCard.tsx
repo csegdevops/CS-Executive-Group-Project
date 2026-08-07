@@ -15,11 +15,12 @@ interface Placement {
 }
 
 export function PlacementCard({
-  applicationId, jobId, candidateId, candidateName, candidateEmail,
-  companyId, companyName, employmentType, placement, contractorId,
+  applicationId, jobId, jobTitle, candidateId, candidateName, candidateEmail,
+  companyId, companyName, employmentType, placement, contractorId, remainingVacancies,
 }: {
   applicationId: string
   jobId: string
+  jobTitle: string | null
   candidateId: string
   candidateName: string
   candidateEmail: string
@@ -28,7 +29,10 @@ export function PlacementCard({
   employmentType: string | null
   placement: Placement | null
   contractorId: string | null
+  remainingVacancies: number
 }) {
+  const placementType: "permanent" | "contract" = employmentType === "contract" ? "contract" : "permanent"
+
   return (
     <div className="rounded-lg border bg-card p-4">
       <h3 className="font-medium text-sm mb-3">Placement</h3>
@@ -38,16 +42,19 @@ export function PlacementCard({
           <p className="text-xs text-muted-foreground">
             Not yet placed. Creating a placement records the contract/permanent hire — a contract placement can then be provisioned for Timesheets Portal access.
           </p>
-          {companyId ? (
+          {!companyId ? (
+            <p className="text-xs text-destructive">Job has no company on file — cannot create a placement.</p>
+          ) : remainingVacancies <= 0 ? (
+            <p className="text-xs text-destructive">All vacancies for this job have been filled.</p>
+          ) : (
             <CreatePlacementDialog
               applicationId={applicationId}
               jobId={jobId}
               candidateId={candidateId}
-              defaultPlacementType={employmentType === "contract" ? "contract" : "permanent"}
-              onCreated={() => {}}
+              jobTitle={jobTitle}
+              companyName={companyName}
+              placementType={placementType}
             />
-          ) : (
-            <p className="text-xs text-destructive">Job has no company on file — cannot create a placement.</p>
           )}
         </div>
       ) : (

@@ -7,8 +7,7 @@ import { cn } from "@/lib/utils"
 import { UserCircle, Calendar } from "lucide-react"
 import { ApplicationDetailSheet } from "../../applications/ApplicationDetailSheet"
 
-const STAGES = ["applied", "screening", "shortlisted", "interview_1", "interview_2", "reference_check", "offer", "placed", "withdrawn", "rejected"] as const
-type Stage = typeof STAGES[number]
+type Stage = "applied" | "screening" | "shortlisted" | "interview_1" | "interview_2" | "reference_check" | "offer" | "placed" | "withdrawn" | "rejected"
 
 const STAGE_COLORS: Record<Stage, string> = {
   applied:          "bg-slate-100 text-slate-700",
@@ -75,7 +74,7 @@ export function JobApplicationsTab({ applications, jobId }: { applications: Appl
     return (
       <div className="text-center py-16 text-sm text-muted-foreground border rounded-lg">
         No applications yet.{" "}
-        <Link href={`/recruitment/applications`} className="underline">View all applications</Link>
+        <Link href={`/recruitment/applications?job_id=${jobId}`} className="underline">View all applications</Link>
       </div>
     )
   }

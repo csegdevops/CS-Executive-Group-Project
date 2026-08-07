@@ -25,6 +25,12 @@ const SOURCE_LABELS: Record<string, string> = {
   database_internal: "Internal [DB]", seek_talent: "Seek Talent [ST]", linkedin: "LinkedIn [LI]",
 }
 
+const CONTRACT_STATUS_COLORS: Record<string, string> = {
+  active: "bg-green-50 text-green-700",
+  expired: "bg-gray-100 text-gray-500",
+  terminated: "bg-red-50 text-red-600",
+}
+
 export default async function CandidateProfilePage({ params }: { params: Promise<{ candidateId: string }> }) {
   await requireModuleAccess("recruitment")
   const { candidateId } = await params
@@ -62,9 +68,9 @@ export default async function CandidateProfilePage({ params }: { params: Promise
       ?? value ?? ""
 
   const jobIds = [...new Set((applications ?? []).map((a: { job_id: string }) => a.job_id))]
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: jobs } = jobIds.length
-    ? await (admin.schema("recruitment") as any)
+    ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (admin.schema("recruitment") as any)
         .from("jobs")
         .select("id, title, reference_number, company_id, status")
         .in("id", jobIds)
@@ -77,6 +83,28 @@ export default async function CandidateProfilePage({ params }: { params: Promise
 
   const jobMap     = Object.fromEntries((jobs ?? []).map((j: Record<string, unknown>) => [j.id, j]))
   const companyMap = Object.fromEntries((companies ?? []).map((c: { id: string; name: string }) => [c.id, c.name]))
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: contracts } = await (admin.schema("recruitment") as any)
+    .from("contracts")
+    .select(`
+      id, contract_number, status,
+      placement:placements!inner(finish_date, candidate_id, job_id)
+    `)
+    .eq("placement.candidate_id", candidateId)
+    .order("created_at", { ascending: false })
+
+  const contractsWithJob = (contracts ?? []).map((c: { id: string; contract_number: string | null; status: string; placement: { finish_date: string | null; job_id: string } }) => {
+    const job = jobMap[c.placement.job_id] as Record<string, unknown> | undefined
+    return {
+      id: c.id,
+      contract_number: c.contract_number,
+      status: c.status,
+      finish_date: c.placement.finish_date,
+      job_title: (job?.title as string | undefined) ?? null,
+      company_name: job ? companyMap[job.company_id as string] ?? null : null,
+    }
+  })
 
   // application_id -> job title, reusing the applications/jobs already fetched above
   const appJobTitleMap = Object.fromEntries(
@@ -378,6 +406,33 @@ export default async function CandidateProfilePage({ params }: { params: Promise
               </div>
             )}
           </div>
+
+          {/* Contracts */}
+          {contractsWithJob.length > 0 && (
+            <div className="rounded-lg border bg-card p-4">
+              <h3 className="font-medium text-sm mb-3">Contracts ({contractsWithJob.length})</h3>
+              <div className="space-y-2">
+                {contractsWithJob.map((c: { id: string; contract_number: string | null; status: string; finish_date: string | null; job_title: string | null; company_name: string | null }) => (
+                  <Link
+                    key={c.id}
+                    href={`/recruitment/contractors/${c.id}`}
+                    className="block rounded-md border p-2.5 hover:bg-muted/30 transition-colors"
+                  >
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-medium">{c.job_title ?? "Unknown"}</p>
+                      <Badge variant="outline" className={cn("text-xs", CONTRACT_STATUS_COLORS[c.status] ?? "")}>
+                        {c.status[0].toUpperCase() + c.status.slice(1)}
+                      </Badge>
+                    </div>
+                    {c.company_name && <p className="text-xs text-muted-foreground">{c.company_name}</p>}
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {c.finish_date ? `Until ${new Date(c.finish_date).toLocaleDateString("en-AU")}` : "Ongoing"}
+                    </p>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

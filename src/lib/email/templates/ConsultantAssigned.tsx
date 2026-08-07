@@ -10,12 +10,12 @@ export function ConsultantAssignedEmail({ consultationTitle, companyName, consul
   return (
     <Html>
       <Head />
-      <Preview>You've been assigned to {consultationTitle}</Preview>
+      <Preview>You&apos;ve been assigned to {consultationTitle}</Preview>
       <Body style={{ fontFamily: "sans-serif" }}>
         <Container>
-          <Heading>You've been assigned as consultant</Heading>
+          <Heading>You&apos;ve been assigned as consultant</Heading>
           <Text>
-            You've been assigned to <strong>{consultationTitle}</strong> for <strong>{companyName}</strong>.
+            You&apos;ve been assigned to <strong>{consultationTitle}</strong> for <strong>{companyName}</strong>.
           </Text>
           <Button href={consultationUrl}>View consultation</Button>
         </Container>

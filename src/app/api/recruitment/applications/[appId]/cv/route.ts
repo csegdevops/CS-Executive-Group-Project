@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { hasModuleAccessForUser } from "@/lib/auth-helpers"
-import { buildCvDownloadResponse } from "@/lib/storage/cv-storage"
+import { buildCvDownloadResponse, buildCvHtmlPreviewResponse } from "@/lib/storage/cv-storage"
 
 // GET /api/recruitment/applications/[appId]/cv?type=cv|cl
 export async function GET(req: NextRequest, { params }: { params: Promise<{ appId: string }> }) {
@@ -15,6 +15,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ appI
 
   const { appId } = await params
   const docType = req.nextUrl.searchParams.get("type") === "cl" ? "cl" : "cv"
+  const disposition = req.nextUrl.searchParams.get("disposition") === "inline" ? "inline" : "attachment"
 
   const admin = createAdminClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -35,5 +36,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ appI
     .eq("id", app.candidate_id)
     .single()
 
-  return buildCvDownloadResponse(storageKey, candidate?.first_name ?? null, candidate?.last_name ?? null, docType)
+  if (disposition === "inline" && storageKey.toLowerCase().endsWith(".docx")) {
+    return buildCvHtmlPreviewResponse(storageKey)
+  }
+
+  return buildCvDownloadResponse(storageKey, candidate?.first_name ?? null, candidate?.last_name ?? null, docType, 1, disposition)
 }

@@ -43,7 +43,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ jobI
 
   if (error || !job) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
-  const [{ data: company }, { data: recruiter }, { data: events }] = await Promise.all([
+  const [{ data: company }, { data: recruiter }, { data: events }, { count: placedCount }] = await Promise.all([
     admin.from("companies").select("id, name").eq("id", job.company_id).single(),
     job.assigned_recruiter_id
       ? admin.from("profiles").select("id, full_name").eq("id", job.assigned_recruiter_id).single()
@@ -54,6 +54,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ jobI
       .select("id, event_type, previous_status, new_status, notes, created_at, performed_by")
       .eq("job_id", jobId)
       .order("created_at", { ascending: true }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (admin.schema("recruitment") as any)
+      .from("placements")
+      .select("id", { count: "exact", head: true })
+      .eq("job_id", jobId),
   ])
 
   // Hydrate event performer names
@@ -67,6 +72,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ jobI
     ...job,
     company_name: company?.name ?? null,
     recruiter_name: recruiter?.full_name ?? null,
+    placed_count: placedCount ?? 0,
     events: (events ?? []).map((e: Record<string, unknown>) => ({
       ...e,
       performer_name: perfMap[e.performed_by as string] ?? null,
@@ -104,6 +110,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ jo
     .single()
   if (!current) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { notes: _, ...updateFields } = parsed.data
 
   // A note-only patch has nothing to set on the jobs row itself — skip the

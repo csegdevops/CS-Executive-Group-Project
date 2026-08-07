@@ -35,7 +35,6 @@ const STATUS_LABELS: Record<string, string> = {
 }
 const STATUSES = ["draft", "in_progress", "under_review", "completed", "archived"] as const
 
-const COMPANY_COLOR  = "#6366f1"
 const CONSULTANT_COLOR = "#0ea5e9"
 
 // ── Date helpers ──────────────────────────────────────────────────────────

@@ -30,7 +30,6 @@ export function EditDetailsDialog({
   initial: Initial
   isLocked?: boolean
 }) {
-  if (isLocked) return null
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -40,6 +39,8 @@ export function EditDetailsDialog({
   const [refNum, setRefNum]         = useState(initial.reference_number)
   const [dueDate, setDueDate]       = useState(initial.due_date)
   const [frameworks, setFrameworks] = useState<string[]>(initial.frameworks)
+
+  if (isLocked) return null
 
   function toggleFramework(fw: string) {
     setFrameworks((prev) =>

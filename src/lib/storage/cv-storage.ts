@@ -1,3 +1,4 @@
+import mammoth from "mammoth"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { buildDownloadFilename } from "./filename"
 
@@ -71,7 +72,8 @@ export async function buildCvDownloadResponse(
   firstName: string | null,
   lastName: string | null,
   docType: "cv" | "cl",
-  position = 1
+  position = 1,
+  disposition: "attachment" | "inline" = "attachment"
 ): Promise<Response> {
   const { buffer, mimeType } = await downloadCvBuffer(storageKey)
   const ext = storageKey.split(".").pop() || "bin"
@@ -79,9 +81,27 @@ export async function buildCvDownloadResponse(
   return new Response(new Uint8Array(buffer), {
     headers: {
       "Content-Type": mimeType,
-      "Content-Disposition": `attachment; filename="${filename}"`,
+      "Content-Disposition": `${disposition}; filename="${filename}"`,
     },
   })
+}
+
+// .docx has no browser-native viewer (unlike PDF, which renders via the
+// browser's built-in plugin in an iframe) — there's no LibreOffice/soffice
+// binary available on Vercel's serverless runtime to convert it to PDF, so
+// this reuses mammoth (already a dependency for CV text extraction) to
+// convert straight to HTML for inline preview instead.
+export async function buildCvHtmlPreviewResponse(storageKey: string): Promise<Response> {
+  const { buffer } = await downloadCvBuffer(storageKey)
+  const { value: bodyHtml } = await mammoth.convertToHtml({ buffer })
+  const page = `<!doctype html><html><head><meta charset="utf-8"><style>
+body { font-family: ui-sans-serif, system-ui, sans-serif; line-height: 1.6; max-width: 720px; margin: 2rem auto; padding: 0 1.5rem 3rem; color: #1a1a1a; }
+h1, h2, h3 { margin-top: 1.5em; }
+table { border-collapse: collapse; }
+td, th { border: 1px solid #ddd; padding: 4px 8px; }
+img { max-width: 100%; }
+</style></head><body>${bodyHtml}</body></html>`
+  return new Response(page, { headers: { "Content-Type": "text/html; charset=utf-8" } })
 }
 
 export async function deleteCvFile(storageKey: string): Promise<void> {

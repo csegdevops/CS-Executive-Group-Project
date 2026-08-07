@@ -16,7 +16,6 @@ interface ConsultantUser {
 }
 
 export function ManageConsultantsDialog({ consultationId, isLocked }: { consultationId: string; isLocked?: boolean }) {
-  if (isLocked) return null
   const router = useRouter()
   const [open, setOpen]           = useState(false)
   const [users, setUsers]         = useState<ConsultantUser[]>([])
@@ -37,6 +36,8 @@ export function ManageConsultantsDialog({ consultationId, isLocked }: { consulta
   }, [consultationId])
 
   useEffect(() => { if (open) fetchUsers() }, [open, fetchUsers])
+
+  if (isLocked) return null
 
   async function toggle(user: ConsultantUser) {
     setToggling(user.id)

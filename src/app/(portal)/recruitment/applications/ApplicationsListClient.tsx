@@ -1,12 +1,27 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 import { Search, ChevronRight } from "lucide-react"
+import { toast } from "sonner"
 import { ApplicationDetailSheet } from "./ApplicationDetailSheet"
+import { BulkCreatePlacementsDialog } from "./BulkCreatePlacementsDialog"
+
+// "placed" is intentionally excluded — placements must go through
+// CreatePlacementDialog (PlacementCard) so the vacancy-fill check,
+// finance/clearance tasks, and unsuccessful-email task all fire; a bulk
+// stage move must not be able to bypass that for a whole batch of applicants.
+const BULK_STAGE_OPTIONS = [
+  "applied", "screening", "shortlisted", "interview_1", "interview_2",
+  "reference_check", "offer", "withdrawn", "rejected",
+]
 
 const STAGE_COLORS: Record<string, string> = {
   applied:         "bg-slate-100 text-slate-700",
@@ -50,21 +65,67 @@ interface App {
   company_name: string | null
 }
 
+interface JobVacancyInfo {
+  vacanciesCount: number
+  placedCount: number
+  employmentType: string | null
+}
+
 interface Props {
   applications: App[]
   jobOptions: { id: string; title: string }[]
+  jobVacancy: Record<string, JobVacancyInfo>
 }
 
-export function ApplicationsListClient({ applications, jobOptions }: Props) {
+export function ApplicationsListClient({ applications, jobOptions, jobVacancy }: Props) {
+  const router = useRouter()
   const [q, setQ]           = useState("")
   const [stage, setStage]   = useState("")
   const [jobId, setJobId]   = useState("")
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set())
+  const [bulkStage, setBulkStage]   = useState<string>("")
+  const [bulkSaving, setBulkSaving] = useState(false)
+  const [showBulkPlacement, setShowBulkPlacement] = useState(false)
 
   function handleRowOpen(e: React.MouseEvent, id: string) {
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return
     e.preventDefault()
     setSelectedId(id)
+  }
+
+  function toggleChecked(id: string, checked: boolean) {
+    setCheckedIds(prev => {
+      const next = new Set(prev)
+      if (checked) next.add(id)
+      else next.delete(id)
+      return next
+    })
+  }
+
+  async function handleBulkMove() {
+    if (!bulkStage || checkedIds.size === 0) return
+    setBulkSaving(true)
+    const ids = Array.from(checkedIds)
+    try {
+      const results = await Promise.all(
+        ids.map(id =>
+          fetch(`/api/recruitment/applications/${id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ stage: bulkStage }),
+          }).then(res => res.ok)
+        )
+      )
+      const failed = results.filter(ok => !ok).length
+      if (failed > 0) toast.error(`${failed} of ${ids.length} failed to update`)
+      else toast.success(`Moved ${ids.length} application${ids.length !== 1 ? "s" : ""} to ${STAGE_LABELS[bulkStage] ?? bulkStage}`)
+      setCheckedIds(new Set())
+      setBulkStage("")
+      router.refresh()
+    } finally {
+      setBulkSaving(false)
+    }
   }
 
   const filtered = applications.filter(a => {
@@ -86,6 +147,23 @@ export function ApplicationsListClient({ applications, jobOptions }: Props) {
     acc[s] = applications.filter(a => a.stage === s).length
     return acc
   }, {})
+
+  const checkedApps = applications.filter(a => checkedIds.has(a.id))
+  const checkedSameJob = checkedApps.length > 0 && checkedApps.every(a => a.job_id === checkedApps[0].job_id)
+  const checkedVacancy = checkedSameJob ? jobVacancy[checkedApps[0].job_id] : undefined
+  const remainingVacancies = checkedVacancy ? checkedVacancy.vacanciesCount - checkedVacancy.placedCount : undefined
+
+  function handleCreatePlacementsClick() {
+    if (remainingVacancies !== undefined && checkedIds.size > remainingVacancies) {
+      toast.error(
+        remainingVacancies > 0
+          ? `Too many selected — only ${remainingVacancies} vacanc${remainingVacancies === 1 ? "y" : "ies"} remaining for this job`
+          : "This job has no vacancies remaining"
+      )
+      return
+    }
+    setShowBulkPlacement(true)
+  }
 
   return (
     <div>
@@ -141,7 +219,41 @@ export function ApplicationsListClient({ applications, jobOptions }: Props) {
         )}
       </div>
 
-      <p className="text-xs text-muted-foreground mb-3">{filtered.length} application{filtered.length !== 1 ? "s" : ""}</p>
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-xs text-muted-foreground">{filtered.length} application{filtered.length !== 1 ? "s" : ""}</p>
+        {checkedIds.size > 0 && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">{checkedIds.size} selected</span>
+            <Select value={bulkStage} onValueChange={setBulkStage}>
+              <SelectTrigger className="h-7 text-xs w-40"><SelectValue placeholder="Move stage to…" /></SelectTrigger>
+              <SelectContent>
+                {BULK_STAGE_OPTIONS.map(s => (
+                  <SelectItem key={s} value={s} className="text-xs">{STAGE_LABELS[s]}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button size="sm" className="h-7 text-xs px-2" disabled={!bulkStage || bulkSaving} onClick={handleBulkMove}>
+              {bulkSaving ? "Moving…" : "Apply"}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs px-2"
+              disabled={!checkedSameJob}
+              title={checkedSameJob ? undefined : "Select candidates for a single job to place them together"}
+              onClick={handleCreatePlacementsClick}
+            >
+              Create placements
+            </Button>
+            <button
+              onClick={() => { setCheckedIds(new Set()); setBulkStage("") }}
+              className="text-xs text-muted-foreground hover:text-foreground"
+            >
+              Clear
+            </button>
+          </div>
+        )}
+      </div>
 
       {filtered.length === 0 ? (
         <div className="text-center py-16 text-sm text-muted-foreground border rounded-lg">No applications match the current filters.</div>
@@ -150,6 +262,12 @@ export function ApplicationsListClient({ applications, jobOptions }: Props) {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-muted/30">
+                <th className="w-8 px-4">
+                  <Checkbox
+                    checked={filtered.length > 0 && filtered.every(a => checkedIds.has(a.id))}
+                    onCheckedChange={(v) => setCheckedIds(v === true ? new Set(filtered.map(a => a.id)) : new Set())}
+                  />
+                </th>
                 <th className="text-left px-4 py-2.5 font-medium text-muted-foreground text-xs">Candidate</th>
                 <th className="text-left px-4 py-2.5 font-medium text-muted-foreground text-xs hidden md:table-cell">Job</th>
                 <th className="text-left px-4 py-2.5 font-medium text-muted-foreground text-xs">Stage</th>
@@ -161,6 +279,12 @@ export function ApplicationsListClient({ applications, jobOptions }: Props) {
             <tbody className="divide-y">
               {filtered.map(app => (
                 <tr key={app.id} className="hover:bg-muted/20 transition-colors group">
+                  <td className="px-4 py-3">
+                    <Checkbox
+                      checked={checkedIds.has(app.id)}
+                      onCheckedChange={(v) => toggleChecked(app.id, v === true)}
+                    />
+                  </td>
                   <td className="px-4 py-3">
                     <Link href={`/recruitment/applications/${app.id}`} className="block" onClick={(e) => handleRowOpen(e, app.id)}>
                       <p className="font-medium hover:underline">{app.candidate_name ?? "Unknown"}</p>
@@ -194,6 +318,19 @@ export function ApplicationsListClient({ applications, jobOptions }: Props) {
             </tbody>
           </table>
         </div>
+      )}
+
+      {showBulkPlacement && checkedSameJob && (
+        <BulkCreatePlacementsDialog
+          jobId={checkedApps[0].job_id}
+          candidates={checkedApps.map(a => ({
+            applicationId: a.id,
+            candidateId: a.candidate_id,
+            candidateName: a.candidate_name ?? "Candidate",
+          }))}
+          onOpenChange={(open) => setShowBulkPlacement(open)}
+          onDone={() => setCheckedIds(new Set())}
+        />
       )}
 
       {(() => {

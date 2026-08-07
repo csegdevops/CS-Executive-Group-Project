@@ -1,13 +1,13 @@
 "use client"
 
-import { useState, useOptimistic } from "react"
+import { useState } from "react"
 import Link from "next/link"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { CheckCircle2, Circle, AlertCircle, FileText, DollarSign, Shield, ListTodo } from "lucide-react"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
+import { ScheduleUnsuccessfulEmailsDialog } from "./ScheduleUnsuccessfulEmailsDialog"
 
 const TYPE_ICONS: Record<string, React.ElementType> = {
   finance_contract:   FileText,
@@ -30,12 +30,6 @@ const TYPE_COLORS: Record<string, string> = {
   general:            "text-muted-foreground",
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  open:        "text-muted-foreground",
-  in_progress: "text-blue-500",
-  completed:   "text-green-500",
-}
-
 interface Task {
   id: string
   task_type: string
@@ -56,11 +50,10 @@ interface Task {
 
 interface Props {
   tasks: Task[]
-  profiles: { id: string; name: string }[]
   currentUserId: string
 }
 
-export function TasksClient({ tasks: initialTasks, profiles, currentUserId }: Props) {
+export function TasksClient({ tasks: initialTasks, currentUserId }: Props) {
   const router = useRouter()
   const [tasks, setTasks] = useState(initialTasks)
   const [filter, setFilter] = useState<"all" | "mine" | "open">("open")
@@ -175,6 +168,14 @@ export function TasksClient({ tasks: initialTasks, profiles, currentUserId }: Pr
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
+                      {task.task_type === "general" && task.job_id && task.status !== "completed" && (
+                        <ScheduleUnsuccessfulEmailsDialog
+                          taskId={task.id}
+                          jobId={task.job_id}
+                          jobTitle={task.job_title}
+                          onScheduled={() => setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: "completed", completed_at: new Date().toISOString() } : t))}
+                        />
+                      )}
                       {task.assigned_to_name ? (
                         <span className="text-xs text-muted-foreground">{task.assigned_to_name}</span>
                       ) : (

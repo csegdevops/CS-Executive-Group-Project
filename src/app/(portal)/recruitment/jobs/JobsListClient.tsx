@@ -3,7 +3,6 @@
 import { useState } from "react"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { Search, MapPin, Users, Shield, ChevronRight } from "lucide-react"
@@ -40,7 +39,6 @@ interface Job {
 interface Props {
   jobs: Job[]
   companies: { id: string; name: string }[]
-  recruiters: { id: string; name: string }[]
 }
 
 function formatSalary(min: number | null, max: number | null, currency: string | null) {
@@ -50,7 +48,7 @@ function formatSalary(min: number | null, max: number | null, currency: string |
   return max && max !== min ? `${fmt(min)} – ${fmt(max)} ${c}` : `${fmt(min)} ${c}`
 }
 
-export function JobsListClient({ jobs, companies, recruiters }: Props) {
+export function JobsListClient({ jobs, companies }: Props) {
   const [q, setQ]           = useState("")
   const [status, setStatus] = useState<string>("active,posted,opened")
   const [company, setCompany] = useState("")

@@ -198,11 +198,25 @@ export function NewConsultationWizard({ companies, initialCompanyId }: Props) {
           const reader  = commitRes.body.getReader()
           const decoder = new TextDecoder()
           let buf = ""
+          let commitError: string | null = null
+
           while (true) {
             const { done, value } = await reader.read()
             if (done) break
             buf += decoder.decode(value, { stream: true })
+            const lines = buf.split("\n")
+            buf = lines.pop()!
+            for (const line of lines) {
+              if (!line.trim()) continue
+              const msg = JSON.parse(line)
+              if (msg.type === "error") commitError = msg.message
+            }
           }
+
+          // The consultation itself was already created above — an import
+          // failure here shouldn't strand the user, just warn them so they
+          // know to re-upload the formulation separately.
+          if (commitError) toast.error(`Consultation created, but ingredient import failed: ${commitError}`)
         }
       }
 
@@ -492,7 +506,8 @@ export function NewConsultationWizard({ companies, initialCompanyId }: Props) {
                             checked={selectedRows.has(row.rowIndex)}
                             onChange={(e) => {
                               const next = new Set(selectedRows)
-                              e.target.checked ? next.add(row.rowIndex) : next.delete(row.rowIndex)
+                              if (e.target.checked) next.add(row.rowIndex)
+                              else next.delete(row.rowIndex)
                               setSelectedRows(next)
                             }}
                             className="rounded"

@@ -62,7 +62,6 @@ export default async function TasksPage() {
       <PageHeader title="Tasks" description="Finance, compliance, and general tasks" />
       <TasksClient
         tasks={enriched}
-        profiles={(profiles ?? []).map((p: { id: string; full_name: string | null }) => ({ id: p.id, name: p.full_name ?? "Unknown" }))}
         currentUserId={user.id}
       />
     </div>

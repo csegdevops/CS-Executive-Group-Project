@@ -71,6 +71,7 @@ const moduleNavItems: Record<string, NavItem[]> = {
     { label: "Pipeline",     href: "/recruitment/pipeline",            icon: TrendingUp },
     { label: "Jobs",         href: "/recruitment/jobs",                icon: Briefcase },
     { label: "Candidates",   href: "/recruitment/candidates",          icon: UserSearch },
+    { label: "Contractors",  href: "/recruitment/contractors",         icon: UserCheck },
     { label: "Applications", href: "/recruitment/applications",        icon: ClipboardList },
     { label: "Tasks",        href: "/recruitment/tasks",               icon: ListChecks },
     { label: "Activities",   href: "/recruitment/activities",          icon: CalendarClock },

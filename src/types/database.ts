@@ -34,6 +34,7 @@ export type PlacementType = "permanent" | "contract"
 export type PlacementStatus = "confirmed" | "started" | "completed" | "cancelled"
 export type TaskType = "finance_invoice" | "finance_contract" | "security_clearance" | "general"
 export type TaskStatus = "open" | "in_progress" | "completed" | "cancelled"
+export type ScheduledEmailStatus = "pending" | "sent" | "cancelled" | "failed"
 export type CvParseStatus = "unparsed" | "pending" | "parsed" | "failed"
 export type CvParsedBy = "gemini" | "claude" | "azure" | "daxtra" | "manual"
 
@@ -1170,6 +1171,66 @@ export interface Database {
         }
         Relationships: []
       }
+      contracts: {
+        Row: {
+          id: string
+          placement_id: string
+          contract_number: string | null
+          document_storage_key: string | null
+          document_original_name: string | null
+          notice_period: string | null
+          status: ContractStatus
+          termination_reason: string | null
+          terminated_by: string | null
+          terminated_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          placement_id: string
+        }
+        Update: {
+          contract_number?: string | null
+          document_storage_key?: string | null
+          document_original_name?: string | null
+          notice_period?: string | null
+          status?: ContractStatus
+          termination_reason?: string | null
+          terminated_by?: string | null
+          terminated_at?: string | null
+        }
+        Relationships: []
+      }
+      contract_extensions: {
+        Row: {
+          id: string
+          contract_id: string
+          previous_finish_date: string
+          new_finish_date: string
+          previous_pay_rate: number | null
+          new_pay_rate: number | null
+          previous_charge_rate: number | null
+          new_charge_rate: number | null
+          notes: string | null
+          extended_by: string | null
+          extended_at: string
+        }
+        Insert: {
+          id?: string
+          contract_id: string
+          previous_finish_date: string
+          new_finish_date: string
+          previous_pay_rate?: number | null
+          new_pay_rate?: number | null
+          previous_charge_rate?: number | null
+          new_charge_rate?: number | null
+          notes?: string | null
+          extended_by?: string | null
+        }
+        Update: Record<string, never>
+        Relationships: []
+      }
       tasks: {
         Row: {
           id: string
@@ -1207,6 +1268,38 @@ export interface Database {
           status?: TaskStatus
           due_date?: string | null
           completed_at?: string | null
+        }
+        Relationships: []
+      }
+      scheduled_emails: {
+        Row: {
+          id: string
+          job_id: string
+          application_id: string
+          candidate_id: string
+          task_id: string | null
+          scheduled_for: string
+          status: ScheduledEmailStatus
+          sent_at: string | null
+          error_message: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          job_id: string
+          application_id: string
+          candidate_id: string
+          task_id?: string | null
+          scheduled_for: string
+          status?: ScheduledEmailStatus
+          created_by?: string | null
+        }
+        Update: {
+          status?: ScheduledEmailStatus
+          sent_at?: string | null
+          error_message?: string | null
         }
         Relationships: []
       }

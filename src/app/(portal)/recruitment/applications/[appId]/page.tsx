@@ -35,7 +35,7 @@ export default async function ApplicationDetailPage({ params }: { params: Promis
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (admin.schema("recruitment") as any)
       .from("jobs")
-      .select("id, title, reference_number, company_id, status, employment_type, location")
+      .select("id, title, reference_number, company_id, status, employment_type, location, vacancies_count")
       .eq("id", app.job_id)
       .single(),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -69,6 +69,15 @@ export default async function ApplicationDetailPage({ params }: { params: Promis
     ? await admin.schema("timesheets").from("contractors").select("id").eq("placement_id", placement.id).maybeSingle()
     : { data: null }
 
+  const { count: jobPlacedCount } = job
+    ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (admin.schema("recruitment") as any)
+        .from("placements")
+        .select("id", { count: "exact", head: true })
+        .eq("job_id", job.id)
+    : { count: 0 }
+  const remainingVacancies = job ? (job.vacancies_count ?? 1) - (jobPlacedCount ?? 0) : 0
+
   const stageHistory = (history ?? []).map((h: { id: string; from_stage: string | null; to_stage: string; notes: string | null; changed_by: string | null; changed_at: string }) => ({
     ...h,
     changer_name: h.changed_by ? changerMap[h.changed_by] ?? null : "System",
@@ -96,13 +105,16 @@ export default async function ApplicationDetailPage({ params }: { params: Promis
         {/* Right: job + stage control */}
         <div className="space-y-4">
           <JobSummaryCard job={job ? { ...job, company_name: company?.name ?? null } : null} />
-          <div className="rounded-lg border bg-card p-4">
-            <h3 className="font-medium text-sm mb-3">Move stage</h3>
-            <StageControl appId={app.id} currentStage={app.stage} />
-          </div>
+          {app.stage !== "placed" && (
+            <div className="rounded-lg border bg-card p-4">
+              <h3 className="font-medium text-sm mb-3">Move stage</h3>
+              <StageControl appId={app.id} currentStage={app.stage} />
+            </div>
+          )}
           <PlacementCard
             applicationId={app.id}
             jobId={app.job_id}
+            jobTitle={job?.title ?? null}
             candidateId={app.candidate_id}
             candidateName={candidate ? `${candidate.first_name} ${candidate.last_name}` : "Candidate"}
             candidateEmail={candidate?.email ?? ""}
@@ -111,6 +123,7 @@ export default async function ApplicationDetailPage({ params }: { params: Promis
             employmentType={job?.employment_type ?? null}
             placement={placement ?? null}
             contractorId={contractor?.id ?? null}
+            remainingVacancies={remainingVacancies}
           />
         </div>
       </div>

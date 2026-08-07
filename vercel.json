@@ -1,6 +1,7 @@
 {
   "crons": [
     { "path": "/api/cron/due-date-check", "schedule": "0 0 * * *" },
-    { "path": "/api/cron/contract-expiry-check", "schedule": "0 0 * * *" }
+    { "path": "/api/cron/contract-expiry-check", "schedule": "0 0 * * *" },
+    { "path": "/api/cron/send-scheduled-application-emails", "schedule": "5 0 * * *" }
   ]
 }

@@ -20,7 +20,9 @@ const STAGE_OPTIONS = [
   { value: "interview_2",     label: "Interview 2" },
   { value: "reference_check", label: "Reference Check" },
   { value: "offer",           label: "Offer" },
-  { value: "placed",          label: "Placed" },
+  // "placed" is intentionally not selectable here — placements must go
+  // through CreatePlacementDialog (PlacementCard) so the vacancy-fill
+  // check, finance/clearance tasks, and unsuccessful-email task all fire.
   { value: "withdrawn",       label: "Withdrawn" },
   { value: "rejected",        label: "Rejected" },
 ]

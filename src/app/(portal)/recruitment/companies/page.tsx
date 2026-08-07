@@ -20,9 +20,9 @@ export default async function CompaniesPage() {
   const companyIds = (companies ?? []).map((c: { id: string }) => c.id)
 
   // Opportunity counts per company
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: opps } = companyIds.length
-    ? await (admin.schema("recruitment") as any)
+    ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (admin.schema("recruitment") as any)
         .from("opportunities")
         .select("company_id, stage")
         .in("company_id", companyIds)
@@ -35,9 +35,9 @@ export default async function CompaniesPage() {
   }
 
   // Active consultations count per company
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: consultations } = companyIds.length
-    ? await (admin.schema("regulatory") as any)
+    ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (admin.schema("regulatory") as any)
         .from("consultations")
         .select("id, company_id, status")
         .in("company_id", companyIds)
@@ -50,9 +50,9 @@ export default async function CompaniesPage() {
   }
 
   // Open jobs count per company
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: jobs } = companyIds.length
-    ? await (admin.schema("recruitment") as any)
+    ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (admin.schema("recruitment") as any)
         .from("jobs")
         .select("company_id, status")
         .in("company_id", companyIds)

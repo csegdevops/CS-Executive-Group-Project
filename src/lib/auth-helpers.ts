@@ -32,6 +32,7 @@ type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>
  * is only a cache key; the RPC itself always resolves the caller's own
  * session, so a caller can never read another user's grants through it.
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const fetchAuthContext = cache(async (_userId: string): Promise<AuthContext | null> => {
   const supabase = await createClient()
   const { data } = await supabase.rpc("get_own_auth_context").single()
