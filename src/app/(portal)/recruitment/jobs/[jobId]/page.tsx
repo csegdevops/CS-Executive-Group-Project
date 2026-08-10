@@ -67,12 +67,17 @@ export default async function JobDetailPage({
   if (!job) notFound()
 
   // Hydrate company name + full companies list (for the edit dialog's disabled company field)
-  const [{ data: company }, { data: companies }, { data: recruiterProfiles }, matches] = await Promise.all([
+  const [{ data: company }, { data: companies }, { data: recruiterProfiles }, matches, { data: clearanceLookups }] = await Promise.all([
     admin.from("companies").select("id, name").eq("id", job.company_id).single(),
     admin.from("companies").select("id, name").order("name"),
     admin.from("profiles").select("id, full_name").order("full_name"),
     findMatchingCandidates(admin, jobId, job.required_skills ?? [], job.required_education_tags ?? []),
+    admin.from("lookup_values").select("value, label").eq("category", "security_clearance_level"),
   ])
+  const clearanceLevelLabel = (job.security_clearance_level_required as string | null)
+    ? (clearanceLookups ?? []).find((l: { value: string; label: string }) => l.value === job.security_clearance_level_required)?.label
+      ?? job.security_clearance_level_required
+    : null
 
   // Hydrate candidate names for applications
   const candIds = [...new Set((applications ?? []).map((a: { candidate_id: string }) => a.candidate_id))]
@@ -155,6 +160,9 @@ export default async function JobDetailPage({
               salary_max: job.salary_max,
               contract_duration_weeks: job.contract_duration_weeks,
               security_clearance_required: job.security_clearance_required,
+              security_clearance_level_required: job.security_clearance_level_required,
+              right_to_work_check_required: job.right_to_work_check_required,
+              right_to_work_notes: job.right_to_work_notes,
               assigned_recruiter_id: job.assigned_recruiter_id,
               description: job.description,
               requirements: job.requirements,
@@ -195,7 +203,8 @@ export default async function JobDetailPage({
               { label: "Currency", value: job.salary_currency ?? "AUD" },
               { label: "Salary min", value: job.salary_min ? `$${job.salary_min.toLocaleString()}` : "—" },
               { label: "Salary max", value: job.salary_max ? `$${job.salary_max.toLocaleString()}` : "—" },
-              { label: "Security clearance", value: job.security_clearance_required ? "Required" : "Not required" },
+              { label: "Security clearance", value: clearanceLevelLabel ?? "Not required" },
+              { label: "Right-to-work check", value: job.right_to_work_check_required ? "Required" : "Not required" },
               { label: "Contract duration", value: job.contract_duration_weeks ? `${job.contract_duration_weeks} weeks` : "—" },
               { label: "Vacancies", value: String(job.vacancies_count ?? 1) },
               { label: "Placed", value: `${placedCount ?? 0} of ${job.vacancies_count ?? 1}` },
@@ -206,6 +215,12 @@ export default async function JobDetailPage({
               </div>
             ))}
           </div>
+          {job.right_to_work_notes && (
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Right-to-work notes</p>
+              <p className="text-sm whitespace-pre-wrap text-foreground/90">{job.right_to_work_notes}</p>
+            </div>
+          )}
           {job.description && (
             <div>
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Description</p>

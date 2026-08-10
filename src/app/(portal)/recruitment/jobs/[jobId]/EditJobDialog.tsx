@@ -23,6 +23,9 @@ interface Props {
     salary_max: number | null
     contract_duration_weeks: number | null
     security_clearance_required: boolean
+    security_clearance_level_required: string | null
+    right_to_work_check_required: boolean
+    right_to_work_notes: string | null
     assigned_recruiter_id: string | null
     description: string | null
     requirements: string | null
@@ -43,6 +46,9 @@ function toFormState(initial: Props["initial"]): JobFormState {
     salary_max: initial.salary_max != null ? String(initial.salary_max) : "",
     contract_duration_weeks: initial.contract_duration_weeks != null ? String(initial.contract_duration_weeks) : "",
     security_clearance_required: initial.security_clearance_required,
+    security_clearance_level_required: initial.security_clearance_level_required ?? "",
+    right_to_work_check_required: initial.right_to_work_check_required,
+    right_to_work_notes: initial.right_to_work_notes ?? "",
     assigned_recruiter_id: initial.assigned_recruiter_id ?? "",
     description: initial.description ?? "",
     requirements: initial.requirements ?? "",
@@ -70,6 +76,9 @@ export function EditJobDialog({ jobId, companies, recruiters, initial }: Props) 
         title: form.title,
         reference_number: form.reference_number || undefined,
         security_clearance_required: form.security_clearance_required,
+        security_clearance_level_required: form.security_clearance_level_required || null,
+        right_to_work_check_required: form.right_to_work_check_required,
+        right_to_work_notes: form.right_to_work_notes || null,
         location: form.location || null,
         employment_type: form.employment_type || undefined,
         vacancies_count: parseInt(form.vacancies_count) || 1,

@@ -10,7 +10,7 @@ import { CandidateDocumentsSection } from "./CandidateDocumentsSection"
 import { DeleteCandidateButton } from "./DeleteCandidateButton"
 import { AddToJobDialog } from "./AddToJobDialog"
 import { CandidateNotesSection } from "./CandidateNotesSection"
-import { ChevronLeft, Mail, Phone, MapPin, Shield, FileText, GraduationCap, Briefcase, ExternalLink, DollarSign } from "lucide-react"
+import { ChevronLeft, ChevronRight, Mail, Phone, MapPin, Shield, FileText, GraduationCap, Briefcase, ExternalLink, DollarSign } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const STAGE_LABELS: Record<string, string> = {
@@ -21,7 +21,7 @@ const STAGE_LABELS: Record<string, string> = {
 }
 
 const SOURCE_LABELS: Record<string, string> = {
-  seek_inbound: "Seek [S]", company_website: "Website [CS]",
+  seek_inbound: "Seek [S]", company_website: "Website [CSEG]",
   database_internal: "Internal [DB]", seek_talent: "Seek Talent [ST]", linkedin: "LinkedIn [LI]",
 }
 
@@ -147,7 +147,9 @@ export default async function CandidateProfilePage({ params }: { params: Promise
                       last_name: candidate.last_name ?? "",
                       email: candidate.email ?? "",
                       secondary_email: candidate.secondary_email ?? "",
+                      work_email: candidate.work_email ?? "",
                       phone: candidate.phone ?? "",
+                      address_line: candidate.address_line ?? "",
                       current_title: candidate.current_title ?? "",
                       current_employer: candidate.current_employer ?? "",
                       employment_status: candidate.employment_status ?? "employed",
@@ -211,11 +213,17 @@ export default async function CandidateProfilePage({ params }: { params: Promise
                   <Phone className="h-3.5 w-3.5 text-muted-foreground" />{candidate.phone}
                 </a>
               )}
-              {(candidate.location_city || candidate.location_state) && (
+              {(candidate.address_line || candidate.location_city || candidate.location_state) && (
                 <p className="flex items-center gap-2 text-sm text-muted-foreground">
                   <MapPin className="h-3.5 w-3.5" />
-                  {[candidate.location_city, candidate.location_state, candidate.location_postcode, candidate.location_country].filter(Boolean).join(", ")}
+                  {[candidate.address_line, candidate.location_city, candidate.location_state, candidate.location_postcode, candidate.location_country].filter(Boolean).join(", ")}
                 </p>
+              )}
+              {candidate.work_email && (
+                <a href={`mailto:${candidate.work_email}`} className="flex items-center gap-2 text-sm hover:text-primary transition-colors">
+                  <Mail className="h-3.5 w-3.5 text-muted-foreground" />{candidate.work_email}
+                  <span className="text-xs text-muted-foreground">(work)</span>
+                </a>
               )}
               {candidate.field_of_study && (
                 <p className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -254,19 +262,31 @@ export default async function CandidateProfilePage({ params }: { params: Promise
               )}
             </div>
 
-            <div className="mt-4 border-t pt-4">
-              <CandidateSkillsEditor
-                candidateId={candidate.id}
-                initialTags={candidate.skills_tags ?? []}
-              />
-            </div>
+            <details className="mt-4 border-t pt-4 group">
+              <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground list-none flex items-center gap-1">
+                <ChevronRight className="h-3.5 w-3.5 transition-transform group-open:rotate-90" />
+                Skills &amp; matching tags (for internal matching)
+              </summary>
+              <div className="mt-3">
+                <CandidateSkillsEditor
+                  candidateId={candidate.id}
+                  initialTags={candidate.skills_tags ?? []}
+                />
+              </div>
+            </details>
 
-            <div className="mt-4 border-t pt-4">
-              <CandidateEducationTagsEditor
-                candidateId={candidate.id}
-                initialTags={candidate.education_tags ?? []}
-              />
-            </div>
+            <details className="mt-4 border-t pt-4 group">
+              <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground list-none flex items-center gap-1">
+                <ChevronRight className="h-3.5 w-3.5 transition-transform group-open:rotate-90" />
+                Education tags (for internal matching)
+              </summary>
+              <div className="mt-3">
+                <CandidateEducationTagsEditor
+                  candidateId={candidate.id}
+                  initialTags={candidate.education_tags ?? []}
+                />
+              </div>
+            </details>
           </div>
 
           {/* Security clearance */}

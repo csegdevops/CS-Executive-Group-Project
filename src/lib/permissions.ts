@@ -75,7 +75,13 @@ export const PERMISSION_CATALOG: Record<Module, PermissionCategory[]> = {
       ],
     },
     { category: "Placements", permissions: [{ key: "recruitment.placements.create", label: "Create placements" }] },
-    { category: "Contracts", permissions: [{ key: "recruitment.contracts.manage", label: "Extend, terminate & manage contract documents" }] },
+    {
+      category: "Contracts",
+      permissions: [
+        { key: "recruitment.contracts.edit_dates", label: "Edit contract start & finish dates" },
+        { key: "recruitment.contracts.manage", label: "Extend, renew, terminate & manage contract documents" },
+      ],
+    },
     { category: "Tasks", permissions: [{ key: "recruitment.tasks.edit", label: "Manage tasks" }] },
     {
       category: "Opportunities",

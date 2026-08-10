@@ -6,16 +6,16 @@ import { z } from "zod"
 
 const extendSchema = z.object({
   new_finish_date: z.string(),
-  new_pay_rate: z.number().positive().optional().nullable(),
-  new_charge_rate: z.number().positive().optional().nullable(),
   notes: z.string().optional(),
 })
 
 // POST /api/recruitment/contracts/[contractId]/extend
-// Records a full historical extension row (not just an audit note) and
-// updates the linked placement's finish_date/pay_rate/charge_rate so it
-// stays the live source of truth (the contract-expiry-check cron reads
-// placements.finish_date directly).
+// Extend only pushes the finish date out — same rate, same terms. A rate or
+// terms change is a Renewal instead (POST .../renew), which creates a new
+// contracts row. Records a full historical extension row (not just an audit
+// note) and updates the linked placement's finish_date, plus the current
+// contract row's own finish_date, so placements stays the live source of
+// truth the contract-expiry-check cron reads directly.
 export async function POST(req: NextRequest, { params }: { params: Promise<{ contractId: string }> }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -43,17 +43,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ con
     .single()
   if (!placement) return NextResponse.json({ error: "Placement not found" }, { status: 404 })
 
-  const newPayRate = parsed.data.new_pay_rate ?? placement.pay_rate
-  const newChargeRate = parsed.data.new_charge_rate ?? placement.charge_rate
-
   const { error: extensionError } = await recruitment.from("contract_extensions").insert({
     contract_id: contractId,
     previous_finish_date: placement.finish_date,
     new_finish_date: parsed.data.new_finish_date,
-    previous_pay_rate: placement.pay_rate,
-    new_pay_rate: newPayRate,
-    previous_charge_rate: placement.charge_rate,
-    new_charge_rate: newChargeRate,
     notes: parsed.data.notes || null,
     extended_by: user.id,
   })
@@ -61,12 +54,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ con
 
   const { error: placementError } = await recruitment
     .from("placements")
-    .update({ finish_date: parsed.data.new_finish_date, pay_rate: newPayRate, charge_rate: newChargeRate })
+    .update({ finish_date: parsed.data.new_finish_date })
     .eq("id", contract.placement_id)
   if (placementError) return NextResponse.json({ error: placementError.message }, { status: 500 })
 
   // An extension on a lapsed/expired contract brings it back to active.
-  await recruitment.from("contracts").update({ status: "active" }).eq("id", contractId)
+  await recruitment.from("contracts").update({ status: "active", finish_date: parsed.data.new_finish_date }).eq("id", contractId)
 
   return NextResponse.json({ ok: true })
 }

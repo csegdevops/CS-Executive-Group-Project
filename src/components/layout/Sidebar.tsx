@@ -54,6 +54,9 @@ interface NavItem {
   icon: React.ElementType
   /** If set, only shown when the user (or super_admin) holds this permission key. */
   permission?: string
+  /** If set, looks up a live count from the `badges` map to render a small
+   * number badge next to this item (e.g. incomplete contracts needing review). */
+  badgeKey?: string
 }
 
 const moduleNavItems: Record<string, NavItem[]> = {
@@ -66,13 +69,13 @@ const moduleNavItems: Record<string, NavItem[]> = {
   ],
   recruitment: [
     { label: "Dashboard",    href: "/recruitment/dashboard",           icon: LayoutDashboard },
+    { label: "Jobs",         href: "/recruitment/jobs",                icon: Briefcase },
+    { label: "Applications", href: "/recruitment/applications",        icon: ClipboardList },
+    { label: "Candidates",   href: "/recruitment/candidates",          icon: UserSearch },
+    { label: "Contractors",  href: "/recruitment/contractors",         icon: UserCheck, badgeKey: "incompleteContracts" },
     { label: "Companies",    href: "/recruitment/companies",           icon: Building2 },
     { label: "Contacts",     href: "/recruitment/contacts",            icon: Contact },
     { label: "Pipeline",     href: "/recruitment/pipeline",            icon: TrendingUp },
-    { label: "Jobs",         href: "/recruitment/jobs",                icon: Briefcase },
-    { label: "Candidates",   href: "/recruitment/candidates",          icon: UserSearch },
-    { label: "Contractors",  href: "/recruitment/contractors",         icon: UserCheck },
-    { label: "Applications", href: "/recruitment/applications",        icon: ClipboardList },
     { label: "Tasks",        href: "/recruitment/tasks",               icon: ListChecks },
     { label: "Activities",   href: "/recruitment/activities",          icon: CalendarClock },
   ],
@@ -113,7 +116,7 @@ interface SidebarProps {
   accessibleModules: Module[]
 }
 
-function NavLink({ item, collapsed, pathname }: { item: NavItem; collapsed: boolean; pathname: string }) {
+function NavLink({ item, collapsed, pathname, badgeCount }: { item: NavItem; collapsed: boolean; pathname: string; badgeCount?: number }) {
   const Icon = item.icon
   const isActive = item.href.endsWith("/dashboard")
     ? pathname === item.href
@@ -122,19 +125,35 @@ function NavLink({ item, collapsed, pathname }: { item: NavItem; collapsed: bool
   return (
     <Link
       href={item.href}
-      title={collapsed ? item.label : undefined}
+      title={collapsed ? (badgeCount ? `${item.label} (${badgeCount} incomplete)` : item.label) : undefined}
       className={cn(
         "flex items-center rounded-md text-sm font-medium transition-colors",
         collapsed
-          ? "justify-center p-2"
+          ? "justify-center p-2 relative"
           : "gap-3 px-3 py-2",
         isActive
           ? "bg-sidebar-accent text-sidebar-accent-foreground"
           : "text-sidebar-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
       )}
     >
-      <Icon className="h-4 w-4 shrink-0" />
-      {!collapsed && item.label}
+      <span className="relative shrink-0">
+        <Icon className="h-4 w-4" />
+        {collapsed && !!badgeCount && (
+          <span className="absolute -top-1.5 -right-1.5 h-3.5 min-w-3.5 px-0.5 rounded-full bg-red-500 text-white text-[9px] leading-3.5 text-center">
+            {badgeCount > 9 ? "9+" : badgeCount}
+          </span>
+        )}
+      </span>
+      {!collapsed && (
+        <span className="flex-1 flex items-center justify-between gap-2">
+          {item.label}
+          {!!badgeCount && (
+            <span className="h-4 min-w-4 px-1 rounded-full bg-red-500 text-white text-[10px] leading-4 text-center">
+              {badgeCount > 99 ? "99+" : badgeCount}
+            </span>
+          )}
+        </span>
+      )}
     </Link>
   )
 }
@@ -146,6 +165,7 @@ export function Sidebar({ role, userName, email, permissionKeys, accessibleModul
   const [mounted, setMounted] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
   const [editProfileOpen, setEditProfileOpen] = useState(false)
+  const [badges, setBadges] = useState<Record<string, number>>({})
 
   useEffect(() => {
     setMounted(true)
@@ -154,6 +174,15 @@ export function Sidebar({ role, userName, email, permissionKeys, accessibleModul
       if (stored === "true") setCollapsed(true)
     } catch {}
   }, [])
+
+  const isRecruitmentModule = pathname.startsWith("/recruitment")
+  useEffect(() => {
+    if (!isRecruitmentModule) return
+    fetch("/api/recruitment/contracts/incomplete-count")
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d) setBadges(b => ({ ...b, incompleteContracts: d.count })) })
+      .catch(() => {})
+  }, [isRecruitmentModule])
 
   function toggleCollapsed() {
     const next = !collapsed
@@ -299,7 +328,7 @@ export function Sidebar({ role, userName, email, permissionKeys, accessibleModul
         {activeModule && regularItems.length > 0 && (
           <div className="space-y-1">
             {regularItems.map(item => (
-              <NavLink key={item.href} item={item} collapsed={collapsed} pathname={pathname} />
+              <NavLink key={item.href} item={item} collapsed={collapsed} pathname={pathname} badgeCount={item.badgeKey ? badges[item.badgeKey] : undefined} />
             ))}
           </div>
         )}
@@ -315,7 +344,7 @@ export function Sidebar({ role, userName, email, permissionKeys, accessibleModul
               )
             }
             {adminItems.map(item => (
-              <NavLink key={item.href} item={item} collapsed={collapsed} pathname={pathname} />
+              <NavLink key={item.href} item={item} collapsed={collapsed} pathname={pathname} badgeCount={item.badgeKey ? badges[item.badgeKey] : undefined} />
             ))}
           </div>
         )}

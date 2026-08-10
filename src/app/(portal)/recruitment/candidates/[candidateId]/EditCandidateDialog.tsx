@@ -24,7 +24,9 @@ interface Initial {
   last_name: string
   email: string
   secondary_email: string
+  work_email: string
   phone: string
+  address_line: string
   current_title: string
   current_employer: string
   employment_status: "employed" | "not_working"
@@ -62,7 +64,9 @@ export function EditCandidateDialog({
   const [lastName, setLastName]     = useState(initial.last_name)
   const [email, setEmail]           = useState(initial.email)
   const [secondaryEmail, setSecondaryEmail] = useState(initial.secondary_email)
+  const [workEmail, setWorkEmail]   = useState(initial.work_email)
   const [phone, setPhone]           = useState(initial.phone)
+  const [addressLine, setAddressLine] = useState(initial.address_line)
   const [title, setTitle]           = useState(initial.current_title)
   const [employer, setEmployer]     = useState(initial.current_employer)
   const [employmentStatus, setEmploymentStatus] = useState(initial.employment_status)
@@ -127,7 +131,9 @@ export function EditCandidateDialog({
           last_name: lastName.trim(),
           email: email.trim().toLowerCase(),
           secondary_email: secondaryEmail.trim() ? secondaryEmail.trim().toLowerCase() : null,
+          work_email: workEmail.trim() ? workEmail.trim().toLowerCase() : null,
           phone: phone || null,
+          address_line: addressLine || null,
           current_title: title || null,
           current_employer: employer || null,
           employment_status: employmentStatus,
@@ -196,6 +202,11 @@ export function EditCandidateDialog({
           </div>
 
           <div>
+            <Label className="mb-1">Work Email</Label>
+            <Input type="email" value={workEmail} onChange={(e) => setWorkEmail(e.target.value)} placeholder="work@company.com" />
+          </div>
+
+          <div>
             <Label className="mb-1">Phone</Label>
             <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="e.g. 04XX XXX XXX" />
           </div>
@@ -223,7 +234,11 @@ export function EditCandidateDialog({
             </div>
           </div>
 
-          <div className="border-t pt-4">
+          <div className="border-t pt-4 space-y-3">
+            <div>
+              <Label className="mb-1">Street Address</Label>
+              <Input value={addressLine} onChange={(e) => setAddressLine(e.target.value)} placeholder="e.g. 19 Kernan Street" />
+            </div>
             <CandidateLocationAutocomplete value={location} onChange={setLocation} />
           </div>
 

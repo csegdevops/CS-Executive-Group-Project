@@ -14,7 +14,7 @@ import { toast } from "sonner"
 
 const SOURCE_OPTIONS = [
   { value: "seek_inbound", label: "Seek [S]" },
-  { value: "company_website", label: "Website [CS]" },
+  { value: "company_website", label: "Website [CSEG]" },
   { value: "database_internal", label: "Internal [DB]" },
   { value: "seek_talent", label: "Seek Talent [ST]" },
   { value: "linkedin", label: "LinkedIn [LI]" },

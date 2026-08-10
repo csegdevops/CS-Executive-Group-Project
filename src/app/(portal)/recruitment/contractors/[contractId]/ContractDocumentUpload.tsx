@@ -8,11 +8,12 @@ import { toast } from "sonner"
 import { DocumentPreviewSheet, type DocumentPreviewTarget } from "@/components/recruitment/DocumentPreviewSheet"
 
 export function ContractDocumentUpload({
-  contractId, documentName, editable,
+  contractId, documentName, editable, onSaved,
 }: {
   contractId: string
   documentName: string | null
   editable: boolean
+  onSaved?: () => void
 }) {
   const router = useRouter()
   const inputRef = useRef<HTMLInputElement>(null)
@@ -28,6 +29,7 @@ export function ContractDocumentUpload({
       if (!res.ok) { toast.error("Failed to upload document"); return }
       toast.success("Contract document uploaded")
       router.refresh()
+      onSaved?.()
     } finally {
       setUploading(false)
       if (inputRef.current) inputRef.current.value = ""

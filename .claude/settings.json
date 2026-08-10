@@ -104,12 +104,15 @@
       "Bash(taskkill //F //PID 169156)",
       "Bash(taskkill //F //PID 174376)",
       "Bash(node -e \"const p=require\\('./package.json'\\); console.log\\(JSON.stringify\\({dependencies:p.dependencies, devDependencies:p.devDependencies}, null, 2\\)\\)\")",
-      "Bash(rm \"d:\\\\Project\\\\CS Executive Group Project\\\\src\\\\app\\\\\\(portal\\)\\\\recruitment\\\\applications\\\\[appId]\\\\CvPreviewSheet.tsx\")"
+      "Bash(rm \"d:\\\\Project\\\\CS Executive Group Project\\\\src\\\\app\\\\\\(portal\\)\\\\recruitment\\\\applications\\\\[appId]\\\\CvPreviewSheet.tsx\")",
+      "Bash(rm \"d:/Project/CS Executive Group Project/src/app/\\(portal\\)/recruitment/contractors/[contractId]/ContractExtensionTimeline.tsx\")",
+      "Bash(node -e \"const m = require\\('lucide-react'\\); console.log\\('CalendarCog' in m\\)\")"
     ],
     "additionalDirectories": [
       "d:\\Project\\CS Executive Group Project\\src\\app\\(portal)\\recruitment\\candidates\\[candidateId]",
       "d:\\Project\\CS Executive Group Project\\src\\app\\api\\recruitment\\jobs\\[jobId]",
-      "d:\\Project\\CS Executive Group Project\\src\\app\\(portal)\\recruitment\\applications\\[appId]"
+      "d:\\Project\\CS Executive Group Project\\src\\app\\(portal)\\recruitment\\applications\\[appId]",
+      "d:\\Project\\CS Executive Group Project\\src\\app\\(portal)\\recruitment\\contractors\\[contractId]"
     ]
   }
 }

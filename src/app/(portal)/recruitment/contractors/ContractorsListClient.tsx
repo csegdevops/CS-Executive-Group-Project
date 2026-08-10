@@ -1,11 +1,13 @@
 "use client"
 
 import { useState } from "react"
-import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
-import { Search } from "lucide-react"
+import { Search, TriangleAlert } from "lucide-react"
+import { ContractDetailSheet } from "./ContractDetailSheet"
+import { isContractIncomplete } from "@/lib/recruitment/contract-completeness"
 
 interface Contract {
   id: string
@@ -13,6 +15,9 @@ interface Contract {
   status: "active" | "expired" | "terminated"
   start_date: string | null
   finish_date: string | null
+  award: string | null
+  award_level: string | null
+  pay_rate: number | null
   candidate_name: string
   job_title: string | null
   company_id: string | null
@@ -37,9 +42,11 @@ function isExpiringSoon(finishDate: string | null): boolean {
 }
 
 export function ContractorsListClient({ contracts, companyOptions }: Props) {
+  const router = useRouter()
   const [q, setQ] = useState("")
   const [status, setStatus] = useState("")
   const [companyId, setCompanyId] = useState("")
+  const [selectedId, setSelectedId] = useState<string | null>(null)
 
   const filtered = contracts.filter((c) => {
     if (status && c.status !== status) return false
@@ -55,6 +62,21 @@ export function ContractorsListClient({ contracts, companyOptions }: Props) {
     }
     return true
   })
+
+  const selectedIndex = selectedId ? filtered.findIndex((c) => c.id === selectedId) : -1
+
+  function navigate(direction: "prev" | "next") {
+    if (selectedIndex === -1) return
+    const nextIndex = direction === "prev" ? selectedIndex - 1 : selectedIndex + 1
+    if (nextIndex >= 0 && nextIndex < filtered.length) setSelectedId(filtered[nextIndex].id)
+  }
+
+  function handleRenewed(newContractId: string) {
+    // The renewed-into contract isn't in `contracts` yet (server data is
+    // stale until the list re-fetches) — refresh the list and select it.
+    setSelectedId(newContractId)
+    router.refresh()
+  }
 
   return (
     <div>
@@ -118,11 +140,13 @@ export function ContractorsListClient({ contracts, companyOptions }: Props) {
             </thead>
             <tbody className="divide-y">
               {filtered.map((c) => (
-                <tr key={c.id} className="hover:bg-muted/20 transition-colors">
+                <tr
+                  key={c.id}
+                  onClick={() => setSelectedId(c.id)}
+                  className="hover:bg-muted/20 transition-colors cursor-pointer"
+                >
                   <td className="px-4 py-3">
-                    <Link href={`/recruitment/contractors/${c.id}`} className="font-medium hover:underline">
-                      {c.candidate_name}
-                    </Link>
+                    <span className="font-medium hover:underline">{c.candidate_name}</span>
                     {c.contract_number && <p className="text-xs text-muted-foreground">{c.contract_number}</p>}
                   </td>
                   <td className="px-4 py-3 hidden md:table-cell text-sm">{c.job_title ?? "—"}</td>
@@ -134,6 +158,11 @@ export function ContractorsListClient({ contracts, companyOptions }: Props) {
                     {c.status === "active" && isExpiringSoon(c.finish_date) && (
                       <Badge variant="outline" className="ml-1.5 text-xs bg-amber-50 text-amber-700">Expiring soon</Badge>
                     )}
+                    {c.status !== "terminated" && isContractIncomplete(c) && (
+                      <Badge variant="outline" className="ml-1.5 text-xs bg-red-50 text-red-700 gap-1" title="Missing award, award level, pay rate, start or finish date">
+                        <TriangleAlert className="h-3 w-3" />Incomplete
+                      </Badge>
+                    )}
                   </td>
                   <td className="px-4 py-3 hidden sm:table-cell text-sm text-muted-foreground">
                     {c.finish_date ? new Date(c.finish_date).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" }) : "Ongoing"}
@@ -144,6 +173,15 @@ export function ContractorsListClient({ contracts, companyOptions }: Props) {
           </table>
         </div>
       )}
+
+      <ContractDetailSheet
+        contractId={selectedId}
+        onOpenChange={(open) => { if (!open) setSelectedId(null) }}
+        onNavigate={navigate}
+        hasPrev={selectedIndex > 0}
+        hasNext={selectedIndex !== -1 && selectedIndex < filtered.length - 1}
+        onRenewed={handleRenewed}
+      />
     </div>
   )
 }

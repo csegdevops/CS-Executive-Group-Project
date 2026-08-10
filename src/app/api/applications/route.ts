@@ -139,15 +139,24 @@ export async function POST(req: NextRequest) {
     if (byRef) jobId = byRef.id
   }
 
+  // Prefer the full LinkedIn URL over the bitly-shortened one; normalize a
+  // bare handle/domain (no scheme) the same way EditCandidateDialog does for
+  // manual edits, so it renders as a clickable link either way.
+  const rawLinkedin = data.linkedin || data.linkedin_bitly
+  const linkedinUrl = rawLinkedin ? (/^https?:\/\//i.test(rawLinkedin) ? rawLinkedin : `https://${rawLinkedin}`) : null
+
   const { data: upsertResult, error: upsertError } = await recruitment
     .rpc("upsert_candidate", {
-      p_email:          data.email,
-      p_phone:          data.phone ?? null,
-      p_first_name:     data.first_name,
-      p_last_name:      data.last_name,
-      p_location_state: data.state ?? null,
-      p_source_channel: "company_website",
-      p_added_by:       null,
+      p_email:                 data.email,
+      p_phone:                 data.phone ?? null,
+      p_first_name:            data.first_name,
+      p_last_name:             data.last_name,
+      p_location_state:        data.state ?? null,
+      p_source_channel:        "company_website",
+      p_added_by:              null,
+      p_linkedin_url:          linkedinUrl,
+      p_current_salary:        data.current_salary != null && data.current_salary !== "" ? Number(data.current_salary) : null,
+      p_base_salary_expected:  data.min_salary_expectation != null ? String(data.min_salary_expectation) : null,
     })
 
   if (upsertError) {

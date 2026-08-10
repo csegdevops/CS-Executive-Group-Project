@@ -8,6 +8,7 @@ export interface JobSummary {
   location: string | null
   employment_type: string | null
   company_name: string | null
+  recruiter_name?: string | null
 }
 
 export function JobSummaryCard({ job }: { job: JobSummary | null }) {
@@ -23,6 +24,7 @@ export function JobSummaryCard({ job }: { job: JobSummary | null }) {
           {job.location && <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1"><MapPin className="h-3 w-3" />{job.location}</p>}
           {job.employment_type && <p className="text-sm text-muted-foreground capitalize mt-1">{job.employment_type}</p>}
           {job.reference_number && <p className="text-xs font-mono text-muted-foreground mt-1">{job.reference_number}</p>}
+          {job.recruiter_name && <p className="text-xs text-muted-foreground mt-1">Recruiter in charge: {job.recruiter_name}</p>}
         </>
       ) : (
         <p className="font-medium">Unknown</p>

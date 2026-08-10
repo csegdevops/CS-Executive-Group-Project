@@ -17,7 +17,7 @@ export interface CandidateSummary {
   security_clearance_verified: boolean | null
 }
 
-export function CandidateSummaryCard({ candidate }: { candidate: CandidateSummary | null }) {
+export function CandidateSummaryCard({ candidate, hideSkills }: { candidate: CandidateSummary | null; hideSkills?: boolean }) {
   return (
     <div className="rounded-lg border bg-card p-4">
       <div className="flex items-start justify-between mb-3">
@@ -59,7 +59,7 @@ export function CandidateSummaryCard({ candidate }: { candidate: CandidateSummar
           </p>
         )}
       </div>
-      {candidate?.skills_tags && candidate.skills_tags.length > 0 && (
+      {!hideSkills && candidate?.skills_tags && candidate.skills_tags.length > 0 && (
         <div className="flex flex-wrap gap-1 mt-3">
           {candidate.skills_tags.map((tag) => (
             <Badge key={tag} variant="secondary" className="text-xs">{tag.replace(/_/g, " ")}</Badge>

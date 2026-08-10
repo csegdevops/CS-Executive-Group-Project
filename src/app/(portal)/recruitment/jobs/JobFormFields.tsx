@@ -23,6 +23,9 @@ export interface JobFormState {
   salary_max: string
   contract_duration_weeks: string
   security_clearance_required: boolean
+  security_clearance_level_required: string
+  right_to_work_check_required: boolean
+  right_to_work_notes: string
   assigned_recruiter_id: string
   description: string
   requirements: string
@@ -41,6 +44,9 @@ export const emptyJobForm: JobFormState = {
   salary_max: "",
   contract_duration_weeks: "",
   security_clearance_required: false,
+  security_clearance_level_required: "",
+  right_to_work_check_required: false,
+  right_to_work_notes: "",
   assigned_recruiter_id: "",
   description: "",
   requirements: "",
@@ -59,13 +65,20 @@ interface Props {
   companyDisabled?: boolean
 }
 
+const NONE = "_none_"
+
 export function JobFormFields({ form, set, companies, recruiters, companyDisabled = false }: Props) {
   const [employmentTypes, setEmploymentTypes] = useState<LookupValue[]>([])
+  const [clearanceLevels, setClearanceLevels] = useState<LookupValue[]>([])
 
   useEffect(() => {
     fetch("/api/lookup-values?scope=recruitment&category=employment_type")
       .then(r => r.json())
       .then(d => setEmploymentTypes(Array.isArray(d) ? d : []))
+      .catch(() => {})
+    fetch("/api/lookup-values?scope=global&category=security_clearance_level")
+      .then(r => r.json())
+      .then(d => setClearanceLevels(Array.isArray(d) ? d.filter((l: LookupValue) => l.value !== "none") : []))
       .catch(() => {})
   }, [])
 
@@ -171,16 +184,42 @@ export function JobFormFields({ form, set, companies, recruiters, companyDisable
         </div>
       </div>
 
-      {/* Security clearance */}
-      <label className="flex items-center gap-2 cursor-pointer text-sm">
-        <input
-          type="checkbox"
-          checked={form.security_clearance_required}
-          onChange={e => set("security_clearance_required", e.target.checked)}
-          className="h-4 w-4 rounded border-border"
-        />
-        Security clearance required
-      </label>
+      {/* Compliance (Australian standards) */}
+      <div className="border-t pt-4 space-y-3">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Compliance</p>
+        <div className="space-y-1.5">
+          <Label>Security clearance level required</Label>
+          <Select
+            value={form.security_clearance_level_required || NONE}
+            onValueChange={v => {
+              set("security_clearance_level_required", v === NONE ? "" : v)
+              set("security_clearance_required", v !== NONE)
+            }}
+          >
+            <SelectTrigger><SelectValue placeholder="Not required" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value={NONE}>Not required</SelectItem>
+              {clearanceLevels.map(l => <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <label className="flex items-center gap-2 cursor-pointer text-sm">
+          <input
+            type="checkbox"
+            checked={form.right_to_work_check_required}
+            onChange={e => set("right_to_work_check_required", e.target.checked)}
+            className="h-4 w-4 rounded border-border"
+          />
+          Right-to-work / visa check required before placement
+        </label>
+        {form.right_to_work_check_required && (
+          <Input
+            value={form.right_to_work_notes}
+            onChange={e => set("right_to_work_notes", e.target.value)}
+            placeholder="Notes (e.g. visa subclasses accepted)"
+          />
+        )}
+      </div>
 
       {/* Required skills + education — power automatic candidate matching */}
       <div className="border-t pt-4 space-y-4">

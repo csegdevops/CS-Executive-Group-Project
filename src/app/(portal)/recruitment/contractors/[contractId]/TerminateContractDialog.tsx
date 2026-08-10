@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { toast } from "sonner"
 
-export function TerminateContractDialog({ contractId }: { contractId: string }) {
+export function TerminateContractDialog({ contractId, onSaved }: { contractId: string; onSaved?: () => void }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [reason, setReason] = useState("")
@@ -28,6 +28,7 @@ export function TerminateContractDialog({ contractId }: { contractId: string }) 
       toast.success("Contract terminated")
       setOpen(false)
       router.refresh()
+      onSaved?.()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to terminate contract")
     } finally {

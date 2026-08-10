@@ -33,6 +33,7 @@ export async function GET(req: NextRequest) {
         candidate:candidates(id, first_name, last_name)
       )
     `)
+    .eq("is_current", true)
     .order("created_at", { ascending: false })
 
   if (status) query = query.eq("status", status)

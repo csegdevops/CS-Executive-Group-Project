@@ -9,18 +9,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { toast } from "sonner"
 
 export function ExtendContractDialog({
-  contractId, currentFinishDate, currentPayRate, currentChargeRate,
+  contractId, currentFinishDate, onSaved,
 }: {
   contractId: string
   currentFinishDate: string | null
-  currentPayRate: number | null
-  currentChargeRate: number | null
+  /** Called after a successful save, in addition to router.refresh() — lets
+   * callers (e.g. ContractDetailSheet, whose own detail data is fetched
+   * client-side and isn't re-triggered by router.refresh()) re-fetch. */
+  onSaved?: () => void
 }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [finishDate, setFinishDate] = useState("")
-  const [payRate, setPayRate] = useState(currentPayRate != null ? String(currentPayRate) : "")
-  const [chargeRate, setChargeRate] = useState(currentChargeRate != null ? String(currentChargeRate) : "")
   const [notes, setNotes] = useState("")
   const [saving, setSaving] = useState(false)
 
@@ -33,8 +33,6 @@ export function ExtendContractDialog({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           new_finish_date: finishDate,
-          new_pay_rate: payRate ? Number(payRate) : null,
-          new_charge_rate: chargeRate ? Number(chargeRate) : null,
           notes: notes || undefined,
         }),
       })
@@ -47,6 +45,7 @@ export function ExtendContractDialog({
       setFinishDate("")
       setNotes("")
       router.refresh()
+      onSaved?.()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to extend contract")
     } finally {
@@ -66,16 +65,6 @@ export function ExtendContractDialog({
             <div className="space-y-1.5">
               <Label>New finish date *</Label>
               <Input type="date" value={finishDate} onChange={(e) => setFinishDate(e.target.value)} autoFocus />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>Pay rate</Label>
-                <Input type="number" step="0.01" value={payRate} onChange={(e) => setPayRate(e.target.value)} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Charge rate</Label>
-                <Input type="number" step="0.01" value={chargeRate} onChange={(e) => setChargeRate(e.target.value)} />
-              </div>
             </div>
             <div className="space-y-1.5">
               <Label>Notes</Label>

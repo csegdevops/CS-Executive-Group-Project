@@ -30,6 +30,9 @@ export function NewJobForm({ companies, recruiters, currentUserId }: Props) {
         company_id: form.company_id,
         title: form.title,
         security_clearance_required: form.security_clearance_required,
+        security_clearance_level_required: form.security_clearance_level_required || null,
+        right_to_work_check_required: form.right_to_work_check_required,
+        right_to_work_notes: form.right_to_work_notes || undefined,
       }
       if (form.reference_number)         body.reference_number = form.reference_number
       if (form.location)                 body.location = form.location

@@ -46,7 +46,7 @@ const STAGE_LABELS: Record<string, string> = {
 const STAGES = Object.keys(STAGE_LABELS)
 
 const SOURCE_LABELS: Record<string, string> = {
-  seek_inbound: "[S]", company_website: "[CS]",
+  seek_inbound: "[S]", company_website: "[CSEG]",
   database_internal: "[DB]", seek_talent: "[ST]", linkedin: "[LI]",
 }
 
