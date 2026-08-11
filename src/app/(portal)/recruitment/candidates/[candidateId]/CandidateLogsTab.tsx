@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { Loader2 } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
 
 interface FieldChange {
   field: string
@@ -12,10 +13,16 @@ interface FieldChange {
 interface LogEntry {
   id: string
   action: string
-  details: { source_channel?: string; email?: string; changes?: FieldChange[] } | null
+  details: { source_channel?: string; email?: string; changes?: FieldChange[]; via?: string | null } | null
   performed_by: string | null
   performed_by_name: string | null
   created_at: string
+}
+
+const VIA_LABELS: Record<string, string> = {
+  job_application: "Job Application",
+  talent_pool_registration: "Talent Pool Registration",
+  application_detail_update: "Application Detail Update",
 }
 
 function fmtValue(v: unknown): string {
@@ -66,11 +73,16 @@ export function CandidateLogsTab({ candidateId }: { candidateId: string }) {
       <div className="space-y-3">
         {logs.map((log) => (
           <div key={log.id} className="rounded-md border bg-card p-3 text-sm">
-            <div className="flex items-baseline justify-between gap-2 mb-1">
-              <p className="font-medium">
+            <div className="flex items-baseline justify-between gap-2 mb-1 flex-wrap">
+              <p className="font-medium flex items-center gap-1.5">
                 {log.action === "registered" ? "Candidate registered" : "Profile updated"}
                 {log.performed_by_name && (
-                  <span className="ml-1.5 text-xs font-normal text-muted-foreground">by {log.performed_by_name}</span>
+                  <span className="text-xs font-normal text-muted-foreground">by {log.performed_by_name}</span>
+                )}
+                {log.details?.via && (
+                  <Badge variant="outline" className="text-xs font-normal">
+                    {VIA_LABELS[log.details.via] ?? log.details.via}
+                  </Badge>
                 )}
               </p>
               <span className="text-xs text-muted-foreground shrink-0">{fmtDateTime(log.created_at)}</span>
