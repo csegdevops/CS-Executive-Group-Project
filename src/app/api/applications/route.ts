@@ -9,22 +9,35 @@ import { z } from "zod"
 export const maxDuration = 180
 
 /**
- * PUBLIC endpoint — no session auth. Receives job applications pushed by a
- * `gform_after_submission_<form_id>` action hook on the WordPress site
+ * PUBLIC endpoint — no session auth. Receives 3 form types pushed by
+ * `gform_entry_post_save_<form_id>` action hooks on the WordPress site
  * (posted server-side via wp_remote_post — not the GF Webhooks Add-On, so
- * the payload shape is custom and fixed on the WordPress side). Sends
- * first_name/last_name separately (not a combined full_name) since Gravity
- * Forms' Name field type already splits them into sub-fields, and so does
- * recruitment.candidates.
+ * the payload shape is custom and fixed on the WordPress side), disambiguated
+ * by the `submission_type` field:
+ *   - "job_application"           (Form 20) — candidate applying to a job
+ *   - "talent_pool_registration"  (Form 21) — general registration, no job
+ *   - "application_detail_update" (Form 26) — candidate self-service profile update
  *
  * Auth: shared secret in the `x-api-key` header, checked against
  * GRAVITY_FORMS_SECRET (same env var used by /api/public/apply's HMAC path
  * — set the WordPress snippet's $secret to this value).
  *
- * Job matching: `job_reference` is matched against recruitment.jobs
- * (reference_number, falling back to id) — the WP form's hidden job
- * reference field should be populated with the same reference_number shown
- * in the portal's job edit dialog.
+ * Candidate matching: `upsert_candidate` matches on email, then phone, then
+ * secondary_email (see the RPC). Job Application submissions use the RPC's
+ * default fill-blanks-only merge (an existing candidate's data is never
+ * clobbered by a self-reported job application). Talent Pool Registration and
+ * Application Detail Update are self-service — the candidate is explicitly
+ * asserting their own current details — so those two pass p_overwrite=true:
+ * a non-blank submitted value replaces the existing one, but a blank/omitted
+ * field never wipes existing data (see the migration for the exact COALESCE
+ * semantics).
+ *
+ * Job matching: `job_reference` (Job Application only) is matched against
+ * recruitment.jobs (reference_number, falling back to id) — the WP form's
+ * hidden job reference field should be populated with the same reference_number
+ * shown in the portal's job edit dialog. If it doesn't match (or the form has
+ * no job at all, as with the other two submission types), no application row
+ * is created — just the candidate profile.
  *
  * CV/cover letter delivery: prefer `resume_base64`/`cover_letter_base64`
  * (WordPress reads the file off its own local filesystem and sends the
@@ -34,7 +47,8 @@ export const maxDuration = 180
  * hardening step) while PHP running on that same server can still read the
  * file locally just fine — sending bytes directly sidesteps that
  * restriction entirely. URL delivery is kept as a fallback for hosts that
- * don't block direct access.
+ * don't block direct access. Only Job Application and Talent Pool
+ * Registration collect files; Application Detail Update never sends one.
  */
 
 // PHP's json_encode(null) sends a JSON `null`, which z.string().optional()
@@ -45,25 +59,29 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const optionalString = () => z.preprocess(emptyToUndef, z.string().optional())
 const optionalStringOrNumber = () => z.preprocess(emptyToUndef, z.union([z.string(), z.number()]).optional())
 
-const applicationSchema = z.object({
-  job_reference:              optionalString(),
-  where_did_you_hear:         optionalString(),
+// Fields common to all 3 WordPress forms.
+const baseFields = {
   first_name:                 z.string().min(1),
   last_name:                  z.string().optional().default(""),
   email:                      z.string().email(),
   phone:                      optionalString(),
   linkedin:                   optionalString(),
-  linkedin_bitly:             optionalString(),
   state:                      optionalString(),
   permanent_workrights:       z.array(z.string()).optional().default([]),
-  availability:                optionalString(),
+  availability:               optionalString(),
   highest_education:          optionalString(),
   year_of_graduation:         optionalStringOrNumber(),
-  work_location_preferences:  z.array(z.string()).optional().default([]),
   work_type_preference:       z.array(z.string()).optional().default([]),
   current_salary:             optionalStringOrNumber(),
   min_salary_expectation:     optionalStringOrNumber(),
+  interested_fields:          optionalString(),
   aborginal_torres_islander:  optionalString(),
+  keep_me_in_the_loop:        z.preprocess(emptyToUndef, z.union([z.string(), z.boolean()]).optional()),
+  permission_to_store:        z.preprocess(emptyToUndef, z.union([z.string(), z.boolean()]).optional()),
+  wp_entry_id:                z.preprocess(emptyToUndef, z.union([z.string(), z.number()]).optional()),
+}
+
+const fileFields = {
   cover_letter_url:           z.preprocess(emptyToUndef, z.string().url().optional()),
   cover_letter_base64:        optionalString(),
   cover_letter_filename:      optionalString(),
@@ -72,11 +90,30 @@ const applicationSchema = z.object({
   resume_base64:              optionalString(),
   resume_filename:            optionalString(),
   resume_mimetype:            optionalString(),
-  interested_fields:          optionalString(),
-  keep_me_in_the_loop:        z.preprocess(emptyToUndef, z.union([z.string(), z.boolean()]).optional()),
-  permission_to_store:        z.preprocess(emptyToUndef, z.union([z.string(), z.boolean()]).optional()),
-  wp_entry_id:                z.preprocess(emptyToUndef, z.union([z.string(), z.number()]).optional()),
+}
+
+const jobApplicationSchema = z.object({
+  ...baseFields,
+  ...fileFields,
+  job_reference:               optionalString(),
+  where_did_you_hear:          optionalString(),
+  linkedin_bitly:               optionalString(),
+  work_location_preferences:   z.array(z.string()).optional().default([]),
 })
+
+const talentPoolSchema = z.object({
+  ...baseFields,
+  ...fileFields,
+  work_location_preferences:   z.array(z.string()).optional().default([]),
+})
+
+const detailUpdateSchema = z.object({
+  ...baseFields,
+})
+
+type JobApplicationData = z.infer<typeof jobApplicationSchema>
+type TalentPoolData = z.infer<typeof talentPoolSchema>
+type DetailUpdateData = z.infer<typeof detailUpdateSchema>
 
 type FileSource = { buffer: Buffer; mimeType: string; originalName: string } | { url: string }
 
@@ -97,6 +134,77 @@ function resolveFileSource(
   return null
 }
 
+// The intake fields collected by these forms have no dedicated candidate
+// columns — they're stashed as one JSON blob (self_reported_metadata).
+function buildSelfReportedMetadata(
+  data: {
+    where_did_you_hear?: string
+    permanent_workrights: string[]
+    availability?: string
+    highest_education?: string
+    year_of_graduation?: string | number
+    work_location_preferences?: string[]
+    work_type_preference: string[]
+    interested_fields?: string
+    aborginal_torres_islander?: string
+    keep_me_in_the_loop?: string | boolean
+    permission_to_store?: string | boolean
+    wp_entry_id?: string | number
+  },
+  submissionType: string
+) {
+  return {
+    updated_via:                submissionType,
+    wp_entry_id:                data.wp_entry_id ?? null,
+    where_did_you_hear:         data.where_did_you_hear ?? null,
+    permanent_workrights:       data.permanent_workrights,
+    availability:               data.availability ?? null,
+    highest_education:          data.highest_education ?? null,
+    year_of_graduation:         data.year_of_graduation ?? null,
+    work_location_preferences:  data.work_location_preferences ?? null,
+    work_type_preference:       data.work_type_preference,
+    interested_fields:          data.interested_fields ?? null,
+    aborginal_torres_islander:  data.aborginal_torres_islander ?? null,
+    keep_me_in_the_loop:        data.keep_me_in_the_loop ?? null,
+    permission_to_store:        data.permission_to_store ?? null,
+  }
+}
+
+async function upsertCandidateFromForm(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  recruitment: any,
+  data: {
+    email: string
+    phone?: string
+    first_name: string
+    last_name: string
+    state?: string
+    linkedin?: string
+    linkedin_bitly?: string
+    current_salary?: string | number
+    min_salary_expectation?: string | number
+  },
+  opts: { overwrite: boolean; selfReportedMetadata: Record<string, unknown> }
+) {
+  const rawLinkedin = data.linkedin || data.linkedin_bitly
+  const linkedinUrl = rawLinkedin ? (/^https?:\/\//i.test(rawLinkedin) ? rawLinkedin : `https://${rawLinkedin}`) : null
+
+  return recruitment.rpc("upsert_candidate", {
+    p_email:                  data.email,
+    p_phone:                  data.phone ?? null,
+    p_first_name:             data.first_name,
+    p_last_name:              data.last_name,
+    p_location_state:         data.state ?? null,
+    p_source_channel:         "company_website",
+    p_added_by:               null,
+    p_linkedin_url:           linkedinUrl,
+    p_current_salary:         data.current_salary != null && data.current_salary !== "" ? Number(data.current_salary) : null,
+    p_base_salary_expected:   data.min_salary_expectation != null ? String(data.min_salary_expectation) : null,
+    p_overwrite:              opts.overwrite,
+    p_self_reported_metadata: opts.selfReportedMetadata,
+  })
+}
+
 export async function POST(req: NextRequest) {
   const secret = process.env.GRAVITY_FORMS_SECRET
   if (secret) {
@@ -108,14 +216,26 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json()
-  const parsed = applicationSchema.safeParse(body)
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: "Invalid application data", details: parsed.error.flatten() },
-      { status: 400 }
-    )
+  const submissionType = typeof body.submission_type === "string" ? body.submission_type : "job_application"
+
+  switch (submissionType) {
+    case "job_application":
+      return handleJobApplication(body)
+    case "talent_pool_registration":
+      return handleTalentPoolRegistration(body)
+    case "application_detail_update":
+      return handleApplicationDetailUpdate(body)
+    default:
+      return NextResponse.json({ error: `Unknown submission_type: ${submissionType}` }, { status: 400 })
   }
-  const data = parsed.data
+}
+
+async function handleJobApplication(body: unknown) {
+  const parsed = jobApplicationSchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Invalid application data", details: parsed.error.flatten() }, { status: 400 })
+  }
+  const data: JobApplicationData = parsed.data
 
   const admin = createAdminClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -139,25 +259,10 @@ export async function POST(req: NextRequest) {
     if (byRef) jobId = byRef.id
   }
 
-  // Prefer the full LinkedIn URL over the bitly-shortened one; normalize a
-  // bare handle/domain (no scheme) the same way EditCandidateDialog does for
-  // manual edits, so it renders as a clickable link either way.
-  const rawLinkedin = data.linkedin || data.linkedin_bitly
-  const linkedinUrl = rawLinkedin ? (/^https?:\/\//i.test(rawLinkedin) ? rawLinkedin : `https://${rawLinkedin}`) : null
-
-  const { data: upsertResult, error: upsertError } = await recruitment
-    .rpc("upsert_candidate", {
-      p_email:                 data.email,
-      p_phone:                 data.phone ?? null,
-      p_first_name:            data.first_name,
-      p_last_name:             data.last_name,
-      p_location_state:        data.state ?? null,
-      p_source_channel:        "company_website",
-      p_added_by:              null,
-      p_linkedin_url:          linkedinUrl,
-      p_current_salary:        data.current_salary != null && data.current_salary !== "" ? Number(data.current_salary) : null,
-      p_base_salary_expected:  data.min_salary_expectation != null ? String(data.min_salary_expectation) : null,
-    })
+  const { data: upsertResult, error: upsertError } = await upsertCandidateFromForm(recruitment, data, {
+    overwrite: false,
+    selfReportedMetadata: buildSelfReportedMetadata(data, "job_application"),
+  })
 
   if (upsertError) {
     return NextResponse.json({ error: "Could not process candidate" }, { status: 500 })
@@ -166,7 +271,26 @@ export async function POST(req: NextRequest) {
   const candidateId     = upsertResult?.[0]?.candidate_id
   const candidateAction = upsertResult?.[0]?.action
 
+  const resumeSource = resolveFileSource(data.resume_base64, data.resume_filename, data.resume_mimetype, data.resume_url)
+  const clSource = resolveFileSource(data.cover_letter_base64, data.cover_letter_filename, data.cover_letter_mimetype, data.cover_letter_url)
+
   if (!jobId) {
+    // No matching job — still land the CV/cover letter against the
+    // candidate profile (unscoped to any application) rather than dropping
+    // it, since the candidate record is created either way.
+    if (resumeSource) {
+      after(() =>
+        ingestCv({ candidateId, docType: "cv", source: resumeSource })
+          .catch((err) => console.error("[applications] resume ingest failed (no job match)", err))
+      )
+    }
+    if (clSource) {
+      after(() =>
+        ingestCv({ candidateId, docType: "cl", source: clSource })
+          .catch((err) => console.error("[applications] cover letter ingest failed (no job match)", err))
+      )
+    }
+
     return NextResponse.json({
       status: "candidate_only",
       message: "Candidate profile created, but no matching job found for the reference provided.",
@@ -189,23 +313,17 @@ export async function POST(req: NextRequest) {
     // ingestion attempt failed, which is silent by design) and this
     // resubmission provides one, retry the attachment against the existing
     // application instead of silently no-op'ing forever.
-    if (!existing.cv_storage_key) {
-      const resumeSource = resolveFileSource(data.resume_base64, data.resume_filename, data.resume_mimetype, data.resume_url)
-      if (resumeSource) {
-        after(() =>
-          ingestCv({ candidateId, applicationId: existing.id, docType: "cv", source: resumeSource })
-            .catch((err) => console.error("[applications] resume re-ingest failed", err))
-        )
-      }
+    if (!existing.cv_storage_key && resumeSource) {
+      after(() =>
+        ingestCv({ candidateId, applicationId: existing.id, docType: "cv", source: resumeSource })
+          .catch((err) => console.error("[applications] resume re-ingest failed", err))
+      )
     }
-    if (!existing.cl_storage_key) {
-      const clSource = resolveFileSource(data.cover_letter_base64, data.cover_letter_filename, data.cover_letter_mimetype, data.cover_letter_url)
-      if (clSource) {
-        after(() =>
-          ingestCv({ candidateId, applicationId: existing.id, docType: "cl", source: clSource })
-            .catch((err) => console.error("[applications] cover letter re-ingest failed", err))
-        )
-      }
+    if (!existing.cl_storage_key && clSource) {
+      after(() =>
+        ingestCv({ candidateId, applicationId: existing.id, docType: "cl", source: clSource })
+          .catch((err) => console.error("[applications] cover letter re-ingest failed", err))
+      )
     }
 
     return NextResponse.json({
@@ -253,14 +371,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Could not create application" }, { status: 500 })
   }
 
-  const resumeSource = resolveFileSource(data.resume_base64, data.resume_filename, data.resume_mimetype, data.resume_url)
   if (resumeSource) {
     after(() =>
       ingestCv({ candidateId, applicationId: app.id, docType: "cv", source: resumeSource })
         .catch((err) => console.error("[applications] resume ingest failed", err))
     )
   }
-  const clSource = resolveFileSource(data.cover_letter_base64, data.cover_letter_filename, data.cover_letter_mimetype, data.cover_letter_url)
   if (clSource) {
     after(() =>
       ingestCv({ candidateId, applicationId: app.id, docType: "cl", source: clSource })
@@ -279,4 +395,85 @@ export async function POST(req: NextRequest) {
     candidate_id: candidateId,
     candidate_action: candidateAction,
   }, { status: 201 })
+}
+
+async function handleTalentPoolRegistration(body: unknown) {
+  const parsed = talentPoolSchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Invalid registration data", details: parsed.error.flatten() }, { status: 400 })
+  }
+  const data: TalentPoolData = parsed.data
+
+  const admin = createAdminClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const recruitment = admin.schema("recruitment") as any
+
+  // Self-service — the candidate is asserting their own current details, so
+  // a match gets overwritten (never blanked) rather than just fill-blanks.
+  const { data: upsertResult, error: upsertError } = await upsertCandidateFromForm(recruitment, data, {
+    overwrite: true,
+    selfReportedMetadata: buildSelfReportedMetadata(data, "talent_pool_registration"),
+  })
+
+  if (upsertError) {
+    return NextResponse.json({ error: "Could not process candidate" }, { status: 500 })
+  }
+
+  const candidateId     = upsertResult?.[0]?.candidate_id
+  const candidateAction = upsertResult?.[0]?.action
+
+  // No job/application involved — attach CV/cover letter straight to the
+  // candidate profile.
+  const resumeSource = resolveFileSource(data.resume_base64, data.resume_filename, data.resume_mimetype, data.resume_url)
+  if (resumeSource) {
+    after(() =>
+      ingestCv({ candidateId, docType: "cv", source: resumeSource })
+        .catch((err) => console.error("[applications] talent-pool resume ingest failed", err))
+    )
+  }
+  const clSource = resolveFileSource(data.cover_letter_base64, data.cover_letter_filename, data.cover_letter_mimetype, data.cover_letter_url)
+  if (clSource) {
+    after(() =>
+      ingestCv({ candidateId, docType: "cl", source: clSource })
+        .catch((err) => console.error("[applications] talent-pool cover letter ingest failed", err))
+    )
+  }
+
+  return NextResponse.json({
+    status: candidateAction === "overwritten" ? "candidate_updated" : "candidate_registered",
+    candidate_id: candidateId,
+    action: candidateAction,
+  }, { status: 200 })
+}
+
+async function handleApplicationDetailUpdate(body: unknown) {
+  const parsed = detailUpdateSchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Invalid update data", details: parsed.error.flatten() }, { status: 400 })
+  }
+  const data: DetailUpdateData = parsed.data
+
+  const admin = createAdminClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const recruitment = admin.schema("recruitment") as any
+
+  // Self-service — same overwrite-on-match semantics as talent pool
+  // registration. This form never sends a CV/cover letter.
+  const { data: upsertResult, error: upsertError } = await upsertCandidateFromForm(recruitment, data, {
+    overwrite: true,
+    selfReportedMetadata: buildSelfReportedMetadata(data, "application_detail_update"),
+  })
+
+  if (upsertError) {
+    return NextResponse.json({ error: "Could not process candidate" }, { status: 500 })
+  }
+
+  const candidateId     = upsertResult?.[0]?.candidate_id
+  const candidateAction = upsertResult?.[0]?.action
+
+  return NextResponse.json({
+    status: candidateAction === "overwritten" ? "candidate_updated" : "candidate_registered",
+    candidate_id: candidateId,
+    action: candidateAction,
+  }, { status: 200 })
 }
