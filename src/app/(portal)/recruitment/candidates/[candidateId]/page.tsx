@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { notFound } from "next/navigation"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { CandidateSkillsEditor } from "./CandidateSkillsEditor"
 import { CandidateEducationTagsEditor } from "./CandidateEducationTagsEditor"
 import { EditCandidateDialog } from "./EditCandidateDialog"
@@ -10,6 +11,7 @@ import { CandidateDocumentsSection } from "./CandidateDocumentsSection"
 import { DeleteCandidateButton } from "./DeleteCandidateButton"
 import { AddToJobDialog } from "./AddToJobDialog"
 import { CandidateNotesSection } from "./CandidateNotesSection"
+import { CandidateLogsTab } from "./CandidateLogsTab"
 import { ChevronLeft, ChevronRight, Mail, Phone, MapPin, Shield, FileText, GraduationCap, Briefcase, ExternalLink, DollarSign } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -32,7 +34,8 @@ const CONTRACT_STATUS_COLORS: Record<string, string> = {
 }
 
 export default async function CandidateProfilePage({ params }: { params: Promise<{ candidateId: string }> }) {
-  await requireModuleAccess("recruitment")
+  const authUser = await requireModuleAccess("recruitment")
+  const isSuperAdmin = authUser.role === "super_admin"
   const { candidateId } = await params
   const admin = createAdminClient()
 
@@ -131,6 +134,13 @@ export default async function CandidateProfilePage({ params }: { params: Promise
         <ChevronLeft className="h-3.5 w-3.5" />All Candidates
       </Link>
 
+      <Tabs defaultValue="profile">
+        <TabsList className="mb-4">
+          <TabsTrigger value="profile">Profile</TabsTrigger>
+          {isSuperAdmin && <TabsTrigger value="logs">Logs</TabsTrigger>}
+        </TabsList>
+
+        <TabsContent value="profile">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Left: profile */}
         <div className="md:col-span-2 space-y-4">
@@ -455,6 +465,14 @@ export default async function CandidateProfilePage({ params }: { params: Promise
           )}
         </div>
       </div>
+        </TabsContent>
+
+        {isSuperAdmin && (
+          <TabsContent value="logs">
+            <CandidateLogsTab candidateId={candidate.id} />
+          </TabsContent>
+        )}
+      </Tabs>
     </div>
   )
 }
