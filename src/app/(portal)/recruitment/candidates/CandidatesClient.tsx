@@ -5,9 +5,33 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 import { Search, Shield, ChevronRight, Users } from "lucide-react"
 import { AddCandidateDialog } from "./AddCandidateDialog"
+
+const AU_STATES: { code: string; name: string }[] = [
+  { code: "NSW", name: "New South Wales" },
+  { code: "VIC", name: "Victoria" },
+  { code: "QLD", name: "Queensland" },
+  { code: "WA",  name: "Western Australia" },
+  { code: "SA",  name: "South Australia" },
+  { code: "TAS", name: "Tasmania" },
+  { code: "ACT", name: "Australian Capital Territory" },
+  { code: "NT",  name: "Northern Territory" },
+]
+
+// location_state is free text (self-reported via website forms, or typed/
+// autocompleted manually) so it shows up as either the full name or the
+// abbreviation depending on source — match either, case-insensitively.
+function matchesAuState(value: string, state: { code: string; name: string }): boolean {
+  const v = value.trim().toLowerCase()
+  return v === state.code.toLowerCase() || v === state.name.toLowerCase()
+}
+
+function isRecognisedAuState(value: string): boolean {
+  return AU_STATES.some((s) => matchesAuState(value, s))
+}
 
 interface Candidate {
   id: string
@@ -47,6 +71,7 @@ export function CandidatesClient({ candidates, duplicateClusterCount = 0 }: { ca
   const [q, setQ] = useState("")
   const [searchResults, setSearchResults] = useState<Candidate[] | null>(null)
   const [isPending, startTransition] = useTransition()
+  const [stateFilter, setStateFilter] = useState("all")
 
   async function handleSearch(value: string) {
     setQ(value)
@@ -73,7 +98,17 @@ export function CandidatesClient({ candidates, duplicateClusterCount = 0 }: { ca
       })
     : []
 
-  const displayList = searchResults ?? localFiltered
+  const searchFiltered = searchResults ?? localFiltered
+
+  const displayList = stateFilter === "all"
+    ? searchFiltered
+    : searchFiltered.filter((c) => {
+        const val = (c.location_state ?? "").trim()
+        if (stateFilter === "unspecified") return val === ""
+        if (stateFilter === "other") return val !== "" && !isRecognisedAuState(val)
+        const state = AU_STATES.find((s) => s.code === stateFilter)
+        return state ? matchesAuState(val, state) : true
+      })
 
   return (
     <div>
@@ -90,6 +125,19 @@ export function CandidatesClient({ candidates, duplicateClusterCount = 0 }: { ca
             className="pl-8 h-8 text-sm"
           />
         </div>
+        <Select value={stateFilter} onValueChange={setStateFilter}>
+          <SelectTrigger className="h-8 text-sm w-44 shrink-0">
+            <SelectValue placeholder="All states" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All states</SelectItem>
+            {AU_STATES.map((s) => (
+              <SelectItem key={s.code} value={s.code}>{s.name}</SelectItem>
+            ))}
+            <SelectItem value="other">Other (not in Australia)</SelectItem>
+            <SelectItem value="unspecified">Not mentioned</SelectItem>
+          </SelectContent>
+        </Select>
         <AddCandidateDialog onAdded={() => router.refresh()} />
         {duplicateClusterCount > 0 && (
           <Link
@@ -112,7 +160,7 @@ export function CandidatesClient({ candidates, duplicateClusterCount = 0 }: { ca
 
       {displayList.length === 0 ? (
         <div className="text-center py-16 text-sm text-muted-foreground border rounded-lg">
-          {q ? "No candidates match your search." : "No candidates in the talent pool yet."}
+          {q || stateFilter !== "all" ? "No candidates match your search/filters." : "No candidates in the talent pool yet."}
         </div>
       ) : (
         <div className="rounded-lg border overflow-hidden">
