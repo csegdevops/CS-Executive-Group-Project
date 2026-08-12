@@ -113,7 +113,10 @@
       "PowerShell(npx eslint src/app/api/recruitment/jobs src/app/\\(portal\\)/recruitment/jobs src/app/\\(portal\\)/recruitment/applications src/lib/storage/job-storage.ts src/types/database.ts 2>&1 | Select-Object -Last 300)",
       "PowerShell(npx eslint \"src/app/api/recruitment/jobs\" \"src/app/\\(portal\\)/recruitment/jobs\" \"src/app/\\(portal\\)/recruitment/applications\" \"src/lib/storage/job-storage.ts\" \"src/types/database.ts\" 2>&1)",
       "PowerShell(Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue | Where-Object { $_.LocalPort -ge 3000 -and $_.LocalPort -le 3010 } | Select-Object LocalPort,OwningProcess)",
-      "PowerShell(npx eslint \"src/app/api/recruitment/applications\" \"src/app/\\(portal\\)/recruitment/applications\" \"src/app/\\(portal\\)/recruitment/jobs/[jobId]/JobApplicationsTab.tsx\" \"src/app/\\(portal\\)/recruitment/jobs/[jobId]/page.tsx\" \"src/types/database.ts\" 2>&1)"
+      "PowerShell(npx eslint \"src/app/api/recruitment/applications\" \"src/app/\\(portal\\)/recruitment/applications\" \"src/app/\\(portal\\)/recruitment/jobs/[jobId]/JobApplicationsTab.tsx\" \"src/app/\\(portal\\)/recruitment/jobs/[jobId]/page.tsx\" \"src/types/database.ts\" 2>&1)",
+      "PowerShell(npx eslint \"src/app/\\(portal\\)/recruitment/applications\" \"src/app/\\(portal\\)/recruitment/jobs/[jobId]/JobApplicationsTab.tsx\" \"src/app/\\(portal\\)/recruitment/jobs/[jobId]/page.tsx\" \"src/app/api/recruitment/applications\" 2>&1)",
+      "PowerShell(npx eslint \"src/app/api/applications/route.ts\" \"src/lib/cv-parsing/ingest.ts\" 2>&1)",
+      "PowerShell(Get-CimInstance Win32_Process -Filter \"ProcessId = 39712\")"
     ],
     "additionalDirectories": [
       "d:\\Project\\CS Executive Group Project\\src\\app\\(portal)\\recruitment\\candidates\\[candidateId]",

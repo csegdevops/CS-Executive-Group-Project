@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse, after } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { ingestCv } from "@/lib/cv-parsing/ingest"
+import { ingestCvFile, parseCvAfterIngest } from "@/lib/cv-parsing/ingest"
 import { z } from "zod"
 
 // CV parsing (in the after() callback below) can take well over a minute for
@@ -49,6 +49,14 @@ export const maxDuration = 180
  * restriction entirely. URL delivery is kept as a fallback for hosts that
  * don't block direct access. Only Job Application and Talent Pool
  * Registration collect files; Application Detail Update never sends one.
+ *
+ * When URL delivery is used, the download (ingestCvFile) is awaited here —
+ * i.e. it happens before this handler responds to WordPress's blocking
+ * wp_remote_post call — rather than deferred. The uploaded file on the WP
+ * side can disappear moments after this request completes (observed when
+ * "save entry" is disabled for a form), so fetching as early as possible
+ * closes that race as much as this side of the integration can. Only the
+ * slow CV parsing step (parseCvAfterIngest) is deferred via after().
  */
 
 // PHP's json_encode(null) sends a JSON `null`, which z.string().optional()
@@ -277,18 +285,14 @@ async function handleJobApplication(body: unknown) {
   if (!jobId) {
     // No matching job — still land the CV/cover letter against the
     // candidate profile (unscoped to any application) rather than dropping
-    // it, since the candidate record is created either way.
+    // it, since the candidate record is created either way. Download is
+    // awaited (not deferred) — see ingestCvFile's doc comment for why.
     if (resumeSource) {
-      after(() =>
-        ingestCv({ candidateId, docType: "cv", source: resumeSource })
-          .catch((err) => console.error("[applications] resume ingest failed (no job match)", err))
-      )
+      const resumeFile = await ingestCvFile({ candidateId, docType: "cv", source: resumeSource })
+      if (resumeFile) after(() => parseCvAfterIngest(resumeFile))
     }
     if (clSource) {
-      after(() =>
-        ingestCv({ candidateId, docType: "cl", source: clSource })
-          .catch((err) => console.error("[applications] cover letter ingest failed (no job match)", err))
-      )
+      await ingestCvFile({ candidateId, docType: "cl", source: clSource })
     }
 
     return NextResponse.json({
@@ -314,16 +318,11 @@ async function handleJobApplication(body: unknown) {
     // resubmission provides one, retry the attachment against the existing
     // application instead of silently no-op'ing forever.
     if (!existing.cv_storage_key && resumeSource) {
-      after(() =>
-        ingestCv({ candidateId, applicationId: existing.id, docType: "cv", source: resumeSource })
-          .catch((err) => console.error("[applications] resume re-ingest failed", err))
-      )
+      const resumeFile = await ingestCvFile({ candidateId, applicationId: existing.id, docType: "cv", source: resumeSource })
+      if (resumeFile) after(() => parseCvAfterIngest(resumeFile))
     }
     if (!existing.cl_storage_key && clSource) {
-      after(() =>
-        ingestCv({ candidateId, applicationId: existing.id, docType: "cl", source: clSource })
-          .catch((err) => console.error("[applications] cover letter re-ingest failed", err))
-      )
+      await ingestCvFile({ candidateId, applicationId: existing.id, docType: "cl", source: clSource })
     }
 
     return NextResponse.json({
@@ -372,16 +371,11 @@ async function handleJobApplication(body: unknown) {
   }
 
   if (resumeSource) {
-    after(() =>
-      ingestCv({ candidateId, applicationId: app.id, docType: "cv", source: resumeSource })
-        .catch((err) => console.error("[applications] resume ingest failed", err))
-    )
+    const resumeFile = await ingestCvFile({ candidateId, applicationId: app.id, docType: "cv", source: resumeSource })
+    if (resumeFile) after(() => parseCvAfterIngest(resumeFile))
   }
   if (clSource) {
-    after(() =>
-      ingestCv({ candidateId, applicationId: app.id, docType: "cl", source: clSource })
-        .catch((err) => console.error("[applications] cover letter ingest failed", err))
-    )
+    await ingestCvFile({ candidateId, applicationId: app.id, docType: "cl", source: clSource })
   }
 
   // Initial stage history
@@ -426,17 +420,12 @@ async function handleTalentPoolRegistration(body: unknown) {
   // candidate profile.
   const resumeSource = resolveFileSource(data.resume_base64, data.resume_filename, data.resume_mimetype, data.resume_url)
   if (resumeSource) {
-    after(() =>
-      ingestCv({ candidateId, docType: "cv", source: resumeSource })
-        .catch((err) => console.error("[applications] talent-pool resume ingest failed", err))
-    )
+    const resumeFile = await ingestCvFile({ candidateId, docType: "cv", source: resumeSource })
+    if (resumeFile) after(() => parseCvAfterIngest(resumeFile))
   }
   const clSource = resolveFileSource(data.cover_letter_base64, data.cover_letter_filename, data.cover_letter_mimetype, data.cover_letter_url)
   if (clSource) {
-    after(() =>
-      ingestCv({ candidateId, docType: "cl", source: clSource })
-        .catch((err) => console.error("[applications] talent-pool cover letter ingest failed", err))
-    )
+    await ingestCvFile({ candidateId, docType: "cl", source: clSource })
   }
 
   return NextResponse.json({

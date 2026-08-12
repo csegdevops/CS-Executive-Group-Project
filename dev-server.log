@@ -1,0 +1,14 @@
+
+> regulatory-database@0.1.0 dev
+> next dev --turbopack
+
+⚠ Port 3000 is in use by process 39712, using available port 3001 instead.
+▲ Next.js 16.2.9 (Turbopack)
+- Local:         http://localhost:3001
+- Network:       http://10.5.0.2:3001
+- Environments: .env.local
+✓ Ready in 602ms
+- Experiments (use with caution):
+  · proxyClientMaxBodySize: "50mb"
+  ⨯ serverComponentsHmrCache
+

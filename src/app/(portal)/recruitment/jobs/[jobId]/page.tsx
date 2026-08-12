@@ -49,7 +49,7 @@ export default async function JobDetailPage({
       .from("applications")
       .select(`
         id, candidate_id, stage, source_channel, created_at,
-        cv_storage_key, cv_original_name
+        cv_storage_key, cv_original_name, cl_storage_key, source_metadata
       `)
       .eq("job_id", jobId)
       .order("created_at", { ascending: false }),
@@ -118,7 +118,11 @@ export default async function JobDetailPage({
 
   const enrichedApps = (applications ?? []).map((a: Record<string, unknown>) => {
     const c = candMap[a.candidate_id as string] as Record<string, unknown> | undefined
-    return { ...a, candidate: c ?? null, viewed: viewedAppIds.has(a.id as string) }
+    const meta = (a.source_metadata ?? null) as { resume_delivery?: string | null; cover_letter_delivery?: string | null } | null
+    const attachmentIssue =
+      (!!meta?.resume_delivery && !a.cv_storage_key) ||
+      (!!meta?.cover_letter_delivery && !a.cl_storage_key)
+    return { ...a, candidate: c ?? null, viewed: viewedAppIds.has(a.id as string), attachment_issue: attachmentIssue }
   })
 
   const enrichedEvents = (events ?? []).map((e: Record<string, unknown>) => ({

@@ -18,7 +18,8 @@ export default async function ApplicationsPage({
     .from("applications")
     .select(`
       id, job_id, candidate_id, source_channel, stage,
-      cv_storage_key, cv_original_name, notes, created_at, updated_at
+      cv_storage_key, cv_original_name, cl_storage_key, source_metadata,
+      notes, created_at, updated_at
     `)
     .order("created_at", { ascending: false })
     .limit(500)
@@ -83,6 +84,14 @@ export default async function ApplicationsPage({
   const enriched = (applications ?? []).map((a: Record<string, unknown>) => {
     const cand = candMap[a.candidate_id as string] as Record<string, unknown> | undefined
     const job  = jobMap[a.job_id as string] as Record<string, unknown> | undefined
+    // A resume/cover-letter "delivery" mode was recorded at submission time
+    // whenever a file was actually provided (see /api/applications' WordPress
+    // webhook) — if that's set but the storage key never landed, the download
+    // silently failed and needs manual follow-up.
+    const meta = (a.source_metadata ?? null) as { resume_delivery?: string | null; cover_letter_delivery?: string | null } | null
+    const attachmentIssue =
+      (!!meta?.resume_delivery && !a.cv_storage_key) ||
+      (!!meta?.cover_letter_delivery && !a.cl_storage_key)
     return {
       ...a,
       candidate_name: cand ? `${cand.first_name} ${cand.last_name}` : null,
@@ -93,6 +102,7 @@ export default async function ApplicationsPage({
       job_status: job?.status ?? null,
       company_name: job ? companyMap[job.company_id as string] ?? null : null,
       viewed: viewedIds.has(a.id as string),
+      attachment_issue: attachmentIssue,
     }
   })
 

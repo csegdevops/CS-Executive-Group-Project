@@ -4,7 +4,7 @@ import { useState } from "react"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
-import { UserCircle, Calendar } from "lucide-react"
+import { UserCircle, Calendar, TriangleAlert } from "lucide-react"
 import { ApplicationDetailSheet } from "../../applications/ApplicationDetailSheet"
 
 type Stage = "applied" | "screening" | "shortlisted" | "interview_1" | "interview_2" | "reference_check" | "offer" | "placed" | "withdrawn" | "rejected"
@@ -60,6 +60,7 @@ interface Application {
   cv_storage_key: string | null
   candidate: Candidate | null
   viewed: boolean
+  attachment_issue: boolean
 }
 
 export function JobApplicationsTab({ applications, jobId }: { applications: Application[]; jobId: string }) {
@@ -127,6 +128,14 @@ export function JobApplicationsTab({ applications, jobId }: { applications: Appl
                           </p>
                           {!app.viewed && (
                             <Badge className="text-[10px] px-1.5 py-0 h-4 bg-blue-500 hover:bg-blue-500 text-white border-transparent">New</Badge>
+                          )}
+                          {app.attachment_issue && (
+                            <Badge
+                              title="A CV or cover letter was submitted but failed to download"
+                              className="text-[10px] px-1.5 py-0 h-4 gap-0.5 bg-amber-100 hover:bg-amber-100 text-amber-800 border-transparent"
+                            >
+                              <TriangleAlert className="h-2.5 w-2.5" />Attachment failed
+                            </Badge>
                           )}
                         </div>
                         {app.candidate?.current_title && (

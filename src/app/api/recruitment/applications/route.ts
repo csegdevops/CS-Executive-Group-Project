@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
     .from("applications")
     .select(`
       id, job_id, candidate_id, source_channel, stage,
-      cv_storage_key, cv_original_name, notes,
+      cv_storage_key, cv_original_name, cl_storage_key, source_metadata, notes,
       submitted_by, created_at, updated_at
     `)
     .order("created_at", { ascending: false })
@@ -98,6 +98,10 @@ export async function GET(req: NextRequest) {
   const result = (apps ?? []).map((a: Record<string, unknown>) => {
     const cand = candMap[a.candidate_id as string] as Record<string, unknown> | undefined
     const job  = jobMap[a.job_id as string] as Record<string, unknown> | undefined
+    const meta = (a.source_metadata ?? null) as { resume_delivery?: string | null; cover_letter_delivery?: string | null } | null
+    const attachmentIssue =
+      (!!meta?.resume_delivery && !a.cv_storage_key) ||
+      (!!meta?.cover_letter_delivery && !a.cl_storage_key)
     return {
       ...a,
       candidate_name: cand ? `${cand.first_name} ${cand.last_name}` : null,
@@ -108,6 +112,7 @@ export async function GET(req: NextRequest) {
       job_reference: job?.reference_number ?? null,
       company_name: job ? companyMap[job.company_id as string] ?? null : null,
       viewed: viewedIds.has(a.id as string),
+      attachment_issue: attachmentIssue,
     }
   })
 

@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
-import { Search, ChevronRight } from "lucide-react"
+import { Search, ChevronRight, TriangleAlert } from "lucide-react"
 import { toast } from "sonner"
 import { ApplicationDetailSheet } from "./ApplicationDetailSheet"
 import { BulkCreatePlacementsDialog } from "./BulkCreatePlacementsDialog"
@@ -83,6 +83,7 @@ interface App {
   job_status: string | null
   company_name: string | null
   viewed: boolean
+  attachment_issue: boolean
 }
 
 interface JobVacancyInfo {
@@ -360,6 +361,14 @@ export function ApplicationsListClient({ applications, jobOptions, jobVacancy }:
                         <p className="font-medium hover:underline">{app.candidate_name ?? "Unknown"}</p>
                         {!app.viewed && (
                           <Badge className="text-[10px] px-1.5 py-0 h-4 bg-blue-500 hover:bg-blue-500 text-white border-transparent">New</Badge>
+                        )}
+                        {app.attachment_issue && (
+                          <Badge
+                            title="A CV or cover letter was submitted but failed to download"
+                            className="text-[10px] px-1.5 py-0 h-4 gap-0.5 bg-amber-100 hover:bg-amber-100 text-amber-800 border-transparent"
+                          >
+                            <TriangleAlert className="h-2.5 w-2.5" />Attachment failed
+                          </Badge>
                         )}
                       </div>
                       {app.candidate_title && <p className="text-xs text-muted-foreground">{app.candidate_title}</p>}

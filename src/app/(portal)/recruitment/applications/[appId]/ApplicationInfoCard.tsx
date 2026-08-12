@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { Badge } from "@/components/ui/badge"
-import { FileText } from "lucide-react"
+import { FileText, TriangleAlert, ExternalLink } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { EditApplicationDialog } from "./EditApplicationDialog"
 import { DocumentPreviewSheet, type DocumentPreviewTarget } from "@/components/recruitment/DocumentPreviewSheet"
@@ -37,10 +37,25 @@ export interface ApplicationInfo {
   cl_storage_key: string | null
   cl_original_name: string | null
   notes: string | null
+  source_metadata: Record<string, unknown> | null
 }
 
 export function ApplicationInfoCard({ app }: { app: ApplicationInfo }) {
   const [preview, setPreview] = useState<DocumentPreviewTarget | null>(null)
+
+  // A resume/cover-letter "delivery" mode was recorded at submission time
+  // whenever a file was actually provided (see /api/applications' WordPress
+  // webhook) — if that's set but the storage key never landed, the download
+  // silently failed. The original URL is kept as a manual-retry fallback,
+  // though it may no longer be reachable by the time anyone notices.
+  const meta = app.source_metadata as {
+    resume_delivery?: string | null
+    cover_letter_delivery?: string | null
+    resume_url?: string | null
+    cover_letter_url?: string | null
+  } | null
+  const missingCv = !!meta?.resume_delivery && !app.cv_storage_key
+  const missingCl = !!meta?.cover_letter_delivery && !app.cl_storage_key
 
   function previewDoc(type: "cv" | "cl", fileName: string | null) {
     setPreview({
@@ -76,6 +91,27 @@ export function ApplicationInfoCard({ app }: { app: ApplicationInfo }) {
           <p>{SOURCE_LABELS[app.source_channel] ?? app.source_channel}</p>
         </div>
       </div>
+      {(missingCv || missingCl) && (
+        <div className="rounded-md border border-amber-200 bg-amber-50 p-3 space-y-1.5">
+          <p className="flex items-center gap-1.5 text-xs font-medium text-amber-800">
+            <TriangleAlert className="h-3.5 w-3.5 shrink-0" />
+            {missingCv && missingCl ? "CV and cover letter failed to download" : missingCv ? "CV failed to download" : "Cover letter failed to download"}
+          </p>
+          <p className="text-xs text-amber-800/80">
+            A file was submitted with this application but couldn&apos;t be retrieved automatically — the candidate may need to resend it.
+          </p>
+          {missingCv && meta?.resume_url && (
+            <a href={meta.resume_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-amber-900 hover:underline">
+              Try original CV link <ExternalLink className="h-3 w-3" />
+            </a>
+          )}
+          {missingCl && meta?.cover_letter_url && (
+            <a href={meta.cover_letter_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-amber-900 hover:underline">
+              Try original cover letter link <ExternalLink className="h-3 w-3" />
+            </a>
+          )}
+        </div>
+      )}
       {app.cv_storage_key && (
         <button
           type="button"
