@@ -12,3 +12,6 @@
   · proxyClientMaxBodySize: "50mb"
   ⨯ serverComponentsHmrCache
 
+ GET /login 200 in 247ms (next.js: 68ms, proxy.ts: 4ms, application-code: 174ms)
+ GET /login 200 in 30ms (next.js: 2ms, proxy.ts: 3ms, application-code: 25ms)
+ POST /api/applications 401 in 629ms (next.js: 614ms, proxy.ts: 4ms, application-code: 11ms)
