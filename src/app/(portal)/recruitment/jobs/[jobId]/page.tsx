@@ -7,9 +7,11 @@ import { MapPin, Building2, Shield, ChevronLeft } from "lucide-react"
 import { JobStatusControl } from "./JobStatusControl"
 import { EditJobDialog } from "./EditJobDialog"
 import { SeekPostButton } from "./SeekPostButton"
+import { WordPressPostButton } from "./WordPressPostButton"
 import { JobApplicationsTab } from "./JobApplicationsTab"
 import { JobTimeline } from "./JobTimeline"
 import { JobMatchesTab } from "./JobMatchesTab"
+import { JobExecutiveSearchTab } from "./JobExecutiveSearchTab"
 import { findMatchingCandidates } from "@/lib/recruitment/find-matching-candidates"
 import { cn } from "@/lib/utils"
 
@@ -35,7 +37,7 @@ export default async function JobDetailPage({
 
   const admin = createAdminClient()
 
-  const [{ data: job }, { data: applications }, { data: events }, { count: placedCount }] = await Promise.all([
+  const [{ data: job }, { data: applications }, { data: events }, { count: placedCount }, { data: jobDocuments }] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (admin.schema("recruitment") as any)
       .from("jobs")
@@ -62,6 +64,12 @@ export default async function JobDetailPage({
       .from("placements")
       .select("id", { count: "exact", head: true })
       .eq("job_id", jobId),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (admin.schema("recruitment") as any)
+      .from("job_documents")
+      .select("id, original_name, created_at")
+      .eq("job_id", jobId)
+      .order("created_at", { ascending: false }),
   ])
 
   if (!job) notFound()
@@ -81,14 +89,25 @@ export default async function JobDetailPage({
 
   // Hydrate candidate names for applications
   const candIds = [...new Set((applications ?? []).map((a: { candidate_id: string }) => a.candidate_id))]
-  const { data: candidates } = candIds.length
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ? await (admin.schema("recruitment") as any)
-        .from("candidates")
-        .select("id, first_name, last_name, email, current_title, profile_completeness_pct")
-        .in("id", candIds)
-    : { data: [] }
+  const appIds  = (applications ?? []).map((a: { id: string }) => a.id)
+  const [{ data: candidates }, { data: appViews }] = await Promise.all([
+    candIds.length
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ? (admin.schema("recruitment") as any)
+          .from("candidates")
+          .select("id, first_name, last_name, email, current_title, profile_completeness_pct")
+          .in("id", candIds)
+      : Promise.resolve({ data: [] }),
+    appIds.length
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ? (admin.schema("recruitment") as any)
+          .from("application_views")
+          .select("application_id")
+          .in("application_id", appIds)
+      : Promise.resolve({ data: [] }),
+  ])
   const candMap = Object.fromEntries((candidates ?? []).map((c: Record<string, unknown>) => [c.id, c]))
+  const viewedAppIds = new Set((appViews ?? []).map((v: { application_id: string }) => v.application_id))
 
   // Hydrate event performer names
   const perfIds = [...new Set((events ?? []).map((e: { performed_by: string }) => e.performed_by))]
@@ -99,7 +118,7 @@ export default async function JobDetailPage({
 
   const enrichedApps = (applications ?? []).map((a: Record<string, unknown>) => {
     const c = candMap[a.candidate_id as string] as Record<string, unknown> | undefined
-    return { ...a, candidate: c ?? null }
+    return { ...a, candidate: c ?? null, viewed: viewedAppIds.has(a.id as string) }
   })
 
   const enrichedEvents = (events ?? []).map((e: Record<string, unknown>) => ({
@@ -108,6 +127,7 @@ export default async function JobDetailPage({
   }))
 
   const seekConfigured = !!(process.env.SEEK_CLIENT_ID && process.env.SEEK_CLIENT_SECRET)
+  const wordpressConfigured = !!(process.env.WORDPRESS_URL && process.env.WORDPRESS_API_USER && process.env.WORDPRESS_APP_PASSWORD)
 
   return (
     <div>
@@ -175,7 +195,7 @@ export default async function JobDetailPage({
 
       {/* Tabs */}
       <div className="flex gap-1 border-b mb-6">
-        {["applications", "matches", "overview", "timeline"].map(t => (
+        {["applications", "matches", "overview", "executive-search", "timeline"].map(t => (
           <Link
             key={t}
             href={`/recruitment/jobs/${jobId}?tab=${t}`}
@@ -188,6 +208,7 @@ export default async function JobDetailPage({
           >
             {t === "applications" ? `Applications (${enrichedApps.length})`
               : t === "matches" ? `Matches (${matches.length})`
+              : t === "executive-search" ? "Executive Search"
               : t}
           </Link>
         ))}
@@ -254,6 +275,14 @@ export default async function JobDetailPage({
             seekAdId={job.seek_ad_id ?? null}
             seekConfigured={seekConfigured}
           />
+
+          {/* WordPress section */}
+          <WordPressPostButton
+            jobId={job.id}
+            wpPostId={job.wp_post_id ?? null}
+            wpPermalink={job.wp_permalink ?? null}
+            wordpressConfigured={wordpressConfigured}
+          />
         </div>
       )}
 
@@ -266,6 +295,17 @@ export default async function JobDetailPage({
           jobId={jobId}
           matches={matches}
           hasRequirements={(job.required_skills?.length ?? 0) + (job.required_education_tags?.length ?? 0) > 0}
+        />
+      )}
+
+      {tab === "executive-search" && (
+        <JobExecutiveSearchTab
+          jobId={jobId}
+          isExecutiveSearch={!!job.is_executive_search}
+          confidentialMode={!!job.confidential_mode}
+          narrativeCopy={job.narrative_copy ?? null}
+          hasHeroImage={!!job.hero_image_storage_key}
+          documents={(jobDocuments ?? []) as { id: string; original_name: string | null; created_at: string }[]}
         />
       )}
 

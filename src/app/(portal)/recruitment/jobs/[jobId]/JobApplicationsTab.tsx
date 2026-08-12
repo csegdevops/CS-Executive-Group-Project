@@ -59,6 +59,7 @@ interface Application {
   created_at: string
   cv_storage_key: string | null
   candidate: Candidate | null
+  viewed: boolean
 }
 
 export function JobApplicationsTab({ applications, jobId }: { applications: Application[]; jobId: string }) {
@@ -120,9 +121,14 @@ export function JobApplicationsTab({ applications, jobId }: { applications: Appl
                     <div className="flex items-center gap-2">
                       <UserCircle className="h-5 w-5 text-muted-foreground/40 shrink-0" />
                       <div>
-                        <p className="font-medium">
-                          {app.candidate ? `${app.candidate.first_name} ${app.candidate.last_name}` : "Unknown"}
-                        </p>
+                        <div className="flex items-center gap-1.5">
+                          <p className="font-medium">
+                            {app.candidate ? `${app.candidate.first_name} ${app.candidate.last_name}` : "Unknown"}
+                          </p>
+                          {!app.viewed && (
+                            <Badge className="text-[10px] px-1.5 py-0 h-4 bg-blue-500 hover:bg-blue-500 text-white border-transparent">New</Badge>
+                          )}
+                        </div>
                         {app.candidate?.current_title && (
                           <p className="text-xs text-muted-foreground">{app.candidate.current_title}</p>
                         )}

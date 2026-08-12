@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { revalidateTag } from "next/cache"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { z } from "zod"
@@ -41,6 +42,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  revalidateTag("lookup-values", { expire: 0 })
   return NextResponse.json(data)
 }
 
@@ -65,5 +67,6 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   const admin = createAdminClient()
   const { error } = await admin.from("lookup_values").delete().eq("id", id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  revalidateTag("lookup-values", { expire: 0 })
   return new NextResponse(null, { status: 204 })
 }

@@ -989,6 +989,12 @@ export interface Database {
           status: JobStatus
           assigned_recruiter_id: string | null
           seek_ad_id: string | null
+          wp_post_id: string | null
+          wp_permalink: string | null
+          is_executive_search: boolean
+          confidential_mode: boolean
+          narrative_copy: string | null
+          hero_image_storage_key: string | null
           required_skills: string[]
           required_education_tags: string[]
           created_by: string | null
@@ -1013,6 +1019,12 @@ export interface Database {
           status?: JobStatus
           assigned_recruiter_id?: string | null
           seek_ad_id?: string | null
+          wp_post_id?: string | null
+          wp_permalink?: string | null
+          is_executive_search?: boolean
+          confidential_mode?: boolean
+          narrative_copy?: string | null
+          hero_image_storage_key?: string | null
           required_skills?: string[]
           required_education_tags?: string[]
           created_by?: string | null
@@ -1032,9 +1044,32 @@ export interface Database {
           status?: JobStatus
           assigned_recruiter_id?: string | null
           seek_ad_id?: string | null
+          wp_post_id?: string | null
+          wp_permalink?: string | null
+          is_executive_search?: boolean
+          confidential_mode?: boolean
+          narrative_copy?: string | null
+          hero_image_storage_key?: string | null
           required_skills?: string[]
           required_education_tags?: string[]
         }
+        Relationships: []
+      }
+      job_documents: {
+        Row: {
+          id: string
+          job_id: string
+          storage_key: string
+          original_name: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          job_id: string
+          storage_key: string
+          original_name?: string | null
+        }
+        Update: Record<string, never>
         Relationships: []
       }
       job_events: {
@@ -1116,6 +1151,19 @@ export interface Database {
           to_stage: ApplicationStage
           changed_by?: string | null
           notes?: string | null
+        }
+        Update: Record<string, never>
+        Relationships: []
+      }
+      application_views: {
+        Row: {
+          application_id: string
+          viewed_by: string
+          viewed_at: string
+        }
+        Insert: {
+          application_id: string
+          viewed_by: string
         }
         Update: Record<string, never>
         Relationships: []

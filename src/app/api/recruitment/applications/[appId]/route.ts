@@ -37,6 +37,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ appI
     { data: candidate },
     { data: job },
     { data: history },
+    { data: views },
   ] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (admin.schema("recruitment") as any)
@@ -56,19 +57,30 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ appI
       .select("id, from_stage, to_stage, notes, changed_by, changed_at")
       .eq("application_id", appId)
       .order("changed_at", { ascending: true }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (admin.schema("recruitment") as any)
+      .from("application_views")
+      .select("viewed_by, viewed_at")
+      .eq("application_id", appId)
+      .order("viewed_at", { ascending: true }),
   ])
 
   const changerIds = [...new Set((history ?? []).filter((h: { changed_by: string | null }) => h.changed_by).map((h: { changed_by: string }) => h.changed_by))]
+  const viewerIds = [...new Set((views ?? []).map((v: { viewed_by: string }) => v.viewed_by))]
 
-  const [{ data: company }, { data: changers }] = await Promise.all([
+  const [{ data: company }, { data: changers }, { data: viewerProfiles }] = await Promise.all([
     job
       ? admin.from("companies").select("id, name").eq("id", job.company_id).single()
       : Promise.resolve({ data: null }),
     changerIds.length
       ? admin.from("profiles").select("id, full_name").in("id", changerIds as string[])
       : Promise.resolve({ data: [] }),
+    viewerIds.length
+      ? admin.from("profiles").select("id, full_name").in("id", viewerIds as string[])
+      : Promise.resolve({ data: [] }),
   ])
   const changerMap = Object.fromEntries((changers ?? []).map((p: { id: string; full_name: string | null }) => [p.id, p.full_name]))
+  const viewerMap = Object.fromEntries((viewerProfiles ?? []).map((p: { id: string; full_name: string | null }) => [p.id, p.full_name]))
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: placement } = await (admin.schema("recruitment") as any)
@@ -97,6 +109,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ appI
     stage_history: (history ?? []).map((h: Record<string, unknown>) => ({
       ...h,
       changer_name: h.changed_by ? changerMap[h.changed_by as string] ?? null : "System",
+    })),
+    viewers: (views ?? []).map((v: { viewed_by: string; viewed_at: string }) => ({
+      id: v.viewed_by,
+      name: viewerMap[v.viewed_by] ?? "Unknown",
+      viewed_at: v.viewed_at,
     })),
     placement: placement ?? null,
     contractor_id: contractor?.id ?? null,

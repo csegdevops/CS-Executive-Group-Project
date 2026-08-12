@@ -58,8 +58,9 @@ export async function GET(req: NextRequest) {
   // Hydrate candidate names + job titles
   const candIds = [...new Set((apps ?? []).map((a: { candidate_id: string }) => a.candidate_id))]
   const jobIds  = [...new Set((apps ?? []).map((a: { job_id: string }) => a.job_id))]
+  const appIds  = (apps ?? []).map((a: { id: string }) => a.id)
 
-  const [{ data: candidates }, { data: jobs }] = await Promise.all([
+  const [{ data: candidates }, { data: jobs }, { data: views }] = await Promise.all([
     candIds.length
       ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (admin.schema("recruitment") as any)
@@ -74,7 +75,15 @@ export async function GET(req: NextRequest) {
           .select("id, title, reference_number, company_id")
           .in("id", jobIds)
       : Promise.resolve({ data: [] }),
+    appIds.length
+      ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (admin.schema("recruitment") as any)
+          .from("application_views")
+          .select("application_id")
+          .in("application_id", appIds)
+      : Promise.resolve({ data: [] }),
   ])
+  const viewedIds = new Set((views ?? []).map((v: { application_id: string }) => v.application_id))
 
   // Hydrate company names
   const companyIds = [...new Set((jobs ?? []).map((j: { company_id: string }) => j.company_id))] as string[]
@@ -98,6 +107,7 @@ export async function GET(req: NextRequest) {
       job_title: job?.title ?? null,
       job_reference: job?.reference_number ?? null,
       company_name: job ? companyMap[job.company_id as string] ?? null : null,
+      viewed: viewedIds.has(a.id as string),
     }
   })
 

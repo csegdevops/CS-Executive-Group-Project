@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
@@ -9,6 +10,7 @@ import { StagePipelineStrip } from "./[appId]/StagePipelineStrip"
 import { CandidateSummaryCard, type CandidateSummary } from "./[appId]/CandidateSummaryCard"
 import { ApplicationInfoCard, type ApplicationInfo } from "./[appId]/ApplicationInfoCard"
 import { StageHistoryTimeline, type StageHistoryEntry } from "./[appId]/StageHistoryTimeline"
+import { ViewedBySection, type ViewerEntry } from "./[appId]/ViewedBySection"
 import { JobSummaryCard, type JobSummary } from "./[appId]/JobSummaryCard"
 import { StageControl } from "./[appId]/StageControl"
 import { PlacementCard } from "./[appId]/PlacementCard"
@@ -30,6 +32,7 @@ interface ApplicationDetail extends ApplicationInfo {
   candidate: CandidateSummary | null
   job: (JobSummary & { company_id: string | null; employment_type: string | null }) | null
   stage_history: StageHistoryEntry[]
+  viewers: ViewerEntry[]
   placement: Placement | null
   contractor_id: string | null
   remaining_vacancies: number
@@ -55,6 +58,7 @@ export function ApplicationDetailSheet({
   positionLabel,
   refreshToken,
 }: Props) {
+  const router = useRouter()
   const [data, setData] = useState<ApplicationDetail | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -75,6 +79,19 @@ export function ApplicationDetailSheet({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [applicationId, refreshToken])
+
+  // Mark-as-viewed fires once per sheet open (keyed only on applicationId,
+  // not refreshToken, so internal refreshes from stage moves etc. don't
+  // re-trigger it). Only bumps the underlying list when this genuinely was
+  // the first view — reopening an already-viewed application is a no-op.
+  useEffect(() => {
+    if (!applicationId) return
+    fetch(`/api/recruitment/applications/${applicationId}/view`, { method: "POST" })
+      .then((res) => res.ok ? res.json() : null)
+      .then((result) => { if (result?.created) router.refresh() })
+      .catch(() => {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [applicationId])
 
   useEffect(() => {
     if (!applicationId) return
@@ -129,6 +146,7 @@ export function ApplicationDetailSheet({
               <div className="space-y-4">
                 <CandidateSummaryCard candidate={data.candidate} />
                 <ApplicationInfoCard app={data} />
+                <ViewedBySection viewers={data.viewers} />
                 {data.stage !== "placed" && (
                   <div className="rounded-lg border bg-card p-4">
                     <h3 className="font-medium text-sm mb-3">Move stage</h3>

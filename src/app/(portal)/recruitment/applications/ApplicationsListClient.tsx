@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
@@ -50,6 +50,24 @@ const SOURCE_LABELS: Record<string, string> = {
   database_internal: "[DB]", seek_talent: "[ST]", linkedin: "[LI]",
 }
 
+const SOURCE_FILTER_LABELS: Record<string, string> = {
+  seek_inbound: "Seek", company_website: "Company website",
+  database_internal: "Internal database", seek_talent: "Seek Talent Search", linkedin: "LinkedIn",
+}
+
+const SOURCES = Object.keys(SOURCE_FILTER_LABELS)
+
+const JOB_STATUSES = ["opened", "posted", "active", "paused", "filled", "closed"]
+
+const JOB_STATUS_COLORS: Record<string, string> = {
+  opened: "bg-slate-100 text-slate-700",
+  posted: "bg-blue-50 text-blue-700",
+  active: "bg-green-50 text-green-700",
+  paused: "bg-amber-50 text-amber-700",
+  filled: "bg-purple-50 text-purple-700",
+  closed: "bg-red-50 text-red-700",
+}
+
 interface App {
   id: string
   job_id: string
@@ -62,7 +80,9 @@ interface App {
   candidate_title: string | null
   job_title: string | null
   job_reference: string | null
+  job_status: string | null
   company_name: string | null
+  viewed: boolean
 }
 
 interface JobVacancyInfo {
@@ -82,6 +102,9 @@ export function ApplicationsListClient({ applications, jobOptions, jobVacancy }:
   const [q, setQ]           = useState("")
   const [stage, setStage]   = useState("")
   const [jobId, setJobId]   = useState("")
+  const [company, setCompany]     = useState("")
+  const [source, setSource]       = useState("")
+  const [jobStatus, setJobStatus] = useState("")
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set())
   const [bulkStage, setBulkStage]   = useState<string>("")
@@ -128,9 +151,17 @@ export function ApplicationsListClient({ applications, jobOptions, jobVacancy }:
     }
   }
 
+  const companyOptions = useMemo(
+    () => Array.from(new Set(applications.map(a => a.company_name).filter((c): c is string => !!c))).sort(),
+    [applications]
+  )
+
   const filtered = applications.filter(a => {
     if (stage && a.stage !== stage) return false
     if (jobId && a.job_id !== jobId) return false
+    if (company && a.company_name !== company) return false
+    if (source && a.source_channel !== source) return false
+    if (jobStatus && a.job_status !== jobStatus) return false
     if (q) {
       const s = q.toLowerCase()
       return (
@@ -209,9 +240,47 @@ export function ApplicationsListClient({ applications, jobOptions, jobVacancy }:
             {jobOptions.map(j => <option key={j.id} value={j.id}>{j.title}</option>)}
           </select>
         )}
-        {(q || stage || jobId) && (
+        {companyOptions.length > 0 && (
+          <select
+            value={company}
+            onChange={e => setCompany(e.target.value)}
+            className="h-8 px-2 text-xs rounded-md border border-border bg-background"
+          >
+            <option value="">All companies</option>
+            {companyOptions.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+        )}
+        <Select value={source || "all"} onValueChange={v => setSource(v === "all" ? "" : v)}>
+          <SelectTrigger className="h-8 text-xs w-40"><SelectValue placeholder="All sources" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all" className="text-xs">All sources</SelectItem>
+            {SOURCES.map(s => (
+              <SelectItem key={s} value={s} className="text-xs">{SOURCE_FILTER_LABELS[s]}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* Job status filter chips */}
+        <div className="flex items-center gap-1 flex-wrap">
+          {JOB_STATUSES.map(s => (
+            <button
+              key={s}
+              onClick={() => setJobStatus(jobStatus === s ? "" : s)}
+              className={cn(
+                "px-2.5 py-1 text-xs font-medium rounded-full border transition-colors capitalize",
+                jobStatus === s
+                  ? cn(JOB_STATUS_COLORS[s], "border-current font-semibold")
+                  : "border-border text-muted-foreground hover:border-foreground/40"
+              )}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+
+        {(q || stage || jobId || company || source || jobStatus) && (
           <button
-            onClick={() => { setQ(""); setStage(""); setJobId("") }}
+            onClick={() => { setQ(""); setStage(""); setJobId(""); setCompany(""); setSource(""); setJobStatus("") }}
             className="h-8 px-3 text-xs rounded-md border border-border text-muted-foreground hover:text-foreground"
           >
             Clear
@@ -287,7 +356,12 @@ export function ApplicationsListClient({ applications, jobOptions, jobVacancy }:
                   </td>
                   <td className="px-4 py-3">
                     <Link href={`/recruitment/applications/${app.id}`} className="block" onClick={(e) => handleRowOpen(e, app.id)}>
-                      <p className="font-medium hover:underline">{app.candidate_name ?? "Unknown"}</p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="font-medium hover:underline">{app.candidate_name ?? "Unknown"}</p>
+                        {!app.viewed && (
+                          <Badge className="text-[10px] px-1.5 py-0 h-4 bg-blue-500 hover:bg-blue-500 text-white border-transparent">New</Badge>
+                        )}
+                      </div>
                       {app.candidate_title && <p className="text-xs text-muted-foreground">{app.candidate_title}</p>}
                     </Link>
                   </td>

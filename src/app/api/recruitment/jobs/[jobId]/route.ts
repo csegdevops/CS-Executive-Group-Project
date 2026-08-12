@@ -25,6 +25,9 @@ const patchSchema = z.object({
   reference_number: z.string().min(1).max(100).optional(),
   required_skills: z.array(z.string()).optional(),
   required_education_tags: z.array(z.string()).optional(),
+  is_executive_search: z.boolean().optional(),
+  confidential_mode: z.boolean().optional(),
+  narrative_copy: z.string().optional().nullable(),
   notes: z.string().optional(),
 })
 

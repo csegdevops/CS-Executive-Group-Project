@@ -32,6 +32,16 @@ export default async function ApplicationsPage({
   // Hydrate candidate + job data
   const candIds = [...new Set((applications ?? []).map((a: { candidate_id: string }) => a.candidate_id))]
   const jobIds  = [...new Set((applications ?? []).map((a: { job_id: string }) => a.job_id))]
+  const appIds  = (applications ?? []).map((a: { id: string }) => a.id)
+
+  const { data: views } = appIds.length
+    ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (admin.schema("recruitment") as any)
+        .from("application_views")
+        .select("application_id")
+        .in("application_id", appIds)
+    : { data: [] }
+  const viewedIds = new Set((views ?? []).map((v: { application_id: string }) => v.application_id))
 
   const [{ data: candidates }, { data: jobs }] = await Promise.all([
     candIds.length
@@ -80,7 +90,9 @@ export default async function ApplicationsPage({
       candidate_title: cand?.current_title ?? null,
       job_title: job?.title ?? null,
       job_reference: job?.reference_number ?? null,
+      job_status: job?.status ?? null,
       company_name: job ? companyMap[job.company_id as string] ?? null : null,
+      viewed: viewedIds.has(a.id as string),
     }
   })
 
