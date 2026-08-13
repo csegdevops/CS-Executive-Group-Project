@@ -1,16 +1,8 @@
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { requirePermissionOrSuperAdmin } from "@/lib/auth-helpers"
 import { NextResponse } from "next/server"
 import { z } from "zod"
-
-async function requireSuperAdminUser(): Promise<boolean> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return false
-  const { data: profile } = await supabase
-    .from("profiles").select("role").eq("id", user.id).single()
-  return profile?.role === "super_admin"
-}
 
 export async function GET() {
   const supabase = await createClient()
@@ -31,8 +23,12 @@ const patchSchema = z.object({
 })
 
 export async function PATCH(request: Request) {
-  const isSuperAdmin = await requireSuperAdminUser()
-  if (!isSuperAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (!(await requirePermissionOrSuperAdmin(supabase, user.id, "platform_settings.manage"))) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
 
   const body = await request.json()
   const parsed = patchSchema.safeParse(body)

@@ -1,18 +1,11 @@
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { requirePermissionOrSuperAdmin } from "@/lib/auth-helpers"
 import { NextResponse } from "next/server"
 import { z } from "zod"
 import type { Database } from "@/types/database"
 
 type SystemSettingsUpdate = Database["public"]["Tables"]["system_settings"]["Update"]
-
-async function requireSuperAdminUser(): Promise<string | null> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
-  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
-  return profile?.role === "super_admin" ? user.id : null
-}
 
 // GET /api/admin/system-settings
 export async function GET() {
@@ -39,8 +32,13 @@ const patchSchema = z.object({
 // PATCH /api/admin/system-settings — the "Pause all emails" / "Pause all AI
 // features" toggles. Either field may be sent independently.
 export async function PATCH(request: Request) {
-  const userId = await requireSuperAdminUser()
-  if (!userId) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (!(await requirePermissionOrSuperAdmin(supabase, user.id, "platform_settings.manage"))) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
+  const userId = user.id
 
   const body = await request.json()
   const parsed = patchSchema.safeParse(body)

@@ -1,13 +1,12 @@
 "use client"
 
 import { useState } from "react"
-import { PERMISSION_CATALOG, MODULE_LABELS } from "@/lib/permissions"
+import { PERMISSION_CATALOG, MODULE_LABELS, type PermissionTab } from "@/lib/permissions"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import type { Module } from "@/types/database"
 
-const TABS: Module[] = ["regulatory", "recruitment", "timesheets"]
+const TABS: PermissionTab[] = ["regulatory", "recruitment", "timesheets", "platform"]
 
 export function PermissionsPicker({
   selected,
@@ -18,7 +17,7 @@ export function PermissionsPicker({
   onChange: (next: string[]) => void
   disabled?: boolean
 }) {
-  const [activeTab, setActiveTab] = useState<Module>("regulatory")
+  const [activeTab, setActiveTab] = useState<PermissionTab>("regulatory")
 
   function toggle(key: string) {
     if (disabled) return

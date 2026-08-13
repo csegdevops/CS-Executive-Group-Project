@@ -40,24 +40,26 @@ export const maxDuration = 180
  * no job at all, as with the other two submission types), no application row
  * is created — just the candidate profile.
  *
- * CV/cover letter delivery: prefer `resume_base64`/`cover_letter_base64`
- * (WordPress reads the file off its own local filesystem and sends the
- * bytes directly) over `resume_url`/`cover_letter_url` (we fetch the file
- * ourselves). The base64 path exists because some WP hosts block direct
- * external HTTP access to the Gravity Forms uploads directory (a common
- * hardening step) while PHP running on that same server can still read the
- * file locally just fine — sending bytes directly sidesteps that
- * restriction entirely. URL delivery is kept as a fallback for hosts that
- * don't block direct access. Only Job Application and Talent Pool
- * Registration collect files; Application Detail Update never sends one.
+ * CV/cover letter delivery: only `resume_base64`/`cover_letter_base64` is
+ * treated as a file source (WordPress reads the file off its own local
+ * filesystem via GFFormsModel::get_physical_file_path() and sends the bytes
+ * directly). `resume_url`/`cover_letter_url` are still accepted and stored
+ * in source_metadata for reference, but deliberately never fetched — in
+ * practice every URL-delivery attempt has hit either Gravity Forms' own
+ * block on direct external access to its uploads directory, or a 404
+ * (investigated 2026-08-13: candidates Chen Gu/John Ghazvini/Renee
+ * Sokias/Srinivasan Sundararaj all got `file not found locally` on the
+ * base64 side too, meaning the file wasn't resolvable by any path — a
+ * WordPress/GF-side issue, not something fetching the URL would fix).
+ * Base64 is the only delivery path with a track record of working. Only Job
+ * Application and Talent Pool Registration collect files; Application
+ * Detail Update never sends one.
  *
- * When URL delivery is used, the download (ingestCvFile) is awaited here —
- * i.e. it happens before this handler responds to WordPress's blocking
- * wp_remote_post call — rather than deferred. The uploaded file on the WP
- * side can disappear moments after this request completes (observed when
- * "save entry" is disabled for a form), so fetching as early as possible
- * closes that race as much as this side of the integration can. Only the
- * slow CV parsing step (parseCvAfterIngest) is deferred via after().
+ * ingestCvFile is awaited here — i.e. it happens before this handler
+ * responds to WordPress's blocking wp_remote_post call — rather than
+ * deferred, since the base64 buffer is only valid for this request's
+ * lifetime anyway. Only the slow CV parsing step (parseCvAfterIngest) is
+ * deferred via after().
  */
 
 // PHP's json_encode(null) sends a JSON `null`, which z.string().optional()
@@ -124,23 +126,26 @@ type JobApplicationData = z.infer<typeof jobApplicationSchema>
 type TalentPoolData = z.infer<typeof talentPoolSchema>
 type DetailUpdateData = z.infer<typeof detailUpdateSchema>
 
-type FileSource = { buffer: Buffer; mimeType: string; originalName: string } | { url: string }
+type FileSource = { buffer: Buffer; mimeType: string; originalName: string }
 
+// URL delivery (resume_url/cover_letter_url) is intentionally not treated as
+// a file source here — it has never once produced a working download in
+// practice, only ever a Gravity-Forms-blocked or 404'd link, while base64
+// (WordPress reading the file off its own local disk) is the reliable path.
+// The URL fields are still accepted and logged in source_metadata for
+// reference, just never fetched. Seek's webhook (src/app/api/webhooks/seek)
+// still uses `ingestCvFile` with a `{ url }` source — only this route drops it.
 function resolveFileSource(
   base64: string | undefined,
   filename: string | undefined,
-  mimetype: string | undefined,
-  url: string | undefined
+  mimetype: string | undefined
 ): FileSource | null {
-  if (base64) {
-    return {
-      buffer: Buffer.from(base64, "base64"),
-      mimeType: mimetype || "application/octet-stream",
-      originalName: filename || "file",
-    }
+  if (!base64) return null
+  return {
+    buffer: Buffer.from(base64, "base64"),
+    mimeType: mimetype || "application/octet-stream",
+    originalName: filename || "file",
   }
-  if (url) return { url }
-  return null
 }
 
 // The intake fields collected by these forms have no dedicated candidate
@@ -293,8 +298,8 @@ async function handleJobApplication(body: unknown) {
   const candidateId     = upsertResult?.[0]?.candidate_id
   const candidateAction = upsertResult?.[0]?.action
 
-  const resumeSource = resolveFileSource(data.resume_base64, data.resume_filename, data.resume_mimetype, data.resume_url)
-  const clSource = resolveFileSource(data.cover_letter_base64, data.cover_letter_filename, data.cover_letter_mimetype, data.cover_letter_url)
+  const resumeSource = resolveFileSource(data.resume_base64, data.resume_filename, data.resume_mimetype)
+  const clSource = resolveFileSource(data.cover_letter_base64, data.cover_letter_filename, data.cover_letter_mimetype)
 
   if (!jobId) {
     // No matching job — still land the CV/cover letter against the
@@ -432,12 +437,12 @@ async function handleTalentPoolRegistration(body: unknown) {
 
   // No job/application involved — attach CV/cover letter straight to the
   // candidate profile.
-  const resumeSource = resolveFileSource(data.resume_base64, data.resume_filename, data.resume_mimetype, data.resume_url)
+  const resumeSource = resolveFileSource(data.resume_base64, data.resume_filename, data.resume_mimetype)
   if (resumeSource) {
     const resumeFile = await ingestCvFile({ candidateId, docType: "cv", source: resumeSource })
     if (resumeFile) after(() => parseCvAfterIngest(resumeFile))
   }
-  const clSource = resolveFileSource(data.cover_letter_base64, data.cover_letter_filename, data.cover_letter_mimetype, data.cover_letter_url)
+  const clSource = resolveFileSource(data.cover_letter_base64, data.cover_letter_filename, data.cover_letter_mimetype)
   if (clSource) {
     await ingestCvFile({ candidateId, docType: "cl", source: clSource })
   }

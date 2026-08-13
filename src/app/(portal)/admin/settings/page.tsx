@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { requirePermission } from "@/lib/auth-helpers"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Card, CardContent } from "@/components/ui/card"
 import { ModuleToggleList } from "./ModuleToggleList"
@@ -9,6 +10,7 @@ import { Users2, ListChecks, Globe, ChevronRight } from "lucide-react"
 import type { ModuleConfig } from "@/types/database"
 
 export default async function PlatformSettingsPage() {
+  await requirePermission("platform_settings.view")
   const admin = createAdminClient()
   const [{ data }, { data: settings }] = await Promise.all([
     admin.from("module_config").select("module, is_enabled, updated_at").order("module"),

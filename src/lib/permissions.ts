@@ -16,7 +16,12 @@ export interface PermissionCategory {
  * and Recruitment tabs since `companies` is a genuinely cross-module
  * table.
  */
-export const PERMISSION_CATALOG: Record<Module, PermissionCategory[]> = {
+/** "Platform" isn't a real switchable module (no module_config row, nobody
+ * switches into it) — it's a UI-only 4th tab in the permissions picker for
+ * platform-wide admin settings that aren't scoped to any one business module. */
+export type PermissionTab = Module | "platform"
+
+export const PERMISSION_CATALOG: Record<PermissionTab, PermissionCategory[]> = {
   regulatory: [
     { category: "Module", permissions: [{ key: "regulatory.access", label: "Access the Regulatory module" }] },
     {
@@ -72,6 +77,7 @@ export const PERMISSION_CATALOG: Record<Module, PermissionCategory[]> = {
       permissions: [
         { key: "recruitment.applications.create", label: "Create applications" },
         { key: "recruitment.applications.edit", label: "Edit applications / change stage" },
+        { key: "recruitment.applications.delete", label: "Delete applications" },
       ],
     },
     { category: "Placements", permissions: [{ key: "recruitment.placements.create", label: "Create placements" }] },
@@ -122,12 +128,22 @@ export const PERMISSION_CATALOG: Record<Module, PermissionCategory[]> = {
       ],
     },
   ],
+  platform: [
+    {
+      category: "Settings",
+      permissions: [
+        { key: "platform_settings.view", label: "View platform settings" },
+        { key: "platform_settings.manage", label: "Edit platform settings (module toggles, email/AI pause)" },
+      ],
+    },
+  ],
 }
 
-export const MODULE_LABELS: Record<Module, string> = {
+export const MODULE_LABELS: Record<PermissionTab, string> = {
   regulatory: "Regulatory",
   recruitment: "Recruitment",
   timesheets: "Timesheets",
+  platform: "Platform",
 }
 
 export function allPermissionKeys(): string[] {

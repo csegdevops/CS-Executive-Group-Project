@@ -200,6 +200,7 @@ export function Sidebar({ role, userName, email, permissionKeys, accessibleModul
 
   const isSuperAdmin = role === "super_admin"
   const hasPerm = (key: string) => isSuperAdmin || (permissionKeys?.includes(key) ?? false)
+  const canViewPlatformSettings = hasPerm("platform_settings.view")
 
   const allNavItems = activeModule ? moduleNavItems[activeModule] ?? [] : []
   const regularItems = allNavItems.filter(item => !item.permission)
@@ -349,32 +350,6 @@ export function Sidebar({ role, userName, email, permissionKeys, accessibleModul
           </div>
         )}
 
-        {isSuperAdmin && !activeModule && (
-          <div className={cn("pt-2 mt-2 space-y-1", !collapsed && "border-t border-sidebar-border")}>
-            {collapsed
-              ? <div className="border-t border-sidebar-border mb-2" />
-              : (
-                <p className="px-3 py-1 text-xs font-semibold text-sidebar-foreground/40 uppercase tracking-wider">
-                  Platform
-                </p>
-              )
-            }
-            <Link
-              href="/admin/settings"
-              title={collapsed ? "Platform Settings" : undefined}
-              className={cn(
-                "flex items-center rounded-md text-sm font-medium transition-colors",
-                collapsed ? "justify-center p-2" : "gap-3 px-3 py-2",
-                pathname.startsWith("/admin/settings")
-                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                  : "text-sidebar-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
-              )}
-            >
-              <Settings className="h-4 w-4 shrink-0" />
-              {!collapsed && "Settings"}
-            </Link>
-          </div>
-        )}
       </nav>
 
       {/* Collapse toggle */}
@@ -418,6 +393,11 @@ export function Sidebar({ role, userName, email, permissionKeys, accessibleModul
                 <DropdownMenuItem onClick={() => setEditProfileOpen(true)} className="gap-2 cursor-pointer">
                   <UserCog className="h-4 w-4" />Edit Profile
                 </DropdownMenuItem>
+                {canViewPlatformSettings && (
+                  <DropdownMenuItem onClick={() => router.push("/admin/settings")} className="gap-2 cursor-pointer">
+                    <Settings className="h-4 w-4" />Platform Settings
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleSignOut} className="gap-2 cursor-pointer text-destructive focus:text-destructive">
                   <LogOut className="h-4 w-4" />Sign out
@@ -455,6 +435,11 @@ export function Sidebar({ role, userName, email, permissionKeys, accessibleModul
                   <DropdownMenuItem onClick={() => setEditProfileOpen(true)} className="gap-2 cursor-pointer">
                     <UserCog className="h-4 w-4" />Edit Profile
                   </DropdownMenuItem>
+                  {canViewPlatformSettings && (
+                    <DropdownMenuItem onClick={() => router.push("/admin/settings")} className="gap-2 cursor-pointer">
+                      <Settings className="h-4 w-4" />Platform Settings
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleSignOut} className="gap-2 cursor-pointer text-destructive focus:text-destructive">
                     <LogOut className="h-4 w-4" />Sign out

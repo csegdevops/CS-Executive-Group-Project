@@ -190,7 +190,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ a
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (!(await requirePermissionOrSuperAdmin(supabase, user.id, "recruitment.applications.edit"))) {
+  if (!(await requirePermissionOrSuperAdmin(supabase, user.id, "recruitment.applications.delete"))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
