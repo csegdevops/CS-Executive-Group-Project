@@ -116,7 +116,9 @@
       "PowerShell(npx eslint \"src/app/api/recruitment/applications\" \"src/app/\\(portal\\)/recruitment/applications\" \"src/app/\\(portal\\)/recruitment/jobs/[jobId]/JobApplicationsTab.tsx\" \"src/app/\\(portal\\)/recruitment/jobs/[jobId]/page.tsx\" \"src/types/database.ts\" 2>&1)",
       "PowerShell(npx eslint \"src/app/\\(portal\\)/recruitment/applications\" \"src/app/\\(portal\\)/recruitment/jobs/[jobId]/JobApplicationsTab.tsx\" \"src/app/\\(portal\\)/recruitment/jobs/[jobId]/page.tsx\" \"src/app/api/recruitment/applications\" 2>&1)",
       "PowerShell(npx eslint \"src/app/api/applications/route.ts\" \"src/lib/cv-parsing/ingest.ts\" 2>&1)",
-      "PowerShell(Get-CimInstance Win32_Process -Filter \"ProcessId = 39712\")"
+      "PowerShell(Get-CimInstance Win32_Process -Filter \"ProcessId = 39712\")",
+      "Bash(curl -s -o /dev/null -w \"HTTP_STATUS:%{http_code}\\\\n\" \"https://www.csexecutivegroup.com/wp-content/uploads/gravity_forms/20-cdc741892e92ce124246a47c3d40b7ba/2026/08/chen_gu_advm0726_resume.pdf\")",
+      "Bash(curl -s -o /dev/null -w \"HTTP_STATUS:%{http_code}\\\\n\" \"https://www.csexecutivegroup.com/wp-content/uploads/gravity_forms/20-cdc741892e92ce124246a47c3d40b7ba/2026/08/chen_gu_advm0726_coverletter.pdf\")"
     ],
     "additionalDirectories": [
       "d:\\Project\\CS Executive Group Project\\src\\app\\(portal)\\recruitment\\candidates\\[candidateId]",

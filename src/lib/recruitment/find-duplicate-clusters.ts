@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin"
+import { isLinkedinProfileUrl } from "./linkedin-url"
 
 export interface CandidateDuplicateSummary {
   id: string
@@ -53,7 +54,7 @@ function normalizedEmails(c: { email: string; secondary_email: string | null }):
 }
 
 function normalizedLinkedin(url: string | null): string | null {
-  if (!url) return null
+  if (!url || !isLinkedinProfileUrl(url)) return null
   return url.trim().toLowerCase().replace(/\/+$/, "")
 }
 

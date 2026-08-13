@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse, after } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { ingestCvFile, parseCvAfterIngest } from "@/lib/cv-parsing/ingest"
+import { isLinkedinProfileUrl } from "@/lib/recruitment/linkedin-url"
 import { z } from "zod"
 
 // CV parsing (in the after() callback below) can take well over a minute for
@@ -158,6 +159,10 @@ function buildSelfReportedMetadata(
     keep_me_in_the_loop?: string | boolean
     permission_to_store?: string | boolean
     wp_entry_id?: string | number
+    resume_url?: string
+    resume_base64?: string
+    cover_letter_url?: string
+    cover_letter_base64?: string
   },
   submissionType: string
 ) {
@@ -175,6 +180,14 @@ function buildSelfReportedMetadata(
     aborginal_torres_islander:  data.aborginal_torres_islander ?? null,
     keep_me_in_the_loop:        data.keep_me_in_the_loop ?? null,
     permission_to_store:        data.permission_to_store ?? null,
+    // Kept here (not just on the application row) because this path also
+    // runs when no job matches — the only place that submission's CV/CL
+    // delivery info survives, so a failed ingest is still diagnosable and
+    // has a recoverable link, same as the matched-job case.
+    resume_url:                 data.resume_url ?? null,
+    resume_delivery:            data.resume_base64 ? "base64" : data.resume_url ? "url" : null,
+    cover_letter_url:           data.cover_letter_url ?? null,
+    cover_letter_delivery:      data.cover_letter_base64 ? "base64" : data.cover_letter_url ? "url" : null,
   }
 }
 
@@ -195,7 +208,8 @@ async function upsertCandidateFromForm(
   opts: { overwrite: boolean; selfReportedMetadata: Record<string, unknown> }
 ) {
   const rawLinkedin = data.linkedin || data.linkedin_bitly
-  const linkedinUrl = rawLinkedin ? (/^https?:\/\//i.test(rawLinkedin) ? rawLinkedin : `https://${rawLinkedin}`) : null
+  const normalizedRaw = rawLinkedin ? (/^https?:\/\//i.test(rawLinkedin) ? rawLinkedin : `https://${rawLinkedin}`) : null
+  const linkedinUrl = normalizedRaw && isLinkedinProfileUrl(normalizedRaw) ? normalizedRaw : null
 
   return recruitment.rpc("upsert_candidate", {
     p_email:                  data.email,
