@@ -97,7 +97,7 @@ export default async function ApplicationDetailPage({ params }: { params: Promis
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Left: candidate + application */}
         <div className="md:col-span-2 space-y-4">
-          <CandidateSummaryCard candidate={candidate} />
+          <CandidateSummaryCard candidate={candidate} hideSkills />
           <ApplicationInfoCardWithPreview app={app} />
           <StageHistoryTimeline history={stageHistory} />
         </div>

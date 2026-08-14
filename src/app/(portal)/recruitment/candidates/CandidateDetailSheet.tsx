@@ -132,7 +132,7 @@ export function CandidateDetailSheet({ candidateId, onOpenChange, onNavigate, ha
           </div>
         ) : (
           <div className="space-y-4 pt-4">
-            <CandidateSummaryCard candidate={data} />
+            <CandidateSummaryCard candidate={data} hideSkills />
 
             <div className="rounded-lg border bg-card p-4 space-y-2 text-sm">
               <h3 className="font-medium text-sm mb-1">Details</h3>

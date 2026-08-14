@@ -25,7 +25,7 @@ export function SplitSheetContent({ open, onOpenChange, documentTarget, onCloseD
       <SheetContent
         className={cn(
           "w-full p-0 flex flex-row gap-0 overflow-hidden transition-[max-width] duration-300 ease-in-out",
-          documentTarget ? "sm:max-w-5xl" : "sm:max-w-2xl"
+          documentTarget ? "sm:max-w-[1400px]" : "sm:max-w-2xl"
         )}
         // The document pane's own header occupies the top-right corner with
         // its Download button once open — the base Sheet's floating close X
@@ -33,11 +33,15 @@ export function SplitSheetContent({ open, onOpenChange, documentTarget, onCloseD
         // the whole sheet either way, so it's safe to hide the redundant X.
         showCloseButton={!documentTarget}
       >
-        <div className={cn("flex-1 min-w-0 overflow-y-auto", documentTarget && "hidden sm:block")}>
+        {/* Profile column stays a fixed, compact width once a document is open —
+            the document column (below) gets the rest of the now much wider sheet,
+            since a cramped fixed-width preview was rendering CVs/cover letters
+            with unreadably small text. */}
+        <div className={cn("min-w-0 overflow-y-auto", documentTarget ? "hidden sm:block sm:w-[380px] sm:shrink-0" : "flex-1")}>
           {children}
         </div>
         {documentTarget && (
-          <div className="w-full sm:w-[420px] sm:shrink-0 sm:border-l flex flex-col animate-in slide-in-from-right duration-300">
+          <div className="w-full sm:flex-1 sm:min-w-0 sm:border-l flex flex-col animate-in slide-in-from-right duration-300">
             <DocumentPreviewPane target={documentTarget} onClose={onCloseDocument} />
           </div>
         )}

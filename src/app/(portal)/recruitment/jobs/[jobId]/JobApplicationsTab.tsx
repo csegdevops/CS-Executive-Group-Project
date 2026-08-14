@@ -1,13 +1,27 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 import { UserCircle, Calendar, TriangleAlert } from "lucide-react"
+import { toast } from "sonner"
 import { ApplicationDetailSheet } from "../../applications/ApplicationDetailSheet"
 
 type Stage = "applied" | "screening" | "shortlisted" | "interview_1" | "interview_2" | "reference_check" | "offer" | "placed" | "withdrawn" | "rejected"
+
+// "placed" is intentionally excluded — placements must go through
+// CreatePlacementDialog so the vacancy-fill check, finance/clearance tasks,
+// and unsuccessful-email task all fire; a bulk stage move must not be able
+// to bypass that. Mirrors ApplicationsListClient's bulk move.
+const BULK_STAGE_OPTIONS: Stage[] = [
+  "applied", "screening", "shortlisted", "interview_1", "interview_2",
+  "reference_check", "offer", "withdrawn", "rejected",
+]
 
 const STAGE_COLORS: Record<Stage, string> = {
   applied:          "bg-slate-100 text-slate-700",
@@ -64,12 +78,50 @@ interface Application {
 }
 
 export function JobApplicationsTab({ applications, jobId }: { applications: Application[]; jobId: string }) {
+  const router = useRouter()
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set())
+  const [bulkStage, setBulkStage] = useState<string>("")
+  const [bulkSaving, setBulkSaving] = useState(false)
 
   function handleRowOpen(e: React.MouseEvent, id: string) {
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return
     e.preventDefault()
     setSelectedId(id)
+  }
+
+  function toggleChecked(id: string, checked: boolean) {
+    setCheckedIds(prev => {
+      const next = new Set(prev)
+      if (checked) next.add(id)
+      else next.delete(id)
+      return next
+    })
+  }
+
+  async function handleBulkMove() {
+    if (!bulkStage || checkedIds.size === 0) return
+    setBulkSaving(true)
+    const ids = Array.from(checkedIds)
+    try {
+      const results = await Promise.all(
+        ids.map(id =>
+          fetch(`/api/recruitment/applications/${id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ stage: bulkStage }),
+          }).then(res => res.ok)
+        )
+      )
+      const failed = results.filter(ok => !ok).length
+      if (failed > 0) toast.error(`${failed} of ${ids.length} failed to update`)
+      else toast.success(`Moved ${ids.length} application${ids.length !== 1 ? "s" : ""} to ${STAGE_LABELS[bulkStage as Stage] ?? bulkStage}`)
+      setCheckedIds(new Set())
+      setBulkStage("")
+      router.refresh()
+    } finally {
+      setBulkSaving(false)
+    }
   }
 
   if (applications.length === 0) {
@@ -103,11 +155,41 @@ export function JobApplicationsTab({ applications, jobId }: { applications: Appl
         })}
       </div>
 
+      {/* Bulk stage move */}
+      {checkedIds.size > 0 && (
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">{checkedIds.size} selected</span>
+          <Select value={bulkStage} onValueChange={setBulkStage}>
+            <SelectTrigger className="h-7 text-xs w-40"><SelectValue placeholder="Move stage to…" /></SelectTrigger>
+            <SelectContent>
+              {BULK_STAGE_OPTIONS.map(s => (
+                <SelectItem key={s} value={s} className="text-xs">{STAGE_LABELS[s]}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button size="sm" className="h-7 text-xs px-2" disabled={!bulkStage || bulkSaving} onClick={handleBulkMove}>
+            {bulkSaving ? "Moving…" : "Apply"}
+          </Button>
+          <button
+            onClick={() => { setCheckedIds(new Set()); setBulkStage("") }}
+            className="text-xs text-muted-foreground hover:text-foreground"
+          >
+            Clear
+          </button>
+        </div>
+      )}
+
       {/* Application list */}
       <div className="rounded-lg border overflow-hidden">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b bg-muted/30">
+              <th className="w-8 px-4">
+                <Checkbox
+                  checked={ordered.length > 0 && ordered.every(a => checkedIds.has(a.id))}
+                  onCheckedChange={(v) => setCheckedIds(v === true ? new Set(ordered.map(a => a.id)) : new Set())}
+                />
+              </th>
               <th className="text-left px-4 py-2.5 font-medium text-muted-foreground text-xs">Candidate</th>
               <th className="text-left px-4 py-2.5 font-medium text-muted-foreground text-xs">Stage</th>
               <th className="text-left px-4 py-2.5 font-medium text-muted-foreground text-xs hidden md:table-cell">Source</th>
@@ -117,6 +199,12 @@ export function JobApplicationsTab({ applications, jobId }: { applications: Appl
           <tbody className="divide-y">
             {ordered.map(app => (
               <tr key={app.id} className="hover:bg-muted/20 transition-colors">
+                <td className="px-4 py-3">
+                  <Checkbox
+                    checked={checkedIds.has(app.id)}
+                    onCheckedChange={(v) => toggleChecked(app.id, v === true)}
+                  />
+                </td>
                 <td className="px-4 py-3">
                   <Link href={`/recruitment/applications/${app.id}`} className="hover:underline" onClick={(e) => handleRowOpen(e, app.id)}>
                     <div className="flex items-center gap-2">

@@ -152,7 +152,7 @@ export function ApplicationDetailSheet({
           <>
             <StagePipelineStrip stage={data.stage} />
             <div className="space-y-4">
-              <CandidateSummaryCard candidate={data.candidate} />
+              <CandidateSummaryCard candidate={data.candidate} hideSkills />
               <ApplicationInfoCard
                 app={data}
                 onPreview={(type, fileName) => setDocumentTarget({
