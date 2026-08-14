@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { cn } from "@/lib/utils"
 import { Search, Shield, ChevronRight, Users } from "lucide-react"
 import { AddCandidateDialog } from "./AddCandidateDialog"
+import { CandidateDetailSheet } from "./CandidateDetailSheet"
 
 const AU_STATES: { code: string; name: string }[] = [
   { code: "NSW", name: "New South Wales" },
@@ -72,6 +73,13 @@ export function CandidatesClient({ candidates, duplicateClusterCount = 0 }: { ca
   const [searchResults, setSearchResults] = useState<Candidate[] | null>(null)
   const [isPending, startTransition] = useTransition()
   const [stateFilter, setStateFilter] = useState("all")
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+
+  function handleRowOpen(e: React.MouseEvent, id: string) {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return
+    e.preventDefault()
+    setSelectedId(id)
+  }
 
   async function handleSearch(value: string) {
     setQ(value)
@@ -183,7 +191,7 @@ export function CandidatesClient({ candidates, duplicateClusterCount = 0 }: { ca
                         <Shield className={cn("h-3.5 w-3.5 mt-0.5 shrink-0", c.security_clearance_verified ? "text-amber-500" : "text-muted-foreground/40")} />
                       )}
                       <div>
-                        <Link href={`/recruitment/candidates/${c.id}`} className="font-medium hover:underline">
+                        <Link href={`/recruitment/candidates/${c.id}`} className="font-medium hover:underline" onClick={(e) => handleRowOpen(e, c.id)}>
                           {c.first_name} {c.last_name}
                         </Link>
                         {c.current_title && <p className="text-xs text-muted-foreground">{c.current_title}</p>}
@@ -210,7 +218,7 @@ export function CandidatesClient({ candidates, duplicateClusterCount = 0 }: { ca
                     <CompletenessDot pct={c.profile_completeness_pct} />
                   </td>
                   <td className="px-2 py-3">
-                    <Link href={`/recruitment/candidates/${c.id}`}>
+                    <Link href={`/recruitment/candidates/${c.id}`} onClick={(e) => handleRowOpen(e, c.id)}>
                       <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-muted-foreground" />
                     </Link>
                   </td>
@@ -220,6 +228,24 @@ export function CandidatesClient({ candidates, duplicateClusterCount = 0 }: { ca
           </table>
         </div>
       )}
+
+      {(() => {
+        const selectedIndex = selectedId ? displayList.findIndex(c => c.id === selectedId) : -1
+        return (
+          <CandidateDetailSheet
+            candidateId={selectedId}
+            onOpenChange={(open) => { if (!open) setSelectedId(null) }}
+            onNavigate={(direction) => {
+              if (selectedIndex < 0) return
+              const nextIndex = direction === "prev" ? selectedIndex - 1 : selectedIndex + 1
+              if (nextIndex >= 0 && nextIndex < displayList.length) setSelectedId(displayList[nextIndex].id)
+            }}
+            hasPrev={selectedIndex > 0}
+            hasNext={selectedIndex >= 0 && selectedIndex < displayList.length - 1}
+            positionLabel={selectedIndex >= 0 ? `${selectedIndex + 1} of ${displayList.length}` : undefined}
+          />
+        )
+      })()}
     </div>
   )
 }

@@ -43,7 +43,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ cand
   const { candidateId } = await params
   const admin = createAdminClient()
 
-  const [{ data: candidate, error }, { data: applications }] = await Promise.all([
+  const [{ data: candidate, error }, { data: applications }, { data: documents }] = await Promise.all([
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (admin.schema("recruitment") as any)
       .from("candidates")
@@ -54,6 +54,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ cand
     (admin.schema("recruitment") as any)
       .from("applications")
       .select("id, job_id, stage, source_channel, created_at, cv_storage_key")
+      .eq("candidate_id", candidateId)
+      .order("created_at", { ascending: false }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (admin.schema("recruitment") as any)
+      .from("candidate_documents")
+      .select("id, doc_type, application_id, original_name, created_at")
       .eq("candidate_id", candidateId)
       .order("created_at", { ascending: false }),
   ])
@@ -78,6 +84,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ cand
   const jobMap     = Object.fromEntries((jobs ?? []).map((j: Record<string, unknown>) => [j.id, j]))
   const companyMap = Object.fromEntries((companies ?? []).map((c: { id: string; name: string }) => [c.id, c.name]))
 
+  // application_id -> job title, reusing the applications/jobs already fetched above
+  const appJobTitleMap = Object.fromEntries(
+    (applications ?? []).map((a: { id: string; job_id: string }) => [a.id, (jobMap[a.job_id] as { title?: string } | undefined)?.title ?? null])
+  )
+
   return NextResponse.json({
     ...candidate,
     applications: (applications ?? []).map((a: Record<string, unknown>) => {
@@ -90,6 +101,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ cand
         company_name:  job ? companyMap[job.company_id as string] ?? null : null,
       }
     }),
+    documents: (documents ?? []).map((d: Record<string, unknown>) => ({
+      ...d,
+      job_title: d.application_id ? appJobTitleMap[d.application_id as string] ?? null : null,
+    })),
   })
 }
 

@@ -5,7 +5,7 @@ import Link from "next/link"
 import { ChevronLeft } from "lucide-react"
 import { StagePipelineStrip } from "./StagePipelineStrip"
 import { CandidateSummaryCard } from "./CandidateSummaryCard"
-import { ApplicationInfoCard } from "./ApplicationInfoCard"
+import { ApplicationInfoCardWithPreview } from "./ApplicationInfoCardWithPreview"
 import { StageHistoryTimeline } from "./StageHistoryTimeline"
 import { JobSummaryCard } from "./JobSummaryCard"
 import { StageControl } from "./StageControl"
@@ -98,7 +98,7 @@ export default async function ApplicationDetailPage({ params }: { params: Promis
         {/* Left: candidate + application */}
         <div className="md:col-span-2 space-y-4">
           <CandidateSummaryCard candidate={candidate} />
-          <ApplicationInfoCard app={app} />
+          <ApplicationInfoCardWithPreview app={app} />
           <StageHistoryTimeline history={stageHistory} />
         </div>
 

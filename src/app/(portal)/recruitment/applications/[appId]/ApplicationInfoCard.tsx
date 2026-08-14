@@ -1,11 +1,9 @@
 "use client"
 
-import { useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { FileText, TriangleAlert, ExternalLink } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { EditApplicationDialog } from "./EditApplicationDialog"
-import { DocumentPreviewSheet, type DocumentPreviewTarget } from "@/components/recruitment/DocumentPreviewSheet"
 
 const STAGE_COLORS: Record<string, string> = {
   applied: "bg-slate-100 text-slate-700", screening: "bg-blue-50 text-blue-700",
@@ -40,9 +38,12 @@ export interface ApplicationInfo {
   source_metadata: Record<string, unknown> | null
 }
 
-export function ApplicationInfoCard({ app }: { app: ApplicationInfo }) {
-  const [preview, setPreview] = useState<DocumentPreviewTarget | null>(null)
+interface Props {
+  app: ApplicationInfo
+  onPreview: (type: "cv" | "cl", fileName: string | null) => void
+}
 
+export function ApplicationInfoCard({ app, onPreview }: Props) {
   // A resume/cover-letter "delivery" mode was recorded at submission time
   // whenever a file was actually provided (see /api/applications' WordPress
   // webhook) — if that's set but the storage key never landed, the download
@@ -56,15 +57,6 @@ export function ApplicationInfoCard({ app }: { app: ApplicationInfo }) {
   } | null
   const missingCv = !!meta?.resume_delivery && !app.cv_storage_key
   const missingCl = !!meta?.cover_letter_delivery && !app.cl_storage_key
-
-  function previewDoc(type: "cv" | "cl", fileName: string | null) {
-    setPreview({
-      inlineUrl: `/api/recruitment/applications/${app.id}/cv?type=${type}&disposition=inline`,
-      downloadUrl: `/api/recruitment/applications/${app.id}/cv?type=${type}`,
-      fileName,
-      title: type === "cl" ? "Cover letter" : "CV",
-    })
-  }
 
   return (
     <div className="rounded-lg border bg-card p-4 space-y-3">
@@ -115,7 +107,7 @@ export function ApplicationInfoCard({ app }: { app: ApplicationInfo }) {
       {app.cv_storage_key && (
         <button
           type="button"
-          onClick={() => previewDoc("cv", app.cv_original_name)}
+          onClick={() => onPreview("cv", app.cv_original_name)}
           className="flex items-center gap-2 text-sm text-primary hover:underline"
         >
           <FileText className="h-4 w-4" />
@@ -125,7 +117,7 @@ export function ApplicationInfoCard({ app }: { app: ApplicationInfo }) {
       {app.cl_storage_key && (
         <button
           type="button"
-          onClick={() => previewDoc("cl", app.cl_original_name)}
+          onClick={() => onPreview("cl", app.cl_original_name)}
           className="flex items-center gap-2 text-sm text-primary hover:underline"
         >
           <FileText className="h-4 w-4" />
@@ -133,7 +125,6 @@ export function ApplicationInfoCard({ app }: { app: ApplicationInfo }) {
         </button>
       )}
       {app.notes && <p className="text-sm text-muted-foreground">{app.notes}</p>}
-      <DocumentPreviewSheet target={preview} onOpenChange={(open) => { if (!open) setPreview(null) }} />
     </div>
   )
 }

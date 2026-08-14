@@ -8,7 +8,7 @@ import { FileText, Upload, Trash2, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { CvParseStatusControl } from "./CvParseStatusControl"
 
-interface DocumentEntry {
+export interface DocumentEntry {
   id: string
   doc_type: "cv" | "cl"
   application_id: string | null
@@ -21,9 +21,11 @@ interface Props {
   candidateId: string
   documents: DocumentEntry[]
   cvParseStatus: string
+  /** When provided, document names open an inline preview instead of downloading — used by CandidateDetailSheet. */
+  onPreview?: (doc: DocumentEntry) => void
 }
 
-export function CandidateDocumentsSection({ candidateId, documents, cvParseStatus }: Props) {
+export function CandidateDocumentsSection({ candidateId, documents, cvParseStatus, onPreview }: Props) {
   const router = useRouter()
   const cvInputRef = useRef<HTMLInputElement>(null)
   const clInputRef = useRef<HTMLInputElement>(null)
@@ -78,14 +80,26 @@ export function CandidateDocumentsSection({ candidateId, documents, cvParseStatu
       <div className="space-y-1.5">
         {docs.map((d, i) => (
           <div key={d.id} className="flex items-center gap-2 text-sm flex-wrap">
-            <a
-              href={`/api/recruitment/candidates/${candidateId}/documents/${d.id}`}
-              className="flex items-center gap-1.5 text-primary hover:underline min-w-0"
-              title={d.original_name ?? undefined}
-            >
-              <FileText className="h-3.5 w-3.5 shrink-0" />
-              <span className="shrink-0">{docType === "cv" ? "Resume" : "Cover Letter"} {i + 1}</span>
-            </a>
+            {onPreview ? (
+              <button
+                type="button"
+                onClick={() => onPreview(d)}
+                className="flex items-center gap-1.5 text-primary hover:underline min-w-0"
+                title={d.original_name ?? undefined}
+              >
+                <FileText className="h-3.5 w-3.5 shrink-0" />
+                <span className="shrink-0">{docType === "cv" ? "Resume" : "Cover Letter"} {i + 1}</span>
+              </button>
+            ) : (
+              <a
+                href={`/api/recruitment/candidates/${candidateId}/documents/${d.id}`}
+                className="flex items-center gap-1.5 text-primary hover:underline min-w-0"
+                title={d.original_name ?? undefined}
+              >
+                <FileText className="h-3.5 w-3.5 shrink-0" />
+                <span className="shrink-0">{docType === "cv" ? "Resume" : "Cover Letter"} {i + 1}</span>
+              </a>
+            )}
             {i === 0 && <Badge variant="outline" className="text-xs shrink-0">Current</Badge>}
             <span className="text-xs text-muted-foreground shrink-0">
               {new Date(d.created_at).toLocaleDateString("en-AU")} · {d.job_title ? `via ${d.job_title}` : "Manual upload"}

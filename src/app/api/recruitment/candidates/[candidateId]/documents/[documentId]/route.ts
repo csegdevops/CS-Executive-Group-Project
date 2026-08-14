@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { requirePermissionOrSuperAdmin, hasModuleAccessForUser } from "@/lib/auth-helpers"
-import { deleteCvFile, buildCvDownloadResponse } from "@/lib/storage/cv-storage"
+import { deleteCvFile, buildCvDownloadResponse, buildCvHtmlPreviewResponse } from "@/lib/storage/cv-storage"
 
 // GET /api/recruitment/candidates/[candidateId]/documents/[documentId] —
 // download one specific historical document (not necessarily the current one)
@@ -15,6 +15,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ cand
   }
 
   const { candidateId, documentId } = await params
+  const disposition = req.nextUrl.searchParams.get("disposition") === "inline" ? "inline" : "attachment"
   const admin = createAdminClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recruitment = admin.schema("recruitment") as any
@@ -42,7 +43,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ cand
     .order("created_at", { ascending: false })
   const position = (siblings ?? []).findIndex((s: { id: string }) => s.id === documentId) + 1
 
-  return buildCvDownloadResponse(doc.storage_key, candidate?.first_name ?? null, candidate?.last_name ?? null, doc.doc_type, position || 1)
+  if (disposition === "inline" && doc.storage_key.toLowerCase().endsWith(".docx")) {
+    return buildCvHtmlPreviewResponse(doc.storage_key)
+  }
+
+  return buildCvDownloadResponse(doc.storage_key, candidate?.first_name ?? null, candidate?.last_name ?? null, doc.doc_type, position || 1, disposition)
 }
 
 // DELETE /api/recruitment/candidates/[candidateId]/documents/[documentId] —
