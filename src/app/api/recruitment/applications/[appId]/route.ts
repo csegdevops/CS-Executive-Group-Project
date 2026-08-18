@@ -8,7 +8,7 @@ import { z } from "zod"
 const patchSchema = z.object({
   stage: z.enum(["applied", "screening", "shortlisted", "interview_1", "interview_2", "reference_check", "offer", "placed", "withdrawn", "rejected"]).optional(),
   notes: z.string().optional(),
-  source_channel: z.enum(["seek_inbound", "company_website", "database_internal", "seek_talent", "linkedin"]).optional(),
+  source_channel: z.enum(["seek_inbound", "company_website", "database_internal", "seek_talent", "linkedin", "uniworks"]).optional(),
   cv_storage_key: z.string().optional(),
   cv_original_name: z.string().optional(),
   cl_storage_key: z.string().optional(),

@@ -12,7 +12,7 @@ const createAppSchema = z.object({
   candidate_first_name: z.string().optional(),
   candidate_last_name: z.string().optional(),
   candidate_phone: z.string().optional(),
-  source_channel: z.enum(["seek_inbound", "company_website", "database_internal", "seek_talent", "linkedin"]),
+  source_channel: z.enum(["seek_inbound", "company_website", "database_internal", "seek_talent", "linkedin", "uniworks"]),
   source_metadata: z.record(z.string(), z.unknown()).optional(),
   cv_storage_key: z.string().optional(),
   cv_original_name: z.string().optional(),

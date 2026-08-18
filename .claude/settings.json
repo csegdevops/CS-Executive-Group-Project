@@ -124,7 +124,9 @@
       "Bash(curl -s -o /dev/null -w \"coverletter: %{http_code}\\\\n\" \"https://www.csexecutivegroup.com/wp-content/uploads/gravity_forms/20-cdc741892e92ce124246a47c3d40b7ba/2026/08/renee_sokias_advm0726_coverletter.docx\")",
       "Bash(curl -s -o /dev/null -w \"dir: %{http_code}\\\\n\" \"https://www.csexecutivegroup.com/wp-content/uploads/gravity_forms/20-cdc741892e92ce124246a47c3d40b7ba/2026/08/\")",
       "Bash(curl -sI \"https://www.csexecutivegroup.com/wp-content/uploads/gravity_forms/20-cdc741892e92ce124246a47c3d40b7ba/2026/08/renee_sokias_advm0726_resume.docx\")",
-      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000 --max-time 5)"
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000 --max-time 5)",
+      "WebFetch(domain:architecture.digital.gov.au)",
+      "WebFetch(domain:www.dta.gov.au)"
     ],
     "additionalDirectories": [
       "d:\\Project\\CS Executive Group Project\\src\\app\\(portal)\\recruitment\\candidates\\[candidateId]",

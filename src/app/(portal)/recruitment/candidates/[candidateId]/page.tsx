@@ -25,6 +25,7 @@ const STAGE_LABELS: Record<string, string> = {
 const SOURCE_LABELS: Record<string, string> = {
   seek_inbound: "Seek [S]", company_website: "Website [CSEG]",
   database_internal: "Internal [DB]", seek_talent: "Seek Talent [ST]", linkedin: "LinkedIn [LI]",
+  uniworks: "UniWorks [UW]",
 }
 
 const CONTRACT_STATUS_COLORS: Record<string, string> = {

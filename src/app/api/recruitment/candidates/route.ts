@@ -17,7 +17,7 @@ const upsertSchema = z.object({
   skills_tags: z.array(z.string()).optional(),
   field_of_study: z.string().optional().nullable(),
   security_clearance_level: z.string().optional(),
-  source_channel: z.enum(["seek_inbound", "company_website", "database_internal", "seek_talent", "linkedin"]).optional(),
+  source_channel: z.enum(["seek_inbound", "company_website", "database_internal", "seek_talent", "linkedin", "uniworks"]).optional(),
 })
 
 // GET /api/recruitment/candidates?q=search&skills=&clearance=&page=1
