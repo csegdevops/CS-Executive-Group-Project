@@ -1,33 +1,11 @@
-import { createResendClient, EMAIL_FROM } from "./client"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { isEmailPaused } from "./pause"
-import { render } from "@react-email/components"
-import { ConsultationStatusChangedEmail } from "./templates/ConsultationStatusChanged"
-import { ConsultantAssignedEmail } from "./templates/ConsultantAssigned"
-import { DueDateReminderEmail } from "./templates/DueDateReminder"
-import { JobDetailsChangedEmail } from "./templates/JobDetailsChanged"
-import { ContractEstablishedEmail } from "./templates/ContractEstablished"
-import { ContractExpiringEmail } from "./templates/ContractExpiring"
-import { OpportunityStageChangedEmail } from "./templates/OpportunityStageChanged"
+import { sendTemplatedEmail } from "./send-templated"
 
 async function getEmailForUser(userId: string): Promise<string | null> {
   const admin = createAdminClient()
   const { data, error } = await admin.auth.admin.getUserById(userId)
   if (error || !data.user?.email) return null
   return data.user.email
-}
-
-async function send(to: string, subject: string, html: string) {
-  if (await isEmailPaused()) {
-    console.log("[email] paused — skipped", { to, subject })
-    return
-  }
-  try {
-    const resend = createResendClient()
-    await resend.emails.send({ from: EMAIL_FROM, to, subject, html })
-  } catch (err) {
-    console.error("[email] send failed", { to, subject, err })
-  }
 }
 
 export async function sendConsultationStatusChangedEmail(params: {
@@ -40,16 +18,16 @@ export async function sendConsultationStatusChangedEmail(params: {
   const email = await getEmailForUser(params.recipientUserId)
   if (!email) return
 
-  const html = await render(
-    ConsultationStatusChangedEmail({
+  await sendTemplatedEmail(
+    "consultation_status_changed",
+    {
       consultationTitle: params.consultationTitle,
       oldStatus: params.oldStatus,
       newStatus: params.newStatus,
       consultationUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/regulatory/consultations/${params.consultationId}`,
-    })
+    },
+    { to: email }
   )
-
-  await send(email, `Consultation status updated: ${params.consultationTitle}`, html)
 }
 
 export async function sendConsultantAssignedEmail(params: {
@@ -61,15 +39,15 @@ export async function sendConsultantAssignedEmail(params: {
   const email = await getEmailForUser(params.recipientUserId)
   if (!email) return
 
-  const html = await render(
-    ConsultantAssignedEmail({
+  await sendTemplatedEmail(
+    "consultant_assigned",
+    {
       consultationTitle: params.consultationTitle,
       companyName: params.companyName,
       consultationUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/regulatory/consultations/${params.consultationId}`,
-    })
+    },
+    { to: email }
   )
-
-  await send(email, `You've been assigned to ${params.consultationTitle}`, html)
 }
 
 export async function sendDueDateReminderEmail(params: {
@@ -81,15 +59,15 @@ export async function sendDueDateReminderEmail(params: {
   const email = await getEmailForUser(params.recipientUserId)
   if (!email) return
 
-  const html = await render(
-    DueDateReminderEmail({
+  await sendTemplatedEmail(
+    "due_date_reminder",
+    {
       consultationTitle: params.consultationTitle,
       dueDate: params.dueDate,
       consultationUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/regulatory/consultations/${params.consultationId}`,
-    })
+    },
+    { to: email }
   )
-
-  await send(email, `Due soon: ${params.consultationTitle}`, html)
 }
 
 export async function sendJobDetailsChangedEmail(params: {
@@ -103,17 +81,17 @@ export async function sendJobDetailsChangedEmail(params: {
   const email = await getEmailForUser(params.recipientUserId)
   if (!email) return
 
-  const html = await render(
-    JobDetailsChangedEmail({
+  await sendTemplatedEmail(
+    "job_details_changed",
+    {
       jobTitle: params.jobTitle,
       field: params.field,
       oldValue: params.oldValue,
       newValue: params.newValue,
       jobUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/recruitment/jobs/${params.jobId}`,
-    })
+    },
+    { to: email }
   )
-
-  await send(email, `${params.jobTitle}: ${params.field} updated`, html)
 }
 
 export async function sendContractEstablishedEmail(params: {
@@ -126,16 +104,16 @@ export async function sendContractEstablishedEmail(params: {
   const email = await getEmailForUser(params.recipientUserId)
   if (!email) return
 
-  const html = await render(
-    ContractEstablishedEmail({
+  await sendTemplatedEmail(
+    "contract_established",
+    {
       jobTitle: params.jobTitle,
       candidateName: params.candidateName,
       startDate: params.startDate,
       jobUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/recruitment/jobs/${params.jobId}`,
-    })
+    },
+    { to: email }
   )
-
-  await send(email, `Contract established: ${params.candidateName} for ${params.jobTitle}`, html)
 }
 
 export async function sendContractExpiringEmail(params: {
@@ -148,16 +126,16 @@ export async function sendContractExpiringEmail(params: {
   const email = await getEmailForUser(params.recipientUserId)
   if (!email) return
 
-  const html = await render(
-    ContractExpiringEmail({
+  await sendTemplatedEmail(
+    "contract_expiring",
+    {
       jobTitle: params.jobTitle,
       candidateName: params.candidateName,
       finishDate: params.finishDate,
       jobUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/recruitment/jobs/${params.jobId}`,
-    })
+    },
+    { to: email }
   )
-
-  await send(email, `Contract expiring soon: ${params.candidateName} for ${params.jobTitle}`, html)
 }
 
 export async function sendOpportunityStageChangedEmail(params: {
@@ -170,14 +148,14 @@ export async function sendOpportunityStageChangedEmail(params: {
   const email = await getEmailForUser(params.recipientUserId)
   if (!email) return
 
-  const html = await render(
-    OpportunityStageChangedEmail({
+  await sendTemplatedEmail(
+    "opportunity_stage_changed",
+    {
       opportunityTitle: params.opportunityTitle,
       oldStage: params.oldStage,
       newStage: params.newStage,
       opportunityUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/recruitment/pipeline`,
-    })
+    },
+    { to: email }
   )
-
-  await send(email, `${params.opportunityTitle} moved to ${params.newStage}`, html)
 }

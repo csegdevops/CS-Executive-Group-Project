@@ -149,6 +149,12 @@ export const PERMISSION_CATALOG: Record<PermissionTab, PermissionCategory[]> = {
         { key: "platform_settings.manage", label: "Edit platform settings (module toggles, email/AI pause)" },
       ],
     },
+    {
+      category: "Email Templates",
+      permissions: [
+        { key: "platform_settings.email_templates.manage", label: "Edit outgoing email templates & recipients" },
+      ],
+    },
   ],
 }
 

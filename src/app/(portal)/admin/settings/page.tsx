@@ -8,7 +8,7 @@ import { ModuleToggleList } from "./ModuleToggleList"
 import { EmailPauseToggle } from "./EmailPauseToggle"
 import { ExternalEmailPauseToggle } from "./ExternalEmailPauseToggle"
 import { AiPauseToggle } from "./AiPauseToggle"
-import { Users2, ListChecks, Globe, ChevronRight } from "lucide-react"
+import { Users2, ListChecks, Globe, Mail, ChevronRight } from "lucide-react"
 import type { ModuleConfig } from "@/types/database"
 
 export default async function PlatformSettingsPage() {
@@ -61,6 +61,23 @@ export default async function PlatformSettingsPage() {
                 <p className="text-sm font-medium">Security Groups</p>
                 <p className="text-xs text-muted-foreground">
                   Manage permission groups and the platform users assigned to them.
+                </p>
+              </div>
+            </div>
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          </CardContent>
+        </Card>
+      </Link>
+
+      <Link href="/admin/settings/email-templates">
+        <Card className="hover:bg-muted/40 transition-colors cursor-pointer">
+          <CardContent className="flex items-center justify-between py-4">
+            <div className="flex items-center gap-3">
+              <Mail className="h-5 w-5 text-muted-foreground" />
+              <div>
+                <p className="text-sm font-medium">Email Templates</p>
+                <p className="text-xs text-muted-foreground">
+                  Edit the subject, body, and CC/BCC recipients for outgoing emails.
                 </p>
               </div>
             </div>

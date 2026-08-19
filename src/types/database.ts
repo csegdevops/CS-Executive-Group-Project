@@ -368,6 +368,37 @@ export interface Database {
         }
         Relationships: []
       }
+      email_templates: {
+        Row: {
+          template_key: string
+          subject: string
+          body_html: string
+          body_text: string
+          cc_group_ids: string[]
+          bcc_group_ids: string[]
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          template_key: string
+          subject: string
+          body_html: string
+          body_text: string
+          cc_group_ids?: string[]
+          bcc_group_ids?: string[]
+          updated_by?: string | null
+        }
+        Update: {
+          subject?: string
+          body_html?: string
+          body_text?: string
+          cc_group_ids?: string[]
+          bcc_group_ids?: string[]
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       user_groups: {
         Row: {
           id: string

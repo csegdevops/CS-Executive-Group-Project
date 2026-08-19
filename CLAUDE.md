@@ -240,6 +240,13 @@ Key cross-schema FKs:
 
 **Recruitment RLS**: single `FOR ALL TO authenticated` policy per table using `has_module_access('recruitment')` — same pattern as regulatory. `service_role` bypasses RLS automatically (BYPASSRLS at role level).
 
+**Editable email templates** (`public.email_templates`, `supabase/migrations/20260819000004_email_templates.sql`)
+- Every Resend notification's subject/body is now DB-stored, not hardcoded — `src/lib/email/template-registry.ts` documents each `template_key`'s `{{variable}}` list and sample values; `src/lib/email/send-templated.ts`'s `sendTemplatedEmail(templateKey, vars, { to, external? })` is the single send path (loads the row, substitutes `{{variables}}`, resolves recipients, calls Resend) — replaces the old per-file `send()` helpers
+- The `to` recipient is always resolved by business logic in the caller (assigned consultant/recruiter/candidate/etc.) and is never admin-configurable; `cc_group_ids`/`bcc_group_ids` (arrays of `user_groups.id`) are the only admin-configurable recipients, resolved via `resolveGroupEmails()` — a misconfigured template can't stop the actually-responsible person being notified
+- Admin UI at `/admin/settings/email-templates`, gated by `platform_settings.email_templates.manage` (view-only for `platform_settings.view` holders without it) — edits subject, HTML body, plain-text body (with live preview for both), and CC/BCC groups; "Send test email to myself" previews unsaved drafts via `contentOverride` on `sendTemplatedEmail`
+- The former `src/lib/email/templates/*.tsx` React Email components were deleted — their rendered output (captured once via `@react-email/render`) became this table's seed data
+- Every template ships with the `/cseg_logo_new.png` wordmark, a styled gold-accent card/button/info-box design, and (on the 7 staff-facing templates only, not the 4 sent to candidates/contractors/supervisors) an "internal staff only — notify recruiters@csexecgroup.com if received in error" footer notice. `{{logoUrl}}` is injected centrally by `sendTemplatedEmail()`, hardcoded to `https://portal.csexecutivegroup.com/cseg_logo_new.png` (not `NEXT_PUBLIC_BASE_URL`) so it resolves for the recipient even when the send was triggered from local dev
+
 ## Commands
 
 ```bash
