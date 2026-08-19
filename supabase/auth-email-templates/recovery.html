@@ -1,0 +1,21 @@
+<!--
+Supabase Dashboard > Authentication > Email Templates > Reset Password
+Subject line to set there: Reset your password — CS Executive Group Portal
+
+This IS live — every resetPasswordForEmail() call in the app uses it:
+forgot-password (self-service), admin "Invite User" (POST /api/users),
+admin resend (/api/users/[userId]/reset-password), and timesheets
+contractor/supervisor provisioning. Because both internal staff AND
+external contractors/supervisors receive this same template, it
+deliberately carries no "internal staff only" notice (unlike the app's own
+DB-stored notification templates, which are authored per-audience) and no
+"reset" framing that would be wrong for a first-time invite — "set your
+password" reads correctly either way.
+
+The link uses {{ .RedirectTo }} rather than {{ .SiteURL }} because every
+call site already passes an explicit redirectTo (origin + "/reset-password",
+or the timesheets portal origin) — this makes the link correct in dev,
+prod, and the timesheets subdomain without keeping Supabase's Site URL
+setting in sync by hand.
+-->
+<!DOCTYPE html><html dir="ltr" lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><meta name="x-apple-disable-message-reformatting"/></head><body style="margin:0;padding:24px 12px;background:#f4f3ef;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center"><table role="presentation" width="100%" style="max-width:560px" cellpadding="0" cellspacing="0"><tr><td style="background:#ffffff;border:1px solid #e9e6dd;border-radius:12px;padding:32px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding-bottom:20px;border-bottom:1px solid #e9e6dd"><img src="https://portal.csexecutivegroup.com/cseg_logo_new.png" alt="CS Executive Group" height="36" style="height:36px;width:auto;display:block"/></td></tr><tr><td style="padding-top:24px"><h1 style="margin:0 0 16px;font-size:20px;line-height:28px;color:#2b2b2b;font-weight:700">Set your password</h1></td></tr><tr><td style="padding-bottom:16px"><p style="margin:0;font-size:14px;line-height:22px;color:#3f3f3f">Use the button below to set the password for <strong>{{ .Email }}</strong> on the CS Executive Group Portal.</p></td></tr><tr><td align="center" style="padding-top:24px"><a href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}&amp;type=recovery" style="display:inline-block;background:#a4915f;color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;padding:12px 28px;border-radius:6px" target="_blank">Set password</a></td></tr><tr><td style="padding-top:20px"><p style="margin:0;font-size:12px;line-height:18px;color:#8a8a8a">If you didn't request this, you can safely ignore this email — your password won't change.</p></td></tr></table></td></tr></table></td></tr></table></body></html>

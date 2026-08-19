@@ -19,7 +19,7 @@ export function CreateUserDialog() {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [form, setForm] = useState({ full_name: "", email: "", password: "", role: "user" })
+  const [form, setForm] = useState({ full_name: "", email: "", role: "user" })
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -32,12 +32,17 @@ export function CreateUserDialog() {
       })
       if (!res.ok) {
         const err = await res.json()
-        toast.error(err.error ?? "Failed to create user")
+        toast.error(err.error ?? "Failed to invite user")
         return
       }
-      toast.success("User created")
+      const created = await res.json()
+      toast.success(
+        created.email_sent === false
+          ? "User created — emails are paused, no invite was sent"
+          : "Invite sent — they'll get an email to set their password"
+      )
       setOpen(false)
-      setForm({ full_name: "", email: "", password: "", role: "user" })
+      setForm({ full_name: "", email: "", role: "user" })
       router.refresh()
     } catch {
       toast.error("Network error")
@@ -51,12 +56,12 @@ export function CreateUserDialog() {
       <DialogTrigger asChild>
         <Button size="sm">
           <Plus className="h-4 w-4 mr-1" />
-          New User
+          Invite User
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Create User</DialogTitle>
+          <DialogTitle>Invite User</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 mt-2">
           <div className="space-y-2">
@@ -76,16 +81,9 @@ export function CreateUserDialog() {
               required
             />
           </div>
-          <div className="space-y-2">
-            <Label>Temporary Password</Label>
-            <Input
-              type="password"
-              value={form.password}
-              onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-              required
-              minLength={8}
-            />
-          </div>
+          <p className="text-xs text-muted-foreground">
+            They&apos;ll get an email with a link to set their own password — no temporary password to share.
+          </p>
           <div className="space-y-2">
             <Label>Role</Label>
             <select
@@ -103,7 +101,7 @@ export function CreateUserDialog() {
             </Button>
             <Button type="submit" disabled={loading}>
               {loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-              Create
+              Send Invite
             </Button>
           </div>
         </form>

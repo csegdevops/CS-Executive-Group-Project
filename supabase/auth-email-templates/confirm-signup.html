@@ -1,0 +1,13 @@
+<!--
+Supabase Dashboard > Authentication > Email Templates > Confirm signup
+Subject line to set there: Confirm your email — CS Executive Group Portal
+
+Not currently triggered by any code path — /api/auth/register creates
+accounts via admin.createUser({ email_confirm: true }), which skips
+Supabase's own signup-confirmation email entirely. Kept configured for
+completeness / in case a future signup path uses supabase.auth.signUp()
+directly. Uses Supabase's default {{ .ConfirmationURL }} (its own hosted
+verify endpoint, then redirects) since no app page currently parses a
+token_hash+type=signup link the way /reset-password does for recovery.
+-->
+<!DOCTYPE html><html dir="ltr" lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><meta name="x-apple-disable-message-reformatting"/></head><body style="margin:0;padding:24px 12px;background:#f4f3ef;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center"><table role="presentation" width="100%" style="max-width:560px" cellpadding="0" cellspacing="0"><tr><td style="background:#ffffff;border:1px solid #e9e6dd;border-radius:12px;padding:32px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding-bottom:20px;border-bottom:1px solid #e9e6dd"><img src="https://portal.csexecutivegroup.com/cseg_logo_new.png" alt="CS Executive Group" height="36" style="height:36px;width:auto;display:block"/></td></tr><tr><td style="padding-top:24px"><h1 style="margin:0 0 16px;font-size:20px;line-height:28px;color:#2b2b2b;font-weight:700">Confirm your email</h1></td></tr><tr><td style="padding-bottom:16px"><p style="margin:0;font-size:14px;line-height:22px;color:#3f3f3f">Confirm <strong>{{ .Email }}</strong> to activate your CS Executive Group Portal account.</p></td></tr><tr><td align="center" style="padding-top:24px"><a href="{{ .ConfirmationURL }}" style="display:inline-block;background:#a4915f;color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;padding:12px 28px;border-radius:6px" target="_blank">Confirm email</a></td></tr><tr><td style="padding-top:20px"><p style="margin:0;font-size:12px;line-height:18px;color:#8a8a8a">If you didn't create this account, you can safely ignore this email.</p></td></tr></table></td></tr></table></td></tr></table></body></html>

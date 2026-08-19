@@ -1,12 +1,12 @@
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getUserPermissionKeys, isModuleAdmin } from "@/lib/auth-helpers"
+import { isEmailPaused } from "@/lib/email/pause"
 import { NextResponse } from "next/server"
 import { z } from "zod"
 
 const createSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(8),
   full_name: z.string().min(1),
   role: z.enum(["super_admin", "user"]).default("user"),
 })
@@ -61,14 +61,21 @@ export async function POST(request: Request) {
   }
 
   const admin = createAdminClient()
+  // No password is set here — the invitee sets their own via the link sent
+  // below, same pattern as timesheets contractor/supervisor provisioning.
+  // email_confirm: true marks the address confirmed at creation; the invite
+  // link itself is the proof of ownership, so there's no separate
+  // "confirm your email" step for the invitee to go through.
   const { data: authUser, error: authError } = await admin.auth.admin.createUser({
     email: parsed.data.email,
-    password: parsed.data.password,
     user_metadata: { full_name: parsed.data.full_name },
     email_confirm: true,
   })
 
   if (authError || !authUser.user) {
+    if (authError?.message.toLowerCase().includes("already registered") || authError?.message.toLowerCase().includes("already exists")) {
+      return NextResponse.json({ error: "An account with this email already exists." }, { status: 409 })
+    }
     return NextResponse.json({ error: authError?.message ?? "Failed to create user" }, { status: 500 })
   }
 
@@ -79,5 +86,13 @@ export async function POST(request: Request) {
       .eq("id", authUser.user.id)
   }
 
-  return NextResponse.json({ id: authUser.user.id }, { status: 201 })
+  let emailSent = false
+  if (!(await isEmailPaused())) {
+    const { error: inviteError } = await admin.auth.resetPasswordForEmail(parsed.data.email, {
+      redirectTo: `${new URL(request.url).origin}/reset-password`,
+    })
+    emailSent = !inviteError
+  }
+
+  return NextResponse.json({ id: authUser.user.id, email_sent: emailSent }, { status: 201 })
 }

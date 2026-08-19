@@ -104,6 +104,26 @@ export async function proxy(request: NextRequest) {
     return response
   }
 
+  // Sends to the real timesheets subdomain (once configured) instead of a
+  // path on this host — used both to keep the external UI off the main host
+  // and to bounce contractor/supervisor accounts to their own portal.
+  function redirectToTimesheetsHost(targetPath: string) {
+    const url = new URL(targetPath || "/", `https://${TIMESHEETS_PORTAL_HOST}`)
+    const response = NextResponse.redirect(url)
+    supabaseResponse.cookies.getAll().forEach((cookie) => {
+      response.cookies.set(cookie)
+    })
+    return response
+  }
+
+  // Once the dedicated subdomain is live, the external contractor/supervisor
+  // UI must never double-serve on the main host — same backend, wrong door.
+  // Unset, this falls through and /timesheets-portal/* keeps working directly
+  // on this host (the pre-DNS fallback already relied on elsewhere).
+  if (TIMESHEETS_PORTAL_HOST && !isTimesheetsPortalHost && pathname.startsWith("/timesheets-portal")) {
+    return redirectToTimesheetsHost(pathname.replace(/^\/timesheets-portal/, ""))
+  }
+
   // Redirect unauthenticated users to login
   const publicPaths = [
     "/login", "/register", "/auth", "/forgot-password", "/reset-password",
@@ -111,6 +131,25 @@ export async function proxy(request: NextRequest) {
   ]
   if (!user && !publicPaths.some((p) => pathname.startsWith(p))) {
     return redirectTo("/login")
+  }
+
+  // Fetch profile once for all per-user checks below. Skipped on the
+  // timesheets-portal host — nothing there is gated by role/user_type.
+  let profile: { role: string | null; user_type: string | null } | null = null
+  if (user && !isTimesheetsPortalHost) {
+    const { data } = await supabase.from("profiles").select("role, user_type").eq("id", user.id).single()
+    profile = data
+  }
+  const isSuperAdmin = profile?.role === "super_admin"
+  const isExternalUser = profile?.user_type === "contractor" || profile?.user_type === "supervisor"
+
+  // Contractors/supervisors are timesheets-portal-only accounts — confine
+  // them to /timesheets-portal everywhere on this host, including pages with
+  // no other guard (e.g. /home, which otherwise leaks internal module names).
+  // This runs before the login/register redirect below so an authenticated
+  // external user hitting /login doesn't fall through to /home.
+  if (user && isExternalUser && !isTimesheetsPortalHost && !pathname.startsWith("/timesheets-portal")) {
+    return TIMESHEETS_PORTAL_HOST ? redirectToTimesheetsHost("/") : redirectTo("/timesheets-portal")
   }
 
   // Redirect authenticated users away from login/register. On the
@@ -124,16 +163,7 @@ export async function proxy(request: NextRequest) {
     return redirectTo("/home")
   }
 
-  if (user && !isTimesheetsPortalHost) {
-    // Fetch profile once for all per-user checks
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single()
-
-    const isSuperAdmin = profile?.role === "super_admin"
-
+  if (user && !isTimesheetsPortalHost && !isExternalUser) {
     // /regulatory/admin/* — requires module admin or super admin
     if (pathname.startsWith("/regulatory/admin") && !isSuperAdmin) {
       const accessLevel = await getModuleAccessLevel(user.id, "regulatory")

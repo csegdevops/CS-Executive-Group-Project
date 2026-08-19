@@ -22,19 +22,25 @@ function ResetPasswordForm() {
   const [loading, setLoading] = useState(false)
   const [verifying, setVerifying] = useState(true)
   const [verified, setVerified] = useState(false)
+  const [isInvite, setIsInvite] = useState(false)
 
   useEffect(() => {
     const tokenHash = searchParams.get("token_hash")
     const type = searchParams.get("type")
 
-    if (!tokenHash || type !== "recovery") {
+    // "recovery" covers forgot-password and every admin-triggered
+    // reset/invite link (they all go through resetPasswordForEmail).
+    // "invite" is accepted too in case a future call site uses Supabase's
+    // dedicated inviteUserByEmail API instead, which mints invite-type links.
+    if (!tokenHash || (type !== "recovery" && type !== "invite")) {
       setError("Invalid or expired reset link. Please request a new one.")
       setVerifying(false)
       return
     }
 
+    setIsInvite(type === "invite")
     const supabase = createClient()
-    supabase.auth.verifyOtp({ token_hash: tokenHash, type: "recovery" }).then(({ error }) => {
+    supabase.auth.verifyOtp({ token_hash: tokenHash, type }).then(({ error }) => {
       if (error) {
         setError("This reset link has expired or already been used. Please request a new one.")
       } else {
@@ -78,8 +84,10 @@ function ResetPasswordForm() {
   return (
     <Card>
       <CardHeader className="text-center">
-        <CardTitle>Set new password</CardTitle>
-        <CardDescription>Choose a strong password for your account</CardDescription>
+        <CardTitle>{isInvite ? "Set your password" : "Set new password"}</CardTitle>
+        <CardDescription>
+          {isInvite ? "Choose a password to activate your account" : "Choose a strong password for your account"}
+        </CardDescription>
       </CardHeader>
       <CardContent>
         {!verified ? (
