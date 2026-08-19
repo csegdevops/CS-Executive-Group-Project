@@ -121,8 +121,11 @@ export async function POST(
   const file = formData.get("file") as File | null
   if (!file) return NextResponse.json({ error: "file required" }, { status: 400 })
 
+  const supabase = await createClient()
+  const canUseAi = await requirePermissionOrSuperAdmin(supabase, caller.id, "ai.formulation.use")
+
   try {
-    const { entries, source } = await parseFormulationFile(file)
+    const { entries, source } = await parseFormulationFile(file, canUseAi)
     return NextResponse.json({ entries, source })
   } catch (err) {
     return NextResponse.json(

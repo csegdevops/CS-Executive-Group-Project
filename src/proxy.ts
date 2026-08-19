@@ -149,6 +149,7 @@ export async function proxy(request: NextRequest) {
         "/regulatory": "regulatory",
         "/recruitment": "recruitment",
         "/timesheets": "timesheets",
+        "/ims": "ims",
       }
 
       const activeModule = Object.keys(moduleMap).find((p) => pathname.startsWith(p))

@@ -18,7 +18,7 @@ export async function GET() {
 }
 
 const patchSchema = z.object({
-  module:     z.enum(["regulatory", "recruitment", "timesheets"]),
+  module:     z.enum(["regulatory", "recruitment", "timesheets", "ims"]),
   is_enabled: z.boolean(),
 })
 

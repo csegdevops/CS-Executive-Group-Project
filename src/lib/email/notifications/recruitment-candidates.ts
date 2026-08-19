@@ -1,5 +1,5 @@
 import { createResendClient, EMAIL_FROM } from "../client"
-import { isEmailPaused } from "../pause"
+import { isEmailPaused, isExternalEmailPaused } from "../pause"
 import { render } from "@react-email/components"
 import { ApplicationUnsuccessfulEmail } from "../templates/ApplicationUnsuccessful"
 
@@ -10,6 +10,10 @@ import { ApplicationUnsuccessfulEmail } from "../templates/ApplicationUnsuccessf
 async function send(to: string, subject: string, html: string): Promise<boolean> {
   if (await isEmailPaused()) {
     console.log("[email] paused — skipped", { to, subject })
+    return false
+  }
+  if (await isExternalEmailPaused()) {
+    console.log("[email] external paused — skipped", { to, subject })
     return false
   }
   try {

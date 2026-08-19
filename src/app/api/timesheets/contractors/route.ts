@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { requirePermissionOrSuperAdmin } from "@/lib/auth-helpers"
-import { isEmailPaused } from "@/lib/email/pause"
+import { isEmailPaused, isExternalEmailPaused } from "@/lib/email/pause"
 import { z } from "zod"
 
 const createSchema = z.object({
@@ -144,7 +144,7 @@ export async function POST(req: NextRequest) {
   }
 
   let emailSent = false
-  if (!(await isEmailPaused())) {
+  if (!(await isEmailPaused()) && !(await isExternalEmailPaused())) {
     const timesheetsPortalOrigin = process.env.TIMESHEETS_PORTAL_URL ?? new URL(req.url).origin
     const { error: inviteError } = await admin.auth.resetPasswordForEmail(input.email, {
       redirectTo: `${timesheetsPortalOrigin}/reset-password`,

@@ -6,7 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
-const TABS: PermissionTab[] = ["regulatory", "recruitment", "timesheets", "platform"]
+const TABS: PermissionTab[] = ["regulatory", "recruitment", "timesheets", "ims", "ai", "platform"]
 
 export function PermissionsPicker({
   selected,

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { requirePermissionOrSuperAdmin } from "@/lib/auth-helpers"
 import { summarizer } from "@/lib/summarization"
 import { buildCompanySummaryPrompt } from "@/lib/summarization/prompts"
 import { isAiPaused, AI_PAUSED_MESSAGE } from "@/lib/ai/pause"
@@ -14,6 +15,9 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ co
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (!(await requirePermissionOrSuperAdmin(supabase, user.id, "ai.summaries.use"))) {
+    return NextResponse.json({ error: "Forbidden — AI summaries permission required" }, { status: 403 })
+  }
 
   if (await isAiPaused()) return NextResponse.json({ error: AI_PAUSED_MESSAGE }, { status: 503 })
 

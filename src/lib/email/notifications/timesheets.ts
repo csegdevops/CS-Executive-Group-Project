@@ -1,5 +1,5 @@
 import { createResendClient, EMAIL_FROM } from "../client"
-import { isEmailPaused } from "../pause"
+import { isEmailPaused, isExternalEmailPaused } from "../pause"
 import { render } from "@react-email/components"
 import { TimesheetSubmittedEmail } from "../templates/TimesheetSubmitted"
 import { TimesheetDeclinedEmail } from "../templates/TimesheetDeclined"
@@ -17,6 +17,10 @@ const TIMESHEETS_PORTAL_ORIGIN = process.env.TIMESHEETS_PORTAL_URL ?? process.en
 async function send(to: string, subject: string, html: string) {
   if (await isEmailPaused()) {
     console.log("[email] paused — skipped", { to, subject })
+    return
+  }
+  if (await isExternalEmailPaused()) {
+    console.log("[email] external paused — skipped", { to, subject })
     return
   }
   try {

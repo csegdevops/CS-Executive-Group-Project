@@ -20,6 +20,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ can
   if (!(await requirePermissionOrSuperAdmin(supabase, user.id, "recruitment.candidates.edit"))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
+  if (!(await requirePermissionOrSuperAdmin(supabase, user.id, "ai.cv_parsing.use"))) {
+    return NextResponse.json({ error: "Forbidden — AI CV parsing permission required" }, { status: 403 })
+  }
 
   const { candidateId } = await params
   const admin = createAdminClient()

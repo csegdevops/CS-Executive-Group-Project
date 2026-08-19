@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { isEmailPaused } from "@/lib/email/pause"
+import { isEmailPaused, isExternalEmailPaused } from "@/lib/email/pause"
 import { sendApplicationUnsuccessfulEmail } from "@/lib/email/notifications/recruitment-candidates"
 
 export const dynamic = "force-dynamic"
@@ -15,6 +15,7 @@ export async function GET(request: NextRequest) {
   // tomorrow, since paused is a temporary/intentional condition, not a
   // delivery error, and the query below only ever picks up 'pending' rows.
   if (await isEmailPaused()) return NextResponse.json({ skipped: "paused" })
+  if (await isExternalEmailPaused()) return NextResponse.json({ skipped: "external_paused" })
 
   const admin = createAdminClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

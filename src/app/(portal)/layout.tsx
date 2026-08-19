@@ -3,7 +3,7 @@ import { Sidebar } from "@/components/layout/Sidebar"
 import { WrongPortalScreen } from "@/components/layout/WrongPortalScreen"
 import type { Module } from "@/types/database"
 
-const allModules: Module[] = ["regulatory", "recruitment", "timesheets"]
+const allModules: Module[] = ["regulatory", "recruitment", "timesheets", "ims"]
 
 export default async function PortalLayout({
   children,

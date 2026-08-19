@@ -39,7 +39,12 @@ function guessMimeFromName(name: string): string {
 // recognise the columns, or when the file isn't a spreadsheet at all
 // (PDF/.docx/image). Shared by /api/formulation and
 // /api/consultations/[id]/upload so both upload surfaces behave the same.
-export async function parseFormulationFile(file: File): Promise<ParsedFormulationFile> {
+//
+// canUseAi is resolved by the caller from the requesting user's permissions
+// (ai.formulation.use) — checked here, not upfront in the route, because
+// whether AI is even needed depends on the file (spreadsheets with
+// recognised columns never touch it).
+export async function parseFormulationFile(file: File, canUseAi: boolean): Promise<ParsedFormulationFile> {
   const buffer = Buffer.from(await file.arrayBuffer())
 
   if (isSpreadsheet(file.name, file.type)) {
@@ -54,6 +59,7 @@ export async function parseFormulationFile(file: File): Promise<ParsedFormulatio
     }
   }
 
+  if (!canUseAi) throw new Error("Forbidden — AI formulation permission required")
   if (await isAiPaused()) throw new Error(AI_PAUSED_MESSAGE)
 
   const mimeType = file.type || guessMimeFromName(file.name)

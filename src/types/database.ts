@@ -1,7 +1,7 @@
 export type Role = "super_admin" | "user"
 export type UserType = "internal" | "contractor" | "supervisor"
 export type ModuleAccessLevel = "admin" | "member"
-export type Module = "regulatory" | "recruitment" | "timesheets"
+export type Module = "regulatory" | "recruitment" | "timesheets" | "ims"
 export type AssignmentType = "primary" | "temporary"
 export type ConsultationStatus = "draft" | "in_progress" | "under_review" | "completed" | "archived"
 export type RegulatoryFramework = "aicis" | "reach" | "tsca"
@@ -37,6 +37,12 @@ export type TaskStatus = "open" | "in_progress" | "completed" | "cancelled"
 export type ScheduledEmailStatus = "pending" | "sent" | "cancelled" | "failed"
 export type CvParseStatus = "unparsed" | "pending" | "parsed" | "failed"
 export type CvParsedBy = "gemini" | "claude" | "azure" | "daxtra" | "manual"
+
+// IMS
+export type ComputerDeviceType = "laptop" | "desktop" | "server" | "printer" | "network_device" | "mobile" | "other"
+export type ComputerStatus = "in_use" | "spare" | "in_repair" | "retired"
+export type ComputerLocation = "Melbourne Office" | "Sydney" | "Brisbane" | "Canberra"
+export type LoginType = "local" | "domain" | "microsoft_account" | "other"
 
 // Timesheets
 export type ContractStatus = "active" | "expired" | "terminated"
@@ -332,6 +338,9 @@ export interface Database {
           ai_paused: boolean
           ai_paused_by: string | null
           ai_paused_at: string | null
+          external_emails_paused: boolean
+          external_emails_paused_by: string | null
+          external_emails_paused_at: string | null
           updated_at: string
         }
         Insert: {
@@ -342,6 +351,9 @@ export interface Database {
           ai_paused?: boolean
           ai_paused_by?: string | null
           ai_paused_at?: string | null
+          external_emails_paused?: boolean
+          external_emails_paused_by?: string | null
+          external_emails_paused_at?: string | null
         }
         Update: {
           emails_paused?: boolean
@@ -350,6 +362,9 @@ export interface Database {
           ai_paused?: boolean
           ai_paused_by?: string | null
           ai_paused_at?: string | null
+          external_emails_paused?: boolean
+          external_emails_paused_by?: string | null
+          external_emails_paused_at?: string | null
         }
         Relationships: []
       }
@@ -1695,6 +1710,216 @@ export interface Database {
           notes?: string | null
         }
         Update: Record<string, never>
+        Relationships: []
+      }
+    }
+    Views: Record<string, never>
+    Functions: Record<string, never>
+    Enums: Record<string, never>
+    CompositeTypes: Record<string, never>
+  }
+  ims: {
+    Tables: {
+      computers: {
+        Row: {
+          id: string
+          asset_tag: string | null
+          hostname: string
+          device_type: ComputerDeviceType
+          make: string | null
+          model: string | null
+          serial_number: string | null
+          service_tag: string | null
+          assigned_to: string | null
+          location: ComputerLocation | null
+          status: ComputerStatus
+          purchase_date: string | null
+          warranty_expiry: string | null
+          notes: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          asset_tag?: string | null
+          hostname: string
+          device_type?: ComputerDeviceType
+          make?: string | null
+          model?: string | null
+          serial_number?: string | null
+          service_tag?: string | null
+          assigned_to?: string | null
+          location?: ComputerLocation | null
+          status?: ComputerStatus
+          purchase_date?: string | null
+          warranty_expiry?: string | null
+          notes?: string | null
+          created_by?: string | null
+        }
+        Update: {
+          asset_tag?: string | null
+          hostname?: string
+          device_type?: ComputerDeviceType
+          make?: string | null
+          model?: string | null
+          serial_number?: string | null
+          service_tag?: string | null
+          assigned_to?: string | null
+          location?: ComputerLocation | null
+          status?: ComputerStatus
+          purchase_date?: string | null
+          warranty_expiry?: string | null
+          notes?: string | null
+        }
+        Relationships: []
+      }
+      computer_logins: {
+        Row: {
+          id: string
+          computer_id: string
+          user_id: string | null
+          login_username: string
+          login_type: LoginType
+          vault_reference: string | null
+          last_rotated_at: string | null
+          notes: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          computer_id: string
+          user_id?: string | null
+          login_username: string
+          login_type?: LoginType
+          vault_reference?: string | null
+          last_rotated_at?: string | null
+          notes?: string | null
+          created_by?: string | null
+        }
+        Update: {
+          user_id?: string | null
+          login_username?: string
+          login_type?: LoginType
+          vault_reference?: string | null
+          last_rotated_at?: string | null
+          notes?: string | null
+        }
+        Relationships: []
+      }
+      service_accounts: {
+        Row: {
+          id: string
+          service_name: string
+          service_url: string | null
+          account_username: string | null
+          assigned_to: string | null
+          vault_reference: string | null
+          last_rotated_at: string | null
+          notes: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          service_name: string
+          service_url?: string | null
+          account_username?: string | null
+          assigned_to?: string | null
+          vault_reference?: string | null
+          last_rotated_at?: string | null
+          notes?: string | null
+          created_by?: string | null
+        }
+        Update: {
+          service_name?: string
+          service_url?: string | null
+          account_username?: string | null
+          assigned_to?: string | null
+          vault_reference?: string | null
+          last_rotated_at?: string | null
+          notes?: string | null
+        }
+        Relationships: []
+      }
+      wifi_networks: {
+        Row: {
+          id: string
+          ssid: string
+          location: string | null
+          router_make: string | null
+          router_model: string | null
+          router_management_ip: string | null
+          router_admin_username: string | null
+          wifi_password_vault_reference: string | null
+          router_admin_vault_reference: string | null
+          last_rotated_at: string | null
+          notes: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          ssid: string
+          location?: string | null
+          router_make?: string | null
+          router_model?: string | null
+          router_management_ip?: string | null
+          router_admin_username?: string | null
+          wifi_password_vault_reference?: string | null
+          router_admin_vault_reference?: string | null
+          last_rotated_at?: string | null
+          notes?: string | null
+          created_by?: string | null
+        }
+        Update: {
+          ssid?: string
+          location?: string | null
+          router_make?: string | null
+          router_model?: string | null
+          router_management_ip?: string | null
+          router_admin_username?: string | null
+          wifi_password_vault_reference?: string | null
+          router_admin_vault_reference?: string | null
+          last_rotated_at?: string | null
+          notes?: string | null
+        }
+        Relationships: []
+      }
+      vpn_accounts: {
+        Row: {
+          id: string
+          user_id: string
+          vpn_provider: string
+          vpn_username: string
+          vault_reference: string | null
+          last_rotated_at: string | null
+          notes: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          vpn_provider?: string
+          vpn_username: string
+          vault_reference?: string | null
+          last_rotated_at?: string | null
+          notes?: string | null
+          created_by?: string | null
+        }
+        Update: {
+          vpn_provider?: string
+          vpn_username?: string
+          vault_reference?: string | null
+          last_rotated_at?: string | null
+          notes?: string | null
+        }
         Relationships: []
       }
     }

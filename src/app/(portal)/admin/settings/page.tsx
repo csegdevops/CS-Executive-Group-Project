@@ -1,20 +1,42 @@
+import { redirect } from "next/navigation"
 import Link from "next/link"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { requirePermission } from "@/lib/auth-helpers"
+import { requireAuth, getUserPermissionKeys, hasPermission } from "@/lib/auth-helpers"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Card, CardContent } from "@/components/ui/card"
 import { ModuleToggleList } from "./ModuleToggleList"
 import { EmailPauseToggle } from "./EmailPauseToggle"
+import { ExternalEmailPauseToggle } from "./ExternalEmailPauseToggle"
 import { AiPauseToggle } from "./AiPauseToggle"
 import { Users2, ListChecks, Globe, ChevronRight } from "lucide-react"
 import type { ModuleConfig } from "@/types/database"
 
 export default async function PlatformSettingsPage() {
-  await requirePermission("platform_settings.view")
+  const user = await requireAuth()
+  const isSuperAdmin = user.role === "super_admin"
+  const keys = isSuperAdmin ? [] : await getUserPermissionKeys(user.id)
+  const canViewSettings = isSuperAdmin || hasPermission(keys, "platform_settings.view")
+  const canManageAiPause = isSuperAdmin || hasPermission(keys, "ai.pause.manage")
+
+  if (!canViewSettings && !canManageAiPause) redirect("/home")
+
   const admin = createAdminClient()
+
+  // ai.pause.manage-only holders (no platform_settings.view) get just the AI
+  // pause toggle — everything else on this page is genuinely platform-admin scoped.
+  if (!canViewSettings) {
+    const { data: settings } = await admin.from("system_settings").select("ai_paused").eq("id", true).single()
+    return (
+      <div className="max-w-2xl space-y-6">
+        <PageHeader title="AI Controls" description="Pause or resume AI features platform-wide." />
+        <AiPauseToggle initialPaused={settings?.ai_paused ?? false} />
+      </div>
+    )
+  }
+
   const [{ data }, { data: settings }] = await Promise.all([
     admin.from("module_config").select("module, is_enabled, updated_at").order("module"),
-    admin.from("system_settings").select("emails_paused, ai_paused").eq("id", true).single(),
+    admin.from("system_settings").select("emails_paused, ai_paused, external_emails_paused").eq("id", true).single(),
   ])
 
   return (
@@ -25,6 +47,8 @@ export default async function PlatformSettingsPage() {
       />
 
       <EmailPauseToggle initialPaused={settings?.emails_paused ?? false} />
+
+      <ExternalEmailPauseToggle initialPaused={settings?.external_emails_paused ?? true} />
 
       <AiPauseToggle initialPaused={settings?.ai_paused ?? false} />
 

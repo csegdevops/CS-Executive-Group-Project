@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
-import { hasPermissionForUser } from "@/lib/auth-helpers"
+import { hasPermissionForUser, requirePermissionOrSuperAdmin } from "@/lib/auth-helpers"
 import { NextResponse } from "next/server"
 import { generateFormulationPreview } from "@/lib/import/formulation-pipeline"
 import { parseFormulationFile } from "@/lib/import/parse-formulation-file"
@@ -40,8 +40,11 @@ export async function POST(request: Request) {
     const file = formData.get("file") as File | null
     if (!file) return NextResponse.json({ error: "file required" }, { status: 400 })
 
+    const supabase = await createClient()
+    const canUseAi = await requirePermissionOrSuperAdmin(supabase, user.id, "ai.formulation.use")
+
     try {
-      const { entries, source } = await parseFormulationFile(file)
+      const { entries, source } = await parseFormulationFile(file, canUseAi)
       return NextResponse.json({ entries, source })
     } catch (err) {
       return NextResponse.json(

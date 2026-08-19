@@ -19,7 +19,7 @@ export interface PermissionCategory {
 /** "Platform" isn't a real switchable module (no module_config row, nobody
  * switches into it) — it's a UI-only 4th tab in the permissions picker for
  * platform-wide admin settings that aren't scoped to any one business module. */
-export type PermissionTab = Module | "platform"
+export type PermissionTab = Module | "platform" | "ai"
 
 export const PERMISSION_CATALOG: Record<PermissionTab, PermissionCategory[]> = {
   regulatory: [
@@ -128,6 +128,19 @@ export const PERMISSION_CATALOG: Record<PermissionTab, PermissionCategory[]> = {
       ],
     },
   ],
+  ims: [
+    { category: "Module", permissions: [{ key: "ims.access", label: "Access the IMS module" }] },
+    { category: "Computers", permissions: [{ key: "ims.computers.manage", label: "Manage computer inventory & logins" }] },
+    { category: "Service Accounts", permissions: [{ key: "ims.service_accounts.manage", label: "Manage website & service accounts" }] },
+    { category: "Network", permissions: [{ key: "ims.network.manage", label: "Manage wifi & router details" }] },
+    { category: "VPN", permissions: [{ key: "ims.vpn.manage", label: "Manage VPN accounts" }] },
+  ],
+  ai: [
+    { category: "CV Parsing", permissions: [{ key: "ai.cv_parsing.use", label: "Trigger CV parsing (Gemini)" }] },
+    { category: "Summaries", permissions: [{ key: "ai.summaries.use", label: "Generate AI summaries (consultations & companies)" }] },
+    { category: "Formulation", permissions: [{ key: "ai.formulation.use", label: "Use AI formulation fallback (non-spreadsheet / unrecognised files)" }] },
+    { category: "Controls", permissions: [{ key: "ai.pause.manage", label: "Pause & resume AI features" }] },
+  ],
   platform: [
     {
       category: "Settings",
@@ -143,6 +156,8 @@ export const MODULE_LABELS: Record<PermissionTab, string> = {
   regulatory: "Regulatory",
   recruitment: "Recruitment",
   timesheets: "Timesheets",
+  ims: "IMS",
+  ai: "AI Features",
   platform: "Platform",
 }
 

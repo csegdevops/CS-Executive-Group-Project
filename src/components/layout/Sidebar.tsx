@@ -45,6 +45,10 @@ import {
   Clock,
   FileSignature,
   UserCheck,
+  Server,
+  Globe,
+  Wifi,
+  Shield,
 } from "lucide-react"
 import type { Role, Module } from "@/types/database"
 
@@ -86,24 +90,34 @@ const moduleNavItems: Record<string, NavItem[]> = {
     { label: "Supervisors",  href: "/timesheets/supervisors",          icon: Contact },
     { label: "Timesheets",   href: "/timesheets/timesheets",           icon: ClipboardList },
   ],
+  ims: [
+    { label: "Dashboard",        href: "/ims/dashboard",               icon: LayoutDashboard },
+    { label: "Computers",        href: "/ims/computers",               icon: Monitor },
+    { label: "Service Accounts", href: "/ims/service-accounts",        icon: Globe },
+    { label: "Network",          href: "/ims/network",                 icon: Wifi },
+    { label: "VPN Accounts",     href: "/ims/vpn",                     icon: Shield },
+  ],
 }
 
 const moduleLabels: Record<string, string> = {
   regulatory: "Regulatory DB",
   recruitment: "Recruitment",
   timesheets: "Timesheets",
+  ims: "IMS",
 }
 
 const moduleIcons: Record<string, React.ElementType> = {
   regulatory: FlaskConical,
   recruitment: Users,
   timesheets: Clock,
+  ims: Server,
 }
 
 const moduleHrefs: Record<string, string> = {
   regulatory: "/regulatory/dashboard",
   recruitment: "/recruitment/dashboard",
   timesheets: "/timesheets/dashboard",
+  ims: "/ims/dashboard",
 }
 
 interface SidebarProps {
@@ -196,11 +210,13 @@ export function Sidebar({ role, userName, email, permissionKeys, accessibleModul
     ? "recruitment"
     : pathname.startsWith("/timesheets")
     ? "timesheets"
+    : pathname.startsWith("/ims")
+    ? "ims"
     : null
 
   const isSuperAdmin = role === "super_admin"
   const hasPerm = (key: string) => isSuperAdmin || (permissionKeys?.includes(key) ?? false)
-  const canViewPlatformSettings = hasPerm("platform_settings.view")
+  const canViewPlatformSettings = hasPerm("platform_settings.view") || hasPerm("ai.pause.manage")
 
   const allNavItems = activeModule ? moduleNavItems[activeModule] ?? [] : []
   const regularItems = allNavItems.filter(item => !item.permission)
