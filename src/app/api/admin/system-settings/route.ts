@@ -15,7 +15,7 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from("system_settings")
-    .select("emails_paused, emails_paused_at, ai_paused, ai_paused_at, external_emails_paused, external_emails_paused_at")
+    .select("emails_paused, emails_paused_at, ai_paused, ai_paused_at, external_emails_paused, external_emails_paused_at, maintenance_mode, maintenance_mode_at")
     .eq("id", true)
     .single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -26,17 +26,24 @@ const patchSchema = z.object({
   emails_paused: z.boolean().optional(),
   ai_paused: z.boolean().optional(),
   external_emails_paused: z.boolean().optional(),
-}).refine((v) => v.emails_paused !== undefined || v.ai_paused !== undefined || v.external_emails_paused !== undefined, {
-  message: "At least one of emails_paused, ai_paused, external_emails_paused must be provided",
-})
+  maintenance_mode: z.boolean().optional(),
+}).refine(
+  (v) => v.emails_paused !== undefined || v.ai_paused !== undefined || v.external_emails_paused !== undefined || v.maintenance_mode !== undefined,
+  { message: "At least one of emails_paused, ai_paused, external_emails_paused, maintenance_mode must be provided" }
+)
 
 // PATCH /api/admin/system-settings — the "Pause all emails" / "Pause all AI
-// features" / "Pause external emails" toggles. Any field may be sent independently.
+// features" / "Pause external emails" / "Maintenance mode" toggles. Any
+// field may be sent independently.
 //
 // emails_paused and external_emails_paused always require platform_settings.manage.
 // ai_paused can be changed by platform_settings.manage OR the narrower
 // ai.pause.manage key, so AI oversight can be granted without full
 // platform-settings access.
+// maintenance_mode is deliberately stricter than the rest: super_admin role
+// only, not delegable via platform_settings.manage — it locks the whole
+// portal (staff and timesheets contractors/supervisors alike) to super
+// admins, so granting it away would let a module admin lock everyone else out.
 export async function PATCH(request: Request) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -47,9 +54,16 @@ export async function PATCH(request: Request) {
   const parsed = patchSchema.safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
 
-  const { emails_paused, ai_paused, external_emails_paused } = parsed.data
+  const { emails_paused, ai_paused, external_emails_paused, maintenance_mode } = parsed.data
 
-  const hasPlatformSettings = await requirePermissionOrSuperAdmin(supabase, userId, "platform_settings.manage")
+  const { data: profile } = await supabase.from("profiles").select("role").eq("id", userId).single()
+  const isSuperAdmin = profile?.role === "super_admin"
+
+  if (maintenance_mode !== undefined && !isSuperAdmin) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
+
+  const hasPlatformSettings = isSuperAdmin || await requirePermissionOrSuperAdmin(supabase, userId, "platform_settings.manage")
   if ((emails_paused !== undefined || external_emails_paused !== undefined) && !hasPlatformSettings) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
@@ -75,13 +89,18 @@ export async function PATCH(request: Request) {
     update.external_emails_paused_by = external_emails_paused ? userId : null
     update.external_emails_paused_at = external_emails_paused ? new Date().toISOString() : null
   }
+  if (maintenance_mode !== undefined) {
+    update.maintenance_mode = maintenance_mode
+    update.maintenance_mode_by = maintenance_mode ? userId : null
+    update.maintenance_mode_at = maintenance_mode ? new Date().toISOString() : null
+  }
 
   const admin = createAdminClient()
   const { data, error } = await admin
     .from("system_settings")
     .update(update)
     .eq("id", true)
-    .select("emails_paused, emails_paused_at, ai_paused, ai_paused_at, external_emails_paused, external_emails_paused_at")
+    .select("emails_paused, emails_paused_at, ai_paused, ai_paused_at, external_emails_paused, external_emails_paused_at, maintenance_mode, maintenance_mode_at")
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

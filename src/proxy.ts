@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { isMaintenanceMode } from "@/lib/maintenance"
 import { NextResponse, type NextRequest } from "next/server"
 
 // Serves the external contractor/supervisor experience
@@ -124,24 +125,40 @@ export async function proxy(request: NextRequest) {
     return redirectToTimesheetsHost(pathname.replace(/^\/timesheets-portal/, ""))
   }
 
+  // Maintenance mode — unauthenticated visitors get a friendly maintenance
+  // page instead of the normal login prompt, but /login and /auth stay
+  // reachable so a super admin who isn't signed in on this browser yet can
+  // still get in and turn it back off.
+  const maintenanceOn = await isMaintenanceMode()
+  if (maintenanceOn && !user && pathname !== "/maintenance" && !pathname.startsWith("/login") && !pathname.startsWith("/auth")) {
+    return redirectTo("/maintenance")
+  }
+
   // Redirect unauthenticated users to login
   const publicPaths = [
-    "/login", "/register", "/auth", "/forgot-password", "/reset-password",
+    "/login", "/register", "/auth", "/forgot-password", "/reset-password", "/maintenance",
     "/timesheets-portal/login", "/timesheets-portal/forgot-password", "/timesheets-portal/reset-password",
   ]
   if (!user && !publicPaths.some((p) => pathname.startsWith(p))) {
     return redirectTo("/login")
   }
 
-  // Fetch profile once for all per-user checks below. Skipped on the
-  // timesheets-portal host — nothing there is gated by role/user_type.
+  // Fetch profile once for all per-user checks below — needed on every host
+  // now (not just the main portal) so the maintenance-mode super-admin
+  // bypass below works correctly for anyone, including on the timesheets host.
   let profile: { role: string | null; user_type: string | null } | null = null
-  if (user && !isTimesheetsPortalHost) {
+  if (user) {
     const { data } = await supabase.from("profiles").select("role, user_type").eq("id", user.id).single()
     profile = data
   }
   const isSuperAdmin = profile?.role === "super_admin"
   const isExternalUser = profile?.user_type === "contractor" || profile?.user_type === "supervisor"
+
+  // Authenticated non-super-admins are locked out entirely while maintenance
+  // mode is on — internal staff and timesheets contractors/supervisors alike.
+  if (maintenanceOn && !isSuperAdmin && pathname !== "/maintenance") {
+    return redirectTo("/maintenance")
+  }
 
   // Contractors/supervisors are timesheets-portal-only accounts — confine
   // them to /timesheets-portal everywhere on this host, including pages with

@@ -341,6 +341,9 @@ export interface Database {
           external_emails_paused: boolean
           external_emails_paused_by: string | null
           external_emails_paused_at: string | null
+          maintenance_mode: boolean
+          maintenance_mode_by: string | null
+          maintenance_mode_at: string | null
           updated_at: string
         }
         Insert: {
@@ -354,6 +357,9 @@ export interface Database {
           external_emails_paused?: boolean
           external_emails_paused_by?: string | null
           external_emails_paused_at?: string | null
+          maintenance_mode?: boolean
+          maintenance_mode_by?: string | null
+          maintenance_mode_at?: string | null
         }
         Update: {
           emails_paused?: boolean
@@ -365,6 +371,9 @@ export interface Database {
           external_emails_paused?: boolean
           external_emails_paused_by?: string | null
           external_emails_paused_at?: string | null
+          maintenance_mode?: boolean
+          maintenance_mode_by?: string | null
+          maintenance_mode_at?: string | null
         }
         Relationships: []
       }

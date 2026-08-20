@@ -8,6 +8,7 @@ import { ModuleToggleList } from "./ModuleToggleList"
 import { EmailPauseToggle } from "./EmailPauseToggle"
 import { ExternalEmailPauseToggle } from "./ExternalEmailPauseToggle"
 import { AiPauseToggle } from "./AiPauseToggle"
+import { MaintenanceModeToggle } from "./MaintenanceModeToggle"
 import { Users2, ListChecks, Globe, Mail, ChevronRight } from "lucide-react"
 import type { ModuleConfig } from "@/types/database"
 
@@ -36,7 +37,7 @@ export default async function PlatformSettingsPage() {
 
   const [{ data }, { data: settings }] = await Promise.all([
     admin.from("module_config").select("module, is_enabled, updated_at").order("module"),
-    admin.from("system_settings").select("emails_paused, ai_paused, external_emails_paused").eq("id", true).single(),
+    admin.from("system_settings").select("emails_paused, ai_paused, external_emails_paused, maintenance_mode").eq("id", true).single(),
   ])
 
   return (
@@ -45,6 +46,8 @@ export default async function PlatformSettingsPage() {
         title="Platform Settings"
         description="Control which modules are available across the platform."
       />
+
+      {isSuperAdmin && <MaintenanceModeToggle initialEnabled={settings?.maintenance_mode ?? false} />}
 
       <EmailPauseToggle initialPaused={settings?.emails_paused ?? false} />
 
