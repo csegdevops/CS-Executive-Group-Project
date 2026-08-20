@@ -92,7 +92,7 @@ export default async function SecurityGroupsPage() {
 
         <TabsContent value="users" className="mt-4">
           <div className="flex justify-end mb-3">
-            <CreateUserDialog />
+            <CreateUserDialog allGroups={allGroups} />
           </div>
           <div className="border rounded-lg overflow-hidden">
             <table className="w-full text-sm">
